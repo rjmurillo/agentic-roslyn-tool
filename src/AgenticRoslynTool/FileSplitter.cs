@@ -200,15 +200,20 @@ internal sealed class FileSplitter
     /// first type). The tool prefers a StyleCop violation over a build break; the
     /// alternative would be to refuse to split, which loses coverage.
     /// </remarks>
-    private static IReadOnlyList<FileResult> ResolvePlannedOutputCollisions(IReadOnlyList<FileResult> results)
+    internal static IReadOnlyList<FileResult> ResolvePlannedOutputCollisions(IReadOnlyList<FileResult> results)
     {
         var entries = results
             .Where(r => r.Status == "split")
             .SelectMany(r => r.NewFiles.Select(f => new PlannedOutputEntry(r.OriginalPath, f.Type, f.Path, GetQualifiedPath(r.OriginalPath, f.Path))))
             .ToArray();
+        // Two comparers, on purpose. Grouping by output path asks "could these two writes
+        // hit the same file", which stays ignore-case so a same-name-different-case pair is
+        // treated as a collision. Counting distinct sources asks "are these two different
+        // files", which is identity and must follow the platform: on Linux, Foo.cs and
+        // foo.cs really are two inputs, and folding them into one hides a real collision.
         var collisionGroups = entries
             .GroupBy(e => e.Path, StringComparer.OrdinalIgnoreCase)
-            .Where(g => g.Select(e => e.OriginalPath).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+            .Where(g => g.Select(e => e.OriginalPath).Distinct(PathComparison.Comparer).Count() > 1)
             .ToArray();
 
         if (collisionGroups.Length == 0)
@@ -233,8 +238,8 @@ internal sealed class FileSplitter
                     .OrderBy(e => e.OriginalPath, StringComparer.OrdinalIgnoreCase)
                     .Select(e => $"{e.OriginalPath} -> {resolvedPaths[(e.OriginalPath, e.Type, e.Path)]}")),
             }))
-            .GroupBy(x => x.OriginalPath, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => string.Join(" | ", g.Select(x => x.Note).Distinct(StringComparer.Ordinal)), StringComparer.OrdinalIgnoreCase);
+            .GroupBy(x => x.OriginalPath, PathComparison.Comparer)
+            .ToDictionary(g => g.Key, g => string.Join(" | ", g.Select(x => x.Note).Distinct(StringComparer.Ordinal)), PathComparison.Comparer);
 
         return results.Select(result =>
         {
