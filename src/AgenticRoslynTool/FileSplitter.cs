@@ -135,14 +135,8 @@ internal sealed class FileSplitter
         // act on; the full set is what gets preserved, because a skipped or failed row is
         // part of the plan of record and a content run must not quietly drop it.
         //
-        // PathComparison.Comparer, not OrdinalIgnoreCase: this keying has to agree with the
-        // de-duplication in ReadRunnableInputs, or on Linux a plan row for Foo.cs could be
-        // applied to foo.cs. A path carrying both a split row and a non-split row resolves
-        // to the split one, so a duplicated manifest entry stays actionable.
-        var manifestPlan = ManifestWriter.Read(_options.ManifestPath)
-            .GroupBy(r => r.OriginalPath, PathComparison.Comparer)
-            .Select(g => g.FirstOrDefault(r => r.Status == "split") ?? g.First())
-            .ToArray();
+        // Read already collapses the CSV to one row per path, so nothing re-groups here.
+        var manifestPlan = ManifestWriter.Read(_options.ManifestPath);
         var plannedFiles = manifestPlan
             .Where(r => r.Status == "split")
             .ToDictionary(r => r.OriginalPath, PathComparison.Comparer);
