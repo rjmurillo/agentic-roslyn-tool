@@ -18,7 +18,7 @@ internal static class OutputBuilder
     /// Picks the output file name for one type. Two types with the same simple name
     /// in the same input are disambiguated by generic arity as
     /// <c>Name{T1,T2}.cs</c>. Two same-simple-name types in one input that do NOT
-    /// differ by arity are caught earlier in <see cref="BuildPlan"/> and refused as
+    /// differ by arity are caught earlier in <see cref="SplitPlanner.BuildPlan"/> and refused as
     /// <c>target path collision within split</c>.
     /// </summary>
     internal static string GetFileName(TopLevelType type, IReadOnlyList<TopLevelType> allTypes)
@@ -69,7 +69,7 @@ internal static class OutputBuilder
     /// <summary>
     /// Normalizes a supplied required-header string to the source file's own newline
     /// style and strips any trailing newlines. The normalized value is used both for
-    /// injection and for the <c>StartsWith</c> check in <see cref="VerifyOutputs"/>;
+    /// injection and for the <c>StartsWith</c> check in <see cref="OutputVerifier.VerifyOutputs"/>;
     /// they must stay in sync or a multi-line header supplied with <c>\n</c> against
     /// a CRLF source would fail verification and refuse to split.
     /// </summary>
