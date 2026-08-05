@@ -126,6 +126,18 @@ public sealed class CliContractTests
         }
     }
 
+    // A stray positional is a bad command line, not a request for usage. Exit 0 plus usage
+    // here would be a silent successful no-op for a caller that cannot see the screen.
+    [Fact]
+    public void BareHelpAfterOtherOptions_IsARejectedCommandLine()
+    {
+        var result = Run("split-types", "--input", Path.GetTempPath(), "--json", "help");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Equal(string.Empty, result.StandardOutput.Trim());
+        Assert.Contains("Unknown argument: help", result.StandardError, StringComparison.Ordinal);
+    }
+
     // "help" in a value position is a path, not a request for usage. Scanning every token
     // made `--input help` exit 0 with usage and touch nothing, which a caller that cannot
     // read the screen sees as a successful no-op run.
@@ -156,9 +168,9 @@ public sealed class CliContractTests
             var result = Run("split-types", "--input", list, "--manifest", manifest, "--phase", "content");
 
             Assert.Equal(3, result.ExitCode);
-            Assert.StartsWith("error: ", result.StandardError.Trim(), StringComparison.Ordinal);
-            Assert.DoesNotContain("Unhandled exception", result.StandardError, StringComparison.Ordinal);
-            Assert.DoesNotContain("   at ", result.StandardError, StringComparison.Ordinal);
+            var lines = result.StandardError.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var line = Assert.Single(lines);
+            Assert.StartsWith("error: ", line, StringComparison.Ordinal);
         }
         finally
         {

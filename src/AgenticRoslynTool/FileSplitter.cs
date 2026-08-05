@@ -95,7 +95,7 @@ internal sealed class FileSplitter
     private IReadOnlyList<FileResult> BuildResolvedPlan()
     {
         var results = new List<FileResult>();
-        foreach (var path in ReadRunnableInputs(_options.InputPath))
+        foreach (var path in ReadRunnableInputs(_options.InputPath).ToArray())
         {
             results.Add(Process(path, Phase.Plan, null));
         }
@@ -109,12 +109,21 @@ internal sealed class FileSplitter
     /// <c>split</c> in the manifest are skipped with a diagnostic reason.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when the manifest file does not exist.</exception>
+    /// <remarks>
+    /// The input list is materialized before the loop. Enumeration itself can fail, on an
+    /// unreadable list file or a malformed path, and the content phase rewrites source as it
+    /// goes. Streaming would let an early input be rewritten and a later one abort the run
+    /// before the manifest is written, leaving changed files and no record of which. Failing
+    /// before the first write is the only safe order.
+    /// </remarks>
     private RunOutcome RunContent()
     {
         if (!File.Exists(_options.ManifestPath))
         {
             throw new InvalidOperationException($"Content phase requires an existing plan manifest: {_options.ManifestPath}");
         }
+
+        var inputs = ReadRunnableInputs(_options.InputPath).ToArray();
 
         // PathComparison.Comparer, not OrdinalIgnoreCase: this keying has to agree with the
         // de-duplication in ReadRunnableInputs, or on Linux a plan row for Foo.cs could be
@@ -127,7 +136,7 @@ internal sealed class FileSplitter
 
         var results = new List<FileResult>();
         var applied = new HashSet<string>(PathComparison.Comparer);
-        foreach (var path in ReadRunnableInputs(_options.InputPath))
+        foreach (var path in inputs)
         {
             var originalPath = Path.GetFullPath(path);
             if (!plannedFiles.TryGetValue(originalPath, out var planned))

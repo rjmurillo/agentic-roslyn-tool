@@ -38,7 +38,11 @@ if (verb != "split-types")
 // never depends on the rest of the command line being valid, and so parsing never
 // terminates the process. Both are accepted in either position for the same reason.
 var rest = args.Skip(1).ToArray();
-if (Options.HasMetaOption(rest, "--help", "-h", "help"))
+
+// Bare "help" counts only as the first token after the verb. Anywhere else it is a stray
+// positional that should fail as a bad command line, because "--json help" printing usage
+// and exiting 0 is the same silent successful no-op that "--input help" used to be.
+if ((rest.Length > 0 && rest[0] == "help") || Options.HasMetaOption(rest, "--help", "-h"))
 {
     PrintUsage(Console.Out);
     return 0;

@@ -39,14 +39,16 @@ agentic-roslyn-tool split-types --input <dir|file.cs|csv|list|-> [options]
 | Data sensitivity | Reads and rewrites source files in place. No network calls. |
 | Ordering | `plan` must run before `content`. `renames`, when used, belongs between them and must be committed first. |
 
-`--help`, `-h`, and `help` print usage on standard output and exit 0, in either the verb
-position or after `split-types`, and never depend on the rest of the command line being
-valid. `--version` prints the package version and exits 0, also in either position. Both
-are recognized only in an option position, so `--input help` looks for a file named `help`
-rather than printing usage. No arguments, an unrecognized verb, or a bad option prints a
-one-line `error: ...` on standard error, prints usage on standard error too, and exits 2.
-Any other failure during the run prints one `error: ...` line and exits 3. No error path
-prints a stack trace, and no error path writes to standard output.
+`--help` and `-h` print usage on standard output and exit 0, in the verb position or in any
+option position after `split-types`, and never depend on the rest of the command line being
+valid. Bare `help` does the same, but only as the verb or as the first token after it: a
+stray `help` later on the line is a rejected command line, since usage plus exit 0 there
+would be a silent successful no-op. `--version` prints the package version and exits 0, in
+either position. None of them is recognized in a value position, so `--input help` looks for
+a file named `help`. No arguments, an unrecognized verb, or a bad option prints a one-line
+`error: ...` on standard error, prints usage on standard error too, and exits 2. Any other
+failure during the run prints one `error: ...` line and exits 3. No error path prints a
+stack trace, and no error path writes to standard output.
 
 ## Input sources
 
