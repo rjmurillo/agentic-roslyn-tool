@@ -4,7 +4,10 @@ namespace AgenticRoslynTool;
 /// Parsed command-line options for the <c>split-types</c> verb. Immutable so that the
 /// splitter can be trusted not to mutate configuration between phases.
 /// </summary>
-/// <param name="InputPath">Absolute path to the input CSV (with a <c>file</c> column) or newline-delimited path list.</param>
+/// <param name="InputPath">
+/// Absolute path to a directory to scan, a CSV (with a <c>file</c> column), or a
+/// newline-delimited path list. The literal <c>-</c> reads the list from standard input.
+/// </param>
 /// <param name="ManifestPath">Absolute path to the CSV manifest. Defaults to <c>sa1402-split-manifest.csv</c> next to the input.</param>
 /// <param name="RepoRoot">Absolute repository root used as the working directory for <c>git mv</c> calls.</param>
 /// <param name="Phase">Which of the <see cref="AgenticRoslynTool.Phase"/> stages to execute.</param>
@@ -15,7 +18,8 @@ namespace AgenticRoslynTool;
 /// separators normalized to <c>/</c>, so <c>obj/</c> matches on every platform.
 /// Empty by default: the tool ships with no opinion about which directories are generated.
 /// </param>
-internal sealed record Options(string InputPath, string ManifestPath, string RepoRoot, Phase Phase, string? RequiredHeader, IReadOnlyList<string>? Excludes = null)
+/// <param name="Json">When true, the run prints a single JSON report to standard output instead of CSV.</param>
+internal sealed record Options(string InputPath, string ManifestPath, string RepoRoot, Phase Phase, string? RequiredHeader, IReadOnlyList<string>? Excludes = null, bool Json = false)
 {
     /// <summary>
     /// Parses the raw argument array into an <see cref="Options"/> instance, resolving
@@ -31,8 +35,11 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
         string? manifest = null;
         string? requiredHeader = null;
         var excludes = new List<string>();
+        var json = false;
         string repoRoot = Directory.GetCurrentDirectory();
         var phase = Phase.Content;
+        var dryRun = false;
+        var phaseGiven = false;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -48,9 +55,11 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
                     repoRoot = RequireValue(args, ref i, "--repo-root");
                     break;
                 case "--dry-run":
+                    dryRun = true;
                     phase = Phase.Plan;
                     break;
                 case "--phase":
+                    phaseGiven = true;
                     phase = ParsePhase(RequireValue(args, ref i, "--phase"));
                     break;
                 case "--require-header":
@@ -59,11 +68,13 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
                 case "--exclude":
                     excludes.Add(RequireValue(args, ref i, "--exclude"));
                     break;
-                case "--help":
-                case "-h":
-                    PrintUsage();
-                    Environment.Exit(0);
+                case "--json":
+                    json = true;
                     break;
+
+                // --help is handled by the caller before parsing, so asking for help never
+                // depends on the rest of the command line. Parsing must not print or exit:
+                // a library that calls Environment.Exit cannot be tested or hosted.
                 default:
                     throw new ArgumentException($"Unknown argument: {args[i]}");
             }
@@ -71,12 +82,38 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
 
         if (input is null)
         {
-            PrintUsage();
             throw new ArgumentException("Missing --input.");
         }
 
-        manifest ??= Path.Combine(Path.GetDirectoryName(Path.GetFullPath(input)) ?? repoRoot, "sa1402-split-manifest.csv");
-        return new Options(Path.GetFullPath(input), Path.GetFullPath(manifest), Path.GetFullPath(repoRoot), phase, requiredHeader, excludes);
+        // Both set the phase, so the last one on the line used to win silently. That turned
+        // argument order into the difference between writing a manifest and rewriting source.
+        if (dryRun && phaseGiven)
+        {
+            throw new ArgumentException("--dry-run and --phase cannot be combined. --dry-run is shorthand for --phase plan.");
+        }
+
+        var inputPath = input == StdinPath ? StdinPath : Path.GetFullPath(input);
+        manifest ??= Path.Combine(DefaultManifestDirectory(inputPath, repoRoot), "sa1402-split-manifest.csv");
+        return new Options(inputPath, Path.GetFullPath(manifest), Path.GetFullPath(repoRoot), phase, requiredHeader, excludes, json);
+    }
+
+    /// <summary>The <c>--input</c> value that means "read newline-delimited paths from standard input".</summary>
+    public const string StdinPath = "-";
+
+    /// <summary>
+    /// Chooses where an unspecified manifest lands: beside a list or CSV input, and in the
+    /// repository root when the input is a directory or standard input. A scanned directory
+    /// holds the caller's source, so writing the manifest into it would dirty the tree the
+    /// run is about to report on.
+    /// </summary>
+    private static string DefaultManifestDirectory(string inputPath, string repoRoot)
+    {
+        if (inputPath == StdinPath || Directory.Exists(inputPath))
+        {
+            return repoRoot;
+        }
+
+        return Path.GetDirectoryName(inputPath) ?? repoRoot;
     }
 
     private static string RequireValue(string[] args, ref int index, string name)
@@ -99,10 +136,5 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
             "content" => Phase.Content,
             _ => throw new ArgumentException($"Unknown phase: {value}"),
         };
-    }
-
-    private static void PrintUsage()
-    {
-        Console.WriteLine("Usage: agentic-roslyn-tool split-types --input <csv-or-list> [--repo-root <path>] [--manifest <path>] [--phase plan|renames|content] [--dry-run] [--require-header <text>] [--exclude <path-substring>]...");
     }
 }
