@@ -6,7 +6,7 @@ captured: 2026-08-04
 captured_by: rjmurillo + AI-assisted analysis
 methodology: Context Layer Generator from PromptKit v4 (https://promptkit.natebjones.com/20260402_795_promptkit_1)
 sources:
-  - src/AgenticRoslynTool/ (all 17 files)
+  - src/AgenticRoslynTool/ (every source file; 17 of them at capture time)
   - Original tool, written August 2026 for a closed-source repository
   - Production run in August 2026 that processed 7,818 files and split 461 of them
   - Adversarial review round, August 2026
@@ -198,6 +198,10 @@ rather than repaired.
 
 ## 10. `FileSplitter.cs` is left as one large file
 
+> **Warning.** Superseded by decision 17. The file was decomposed into six types in
+> September 2026. This entry stays because the reasoning for deferring it was sound at the
+> time, and because the warning at the end of it is still the standing rule.
+
 **Decision.** Over a thousand lines in one type. Not split, despite the tool's own rule
 being one type per file, which it does satisfy.
 
@@ -365,6 +369,45 @@ losing to the same pattern as a filtered catch, so the guard moved to the bounda
 that a genuine bug in the tool now reports as a failed row and exit 1 rather than exit 3.
 That is the better trade here, because exit 1 comes with a manifest naming the input that
 failed, and exit 3 came with nothing.
+
+## 17. FileSplitter was decomposed by responsibility, not by pattern
+
+`FileSplitter.cs` was 1442 lines and 49 methods. It read inputs, planned splits, analyzed
+preprocessor directives, rendered output text, verified that output, and wrote to the
+working tree through `git`. Six responsibilities, one class, coincidental cohesion. Nothing
+could exercise plan construction or output verification without a real file system and a
+real `git` binary, because every one of those methods was private to a class only drivable
+end to end.
+
+Six extractions, one per commit, with the full suite green after each: `InputSource`,
+`SplitPlanner`, `DirectiveAnalyzer`, `OutputBuilder`, `OutputVerifier`, `WorkspaceWriter`.
+`FileSplitter` kept the orchestration and the per-input pipeline and is now 371 lines.
+
+`WorkspaceWriter` is the one with real leverage. It was the only reason the engine
+referenced `System.Diagnostics` and `File.WriteAllBytes`, and that using directive is now
+gone from `FileSplitter.cs`. Planning, building, and verifying are reachable without a
+repository behind them. `SeamUnitTests` is the proof: five assertions driven from a parsed
+string with no temporary repository, none of which could be written before.
+
+### What was deliberately not built
+
+**No interface on `WorkspaceWriter`.** There is one implementation, and the suite drives a
+real temporary git repository. A real repository checks more than a fake would, so
+`IWorkspaceWriter` would exist only to make the design look decoupled.
+
+**No Strategy for the three phases.** The `Phase` enum is branched on in three places, two
+of them two lines long. A Strategy would add four types to remove three conditionals,
+raising the number of concepts a reader holds. The set of phases is closed, so Open-Closed
+has nothing to protect. Recognizing that a pattern does not apply is the pattern-oriented
+answer.
+
+**No Strategy for the input shapes.** `ReadInputs` branches five ways at one dispatch point
+with no repeated conditional. Five classes to replace one switch is not a trade.
+
+**No behavior changes.** Three known defects live in `FileSplitter.cs`: an unreachable
+rollback branch, an asymmetric reason field on `FileResult.Split`, and the unanchored
+`EnsureHeader` probe recorded below. Fixing one here would have made every commit in this
+series unreviewable as a move. They stay for their own change.
 
 ## Unrecorded decisions
 
