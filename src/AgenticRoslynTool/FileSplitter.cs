@@ -39,6 +39,12 @@ internal sealed class FileSplitter
 {
     private readonly Options _options;
 
+    /// <summary>
+    /// Reason recorded when the content phase is handed a file the plan never covered. Named
+    /// because the reason string decides whether the row reaches the manifest.
+    /// </summary>
+    private const string NotPlannedReason = "not present as split in plan manifest";
+
     /// <summary>Constructs a splitter bound to a set of parsed options.</summary>
     /// <param name="options">The options that select the input list, manifest path, repository root, phase, and optional required header.</param>
     public FileSplitter(Options options)
@@ -126,7 +132,7 @@ internal sealed class FileSplitter
             var originalPath = Path.GetFullPath(path);
             if (!plannedFiles.TryGetValue(originalPath, out var planned))
             {
-                results.Add(FileResult.Skip(originalPath, originalPath, "not present as split in plan manifest"));
+                results.Add(FileResult.Skip(originalPath, originalPath, NotPlannedReason));
                 continue;
             }
 
@@ -134,18 +140,21 @@ internal sealed class FileSplitter
             results.Add(Process(originalPath, Phase.Content, planned));
         }
 
-        // The content phase rewrites the manifest it read. A planned row the current input
-        // list never mentioned must survive that rewrite verbatim, or applying content in
-        // batches would destroy the reviewed plan for every batch after the first. The same
-        // row is reported as a skip, because this run did not apply it and the caller has to
-        // be able to tell the difference.
+        // The manifest is the plan of record; the report is what this run did. So the two
+        // views diverge here.
+        //
+        // A planned row the current input never mentioned must survive the rewrite verbatim,
+        // or applying content in batches would destroy the reviewed plan for every batch
+        // after the first. It is reported as a skip, because this run did not apply it.
+        //
+        // An input the plan never covered is the mirror image: it belongs in the report so
+        // the caller sees the mismatch, and not in the manifest, where it would accumulate a
+        // permanent tail of rows the plan phase never produced.
         var unapplied = plannedFiles.Values.Where(p => !applied.Contains(p.OriginalPath)).ToArray();
-        if (unapplied.Length == 0)
-        {
-            return RunOutcome.Same(results);
-        }
-
-        var manifestRows = results.Concat(unapplied).ToArray();
+        var manifestRows = results
+            .Where(r => !string.Equals(r.Reason, NotPlannedReason, StringComparison.Ordinal))
+            .Concat(unapplied)
+            .ToArray();
         var reportRows = results.Concat(unapplied.Select(p => FileResult.Skip(
             p.OriginalPath,
             p.KeptPath,
@@ -1246,12 +1255,15 @@ internal sealed class FileSplitter
         // A file symlink and its target can both be inside the scanned tree. They are two
         // paths naming one file, and processing both would apply the split twice: the second
         // pass sees an already-split file and reports nothing to do, so one planned output is
-        // silently attributed to the wrong path. De-duplicate by physical identity, and keep
-        // the real path rather than the link so the manifest names the file git tracks.
+        // silently attributed to the wrong path. De-duplicate by symlink target, and keep the
+        // real path rather than the link so the manifest names the file git tracks. Aliases
+        // that are not reparse points, hard links and bind mounts, are not detected.
         return files
-            .OrderBy(f => File.ResolveLinkTarget(f, returnFinalTarget: true) is not null)
-            .ThenBy(f => f, StringComparer.Ordinal)
-            .DistinctBy(PhysicalIdentity, PathComparison.Comparer)
+            .Select(f => (Path: f, Identity: PhysicalIdentity(f)))
+            .OrderBy(t => !PathComparison.Comparer.Equals(t.Path, t.Identity))
+            .ThenBy(t => t.Path, StringComparer.Ordinal)
+            .DistinctBy(t => t.Identity, PathComparison.Comparer)
+            .Select(t => t.Path)
             .ToArray();
     }
 

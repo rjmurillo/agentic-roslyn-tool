@@ -3,7 +3,10 @@ using System.Text.Json.Serialization;
 namespace AgenticRoslynTool;
 
 /// <summary>Aggregate counts for a run, so an agent never has to tally manifest rows itself.</summary>
-/// <param name="Total">Number of manifest rows, which is one per distinct input path.</param>
+/// <param name="Total">
+/// Number of rows this run reported. Usually one per distinct input path, but the content
+/// phase also reports plan rows the input did not supply, so this can exceed the input count.
+/// </param>
 /// <param name="Split">Rows whose status is <c>split</c>.</param>
 /// <param name="Skipped">Rows whose status is <c>skipped</c>. A skip is a deliberate refusal, not an error.</param>
 /// <param name="Failed">Rows whose status is <c>failed</c>. Any non-zero value makes the process exit 1.</param>

@@ -154,6 +154,26 @@ public sealed class InputSourceTests
     }
 
     [Fact]
+    public void ContentPhase_KeepsAnUnplannedInputOutOfTheRewrittenManifest()
+    {
+        using var workspace = new TempWorkspace();
+        var planned = workspace.WriteFile("Planned.cs", "public class Planned { }\npublic class PlannedExtra { }\n");
+        var unplanned = workspace.WriteFile("Unplanned.cs", "public class Unplanned { }\n");
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+
+        var planOptions = new Options(workspace.WriteInputList(planned), manifestPath, workspace.Root, Phase.Plan, null);
+        ManifestWriter.Write(new FileSplitter(planOptions).Run().ManifestRows, manifestPath);
+
+        var contentOptions = new Options(workspace.WriteInputList(planned, unplanned), manifestPath, workspace.Root, Phase.Content, null);
+        var outcome = new FileSplitter(contentOptions).Run();
+
+        // The caller has to see the mismatch, but the manifest is the plan of record and must
+        // not accumulate rows the plan phase never produced.
+        Assert.Contains(outcome.ReportRows, r => string.Equals(Path.GetFileName(r.OriginalPath), "Unplanned.cs", StringComparison.Ordinal));
+        Assert.DoesNotContain(outcome.ManifestRows, r => string.Equals(Path.GetFileName(r.OriginalPath), "Unplanned.cs", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ContentPhase_KeepsAnUnappliedPlanRowUsableByALaterBatch()
     {
         using var workspace = new TempWorkspace();

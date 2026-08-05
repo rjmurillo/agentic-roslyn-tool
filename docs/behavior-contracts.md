@@ -85,11 +85,16 @@ A plan row the content phase's input never supplied stays in the rewritten manif
 verbatim, still `split` and still actionable, and appears in the run report as `skipped`
 with the reason `planned as split but not supplied to the content phase input`. The
 content phase overwrites the manifest it read, so applying a plan in batches would
-otherwise destroy the reviewed plan for every batch after the first. The manifest records
-what is planned; the report records what this run did.
+otherwise destroy the reviewed plan for every batch after the first.
 
-A file symlink whose target is also inside the scanned tree is de-duplicated by physical
-identity, and the real path wins. Two paths naming one file would otherwise be split
+The mirror case behaves the opposite way. An input the plan never covered is reported as
+`skipped` with the reason `not present as split in plan manifest`, and is left out of the
+manifest. The manifest is the plan of record and must not grow a tail of rows the plan
+phase never produced. So `summary.total` counts what this run reported, which in the
+content phase can exceed the number of paths supplied.
+
+A file symlink whose target is also inside the scanned tree is de-duplicated by symlink
+target, and the real path wins. Two paths naming one file would otherwise be split
 twice, with the second pass reporting nothing to do.
 
 Standard input is read once. A `plan` run and a `content` run are separate processes, so

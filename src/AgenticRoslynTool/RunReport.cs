@@ -20,7 +20,7 @@ internal sealed record RunReport(
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
     };
 
-    /// <summary>Builds the report from the manifest rows a run produced.</summary>
+    /// <summary>Builds the report from the rows describing what a run did.</summary>
     public static RunReport Create(IReadOnlyList<FileResult> results, Phase phase, string manifestPath)
     {
         var summary = new RunSummary(
@@ -53,6 +53,7 @@ internal sealed record RunReport(
     {
         AgenticRoslynTool.Phase.Plan => "plan",
         AgenticRoslynTool.Phase.Renames => "renames",
-        _ => "content",
+        AgenticRoslynTool.Phase.Content => "content",
+        _ => throw new InvalidOperationException($"Unknown phase: {phase}"),
     };
 }
