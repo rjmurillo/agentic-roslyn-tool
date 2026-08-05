@@ -386,7 +386,7 @@ Six extractions, one per commit, with the full suite green after each: `InputSou
 `WorkspaceWriter` is the one with real leverage. It was the only reason the engine
 referenced `System.Diagnostics` and `File.WriteAllBytes`, and that using directive is now
 gone from `FileSplitter.cs`. Planning, building, and verifying are reachable without a
-repository behind them. `SeamUnitTests` is the proof: five assertions driven from a parsed
+repository behind them. `SeamUnitTests` is the proof: five tests driven from a parsed
 string with no temporary repository, none of which could be written before.
 
 ### What was deliberately not built
