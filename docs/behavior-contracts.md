@@ -197,6 +197,7 @@ Reason text shown in italics is a template; the run substitutes real values.
 |---|---|---|
 | Path contains an `--exclude` pattern | skipped | `excluded by pattern: <pattern>` |
 | File missing | skipped | `input file does not exist` |
+| File exists but cannot be read | failed | `cannot read input: <message>` |
 | Parse produced an error diagnostic | failed | `input has syntax errors: <diagnostics>` |
 | File has top level statements | skipped | `contains top-level statements; manual split required` |
 | One type or fewer | skipped | `nothing to split: input has <n> top-level type declaration(s)` |

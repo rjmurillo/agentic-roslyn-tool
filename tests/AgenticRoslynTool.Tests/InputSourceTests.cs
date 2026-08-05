@@ -273,6 +273,30 @@ public sealed class InputSourceTests
         }
     }
 
+    // A read failure on one input must not end a run that may already have rewritten other
+    // files. It becomes a failed row so the manifest still describes what the run did.
+    [Fact]
+    public void UnreadableInput_IsAFailedRowRatherThanAnAbortedRun()
+    {
+        using var workspace = new TempWorkspace();
+        var readable = workspace.WriteFile("Ok.cs", "public class A { }\npublic class B { }\n");
+        var blocked = workspace.WriteFile("Blocked.cs", "public class C { }\npublic class D { }\n");
+
+        using var guard = ReadBlock.Apply(blocked);
+        if (!guard.Applied)
+        {
+            return;
+        }
+
+        var results = Plan(workspace, workspace.WriteInputList(readable, blocked));
+
+        Assert.Equal(2, results.Count);
+        var failed = Assert.Single(results, r => r.OriginalPath == blocked);
+        Assert.Equal("failed", failed.Status);
+        Assert.Contains("cannot read input", failed.Reason, StringComparison.Ordinal);
+        Assert.Equal("split", Assert.Single(results, r => r.OriginalPath == readable).Status);
+    }
+
     private static System.Collections.Generic.IReadOnlyList<FileResult> Plan(TempWorkspace workspace, string inputPath)
     {
         var options = new Options(inputPath, Path.Combine(workspace.Root, "manifest.csv"), workspace.Root, Phase.Plan, null);

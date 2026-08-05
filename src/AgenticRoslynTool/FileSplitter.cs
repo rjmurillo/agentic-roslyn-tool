@@ -113,8 +113,10 @@ internal sealed class FileSplitter
     /// The input list is materialized before the loop. Enumeration itself can fail, on an
     /// unreadable list file or a malformed path, and the content phase rewrites source as it
     /// goes. Streaming would let an early input be rewritten and a later one abort the run
-    /// before the manifest is written, leaving changed files and no record of which. Failing
-    /// before the first write is the only safe order.
+    /// before the manifest is written, leaving changed files and no record of which. Per-file
+    /// failures inside the loop are handled the same way for the same reason: a read failure,
+    /// a decode failure, or a write failure becomes a row rather than an abort, so the
+    /// manifest always describes what the run actually did.
     /// </remarks>
     private RunOutcome RunContent()
     {
@@ -304,7 +306,20 @@ internal sealed class FileSplitter
             return FileResult.Skip(originalPath, readPath, "input file does not exist");
         }
 
-        var originalBytes = File.ReadAllBytes(readPath);
+        byte[] originalBytes;
+        try
+        {
+            originalBytes = File.ReadAllBytes(readPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // File.Exists said yes a moment ago, so this is a lock, a permission change, or a
+            // disk error arriving mid-run. Same rule as the decode failure below: one bad file
+            // becomes a row the caller can read, not an abort that strands every file already
+            // rewritten in this run with no manifest recording them.
+            return FileResult.Failed(originalPath, readPath, $"cannot read input: {ex.Message}");
+        }
+
         EncodedSource source;
         try
         {
