@@ -33,9 +33,14 @@ internal static class SplitPlanner
             .Where(r => r.Status == "split")
             .SelectMany(r => r.NewFiles.Select(f => new PlannedOutputEntry(r.OriginalPath, f.Type, f.Path, GetQualifiedPath(r.OriginalPath, f.Path))))
             .ToArray();
+        // Two comparers, on purpose. Grouping by output path asks "could these two writes
+        // hit the same file", which stays ignore-case so a same-name-different-case pair is
+        // treated as a collision. Counting distinct sources asks "are these two different
+        // files", which is identity and must follow the platform: on Linux, Foo.cs and
+        // foo.cs really are two inputs, and folding them into one hides a real collision.
         var collisionGroups = entries
             .GroupBy(e => e.Path, StringComparer.OrdinalIgnoreCase)
-            .Where(g => g.Select(e => e.OriginalPath).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+            .Where(g => g.Select(e => e.OriginalPath).Distinct(PathComparison.Comparer).Count() > 1)
             .ToArray();
 
         if (collisionGroups.Length == 0)
@@ -51,7 +56,7 @@ internal static class SplitPlanner
             .GroupBy(e => e.QualifiedPath, StringComparer.OrdinalIgnoreCase)
             .Where(g => g.Count() > 1)
             .SelectMany(g => g.Select(e => e.OriginalPath))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .ToHashSet(PathComparison.Comparer);
         var notesBySource = collisionGroups
             .SelectMany(group => group.Select(entry => new
             {
@@ -60,8 +65,8 @@ internal static class SplitPlanner
                     .OrderBy(e => e.OriginalPath, StringComparer.OrdinalIgnoreCase)
                     .Select(e => $"{e.OriginalPath} -> {resolvedPaths[(e.OriginalPath, e.Type, e.Path)]}")),
             }))
-            .GroupBy(x => x.OriginalPath, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => string.Join(" | ", g.Select(x => x.Note).Distinct(StringComparer.Ordinal)), StringComparer.OrdinalIgnoreCase);
+            .GroupBy(x => x.OriginalPath, PathComparison.Comparer)
+            .ToDictionary(g => g.Key, g => string.Join(" | ", g.Select(x => x.Note).Distinct(StringComparer.Ordinal)), PathComparison.Comparer);
 
         return results.Select(result =>
         {

@@ -5,9 +5,10 @@ namespace AgenticRoslynTool;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Used for identity only: de-duplicating the input list, and keying the plan manifest
-/// during the content phase. Those two have to agree, or a path that survives
-/// de-duplication can be looked up against a different file's plan.
+/// Used for identity only: de-duplicating the input list, keying the plan manifest
+/// during the content phase, and deciding whether two planned outputs came from one
+/// source file or two. Those have to agree, or a path that survives de-duplication can
+/// be looked up against a different file's plan.
 /// </para>
 /// <para>
 /// Safety checks stay on <see cref="StringComparer.OrdinalIgnoreCase"/> on purpose.
