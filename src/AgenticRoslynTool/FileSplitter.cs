@@ -1322,9 +1322,16 @@ internal sealed class FileSplitter
     /// de-duplication and the content phase's manifest lookup agree on what counts as the
     /// same file.
     /// </summary>
+    /// <remarks>
+    /// Paths are resolved to absolute form before de-duplication, not after. A caller can
+    /// list the same file as <c>src/Foo.cs</c> and as <c>C:\repo\src\Foo.cs</c>, and the two
+    /// strings differ, so de-duplicating first let one file be split twice. The consumers
+    /// resolve to the same absolute path a moment later, which is what makes the duplicate
+    /// invisible until it has already rewritten a file.
+    /// </remarks>
     private static IEnumerable<string> ReadRunnableInputs(string inputPath)
     {
-        return ReadInputs(inputPath).Distinct(PathComparison.Comparer);
+        return ReadInputs(inputPath).Select(Path.GetFullPath).Distinct(PathComparison.Comparer);
     }
 
     /// <summary>

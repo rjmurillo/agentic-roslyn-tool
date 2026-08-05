@@ -118,6 +118,23 @@ public sealed class InputSourceTests
         Assert.Single(results);
     }
 
+    // The two strings differ but name one file. De-duplicating before resolving them let
+    // the same file be split twice, and the second pass sees a file that is already split.
+    [Fact]
+    public void DuplicateInputPathsInDifferentTextualForms_ProduceOneRow()
+    {
+        using var workspace = new TempWorkspace();
+        var path = workspace.WriteFile("Dup.cs", "public class A { }\npublic class B { }\n");
+        var directory = Path.GetDirectoryName(path)!;
+        var roundabout = Path.Combine(directory, "sub", "..", Path.GetFileName(path));
+
+        Assert.NotEqual(path, roundabout);
+
+        var results = Plan(workspace, workspace.WriteInputList(path, roundabout));
+
+        Assert.Single(results);
+    }
+
     [Fact]
     public void SingleSourceFileInput_IsTheFileToSplitNotAListOfPaths()
     {
