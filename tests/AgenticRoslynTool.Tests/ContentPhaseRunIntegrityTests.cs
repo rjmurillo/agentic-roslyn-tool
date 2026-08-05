@@ -34,8 +34,9 @@ public sealed class ContentPhaseRunIntegrityTests
         Assert.Equal("failed", failed.Status);
         Assert.Contains("expected renamed file", failed.Reason!, System.StringComparison.Ordinal);
 
-        // The first input was already rewritten before the second one failed. That is exactly
-        // what an abort here would have thrown away.
+        // The first input was already rewritten before the second one failed. Removing the
+        // guard makes Run() throw, so this test fails through that path rather than through
+        // these assertions; they pin that the guarded run still did the work it could.
         Assert.Equal("split", Assert.Single(results, r => r.OriginalPath == splittable).Status);
         Assert.True(File.Exists(Path.Combine(workspace.Root, "Beta.cs")));
     }
@@ -70,5 +71,10 @@ public sealed class ContentPhaseRunIntegrityTests
         Assert.Equal("failed", Assert.Single(results, r => r.OriginalPath == tamperedInput).Status);
         Assert.Equal("split", Assert.Single(results, r => r.OriginalPath == untouched).Status);
         Assert.True(File.Exists(Path.Combine(workspace.Root, "Beta.cs")));
+
+        // The throw happens while building the plan, before any output is written. Pinning
+        // that keeps a regression that moved the substitution after the write from passing
+        // here while leaving the failing input half applied.
+        Assert.False(File.Exists(Path.Combine(workspace.Root, "Lambda.cs")));
     }
 }

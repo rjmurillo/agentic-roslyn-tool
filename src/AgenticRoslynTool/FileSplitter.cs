@@ -116,7 +116,9 @@ internal sealed class FileSplitter
     /// before the manifest is written, leaving changed files and no record of which. Per-file
     /// failures inside the loop are handled the same way for the same reason: <see cref="Process"/>
     /// turns any failure on one input, expected or not, into a row rather than an abort, so the
-    /// manifest always describes what the run actually did.
+    /// manifest describes what the run actually did. That holds as far as the manifest write
+    /// itself; a run whose <c>ManifestWriter.Write</c> fails still loses the record, and nothing
+    /// inside this method can prevent that.
     /// </remarks>
     private RunOutcome RunContent()
     {
@@ -308,7 +310,19 @@ internal sealed class FileSplitter
         }
         catch (Exception ex)
         {
-            var reported = Path.GetFullPath(path);
+            // Path.GetFullPath throws on a malformed path. Every caller resolves the path
+            // before handing it over, so this is idempotent today, but a guard of last resort
+            // that can defeat itself on one line is not a guard.
+            string reported;
+            try
+            {
+                reported = Path.GetFullPath(path);
+            }
+            catch (Exception resolveFailure) when (resolveFailure is ArgumentException or PathTooLongException or NotSupportedException)
+            {
+                reported = path;
+            }
+
             return FileResult.Failed(reported, reported, ex.Message);
         }
     }
