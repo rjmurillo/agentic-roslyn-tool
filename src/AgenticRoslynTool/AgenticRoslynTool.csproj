@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>AgenticRoslynTool</AssemblyName>
+    <RootNamespace>AgenticRoslynTool</RootNamespace>
+
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>agentic-roslyn-tool</ToolCommandName>
+    <PackageId>AgenticRoslynTool</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Richard Murillo</Authors>
+    <Description>Splits C# files that declare more than one top-level type into one file per type, so a codebase can turn on StyleCop SA1402. Roslyn Syntax API only, so it does not need a solution that compiles.</Description>
+    <PackageTags>roslyn;codefix;stylecop;sa1402;refactoring;csharp</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/rjmurillo/agentic-roslyn-tool</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/rjmurillo/agentic-roslyn-tool</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AgenticRoslynTool.Tests" />
+  </ItemGroup>
+
+</Project>

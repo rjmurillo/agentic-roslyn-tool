@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/AgenticRoslynTool/AgenticRoslynTool.csproj" />
+  <Project Path="tests/AgenticRoslynTool.Tests/AgenticRoslynTool.Tests.csproj" />
+</Solution>
