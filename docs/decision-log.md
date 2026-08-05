@@ -269,6 +269,11 @@ exist.
 > **Warning.** Do not reintroduce a built in list. If you find yourself adding a default
 > pattern "because everyone excludes it", you are re-creating the defect. The caller knows
 > which of their directories are generated. The tool does not.
+>
+> Decision 16 carves out exactly one exception, and only for directory discovery: `bin` and
+> `obj` are not returned by a directory scan. That is a statement about where a build puts
+> its output, not about which of the caller's directories are generated, and it does not
+> apply to a path the caller listed explicitly. Anything broader belongs in `--exclude`.
 
 ## 15. Shipped as a .NET tool package
 
@@ -292,7 +297,52 @@ can push a tag can publish a commit that never went through review. Repository w
 is the boundary being trusted here, and it is the same access that could push to `main`
 directly. Add an ancestry check if that assumption stops holding.
 
+## 16. The command line is an agent interface first
 
+**Decision.** `--input` takes a directory, a CSV, a list file, or `-` for standard input.
+`--json` prints one report with summary counts. Exit codes distinguish no failures (0), a
+failed file (1), a bad command line (2), and a run that could not complete (3). Data goes
+to standard output, the summary and every error go to standard error, and no error path
+prints a stack trace.
+
+**Why.** The tool is driven by agents, and the first thing an agent did was point `--input`
+at a directory. That reached `File.ReadLines` and surfaced "Access to the path is denied",
+which sent the caller chasing a permissions problem that did not exist. An unknown flag was
+worse: an unhandled `ArgumentException`, a stack trace, and exit code `-532462766`. Both
+failures cost turns and taught the caller nothing. Discovery is also the step an agent most
+wants delegated, since before this the caller had to already know which files violate
+SA1402 and had to write a temp file before it could call the tool at all.
+
+**Consequences.** Directory discovery skips `bin` and `obj`. That is a built-in exclusion,
+which decision 14 argues against, so the line matters: those directories are build output
+that a build recreates, which is a fact about how .NET lays out a project rather than an
+opinion about one repository. Anything narrower stays with `--exclude`. The exit codes and
+the JSON field names are now public contract, and the JSON deliberately reuses the CSV
+column names and the `split` / `skipped` / `failed` vocabulary so the two formats stay one
+contract rather than two that can drift apart. A directory scan cannot reach a file under a
+`bin` or `obj` segment at all, and unlike an `--exclude` match it leaves no manifest row
+behind, so pass a list file when you need one of those. A directory the scan cannot read
+ends the run with exit code 3, because a partial scan exits 0 and is indistinguishable from
+a scan that found no work. De-duplication of input paths, and the content phase's keying of
+the plan manifest, both follow the platform's filesystem case rules, because a fixed
+case-insensitive comparison silently dropped one of `Foo.cs` and `foo.cs` on Linux, where
+both are real files. Collision detection stays case-insensitive everywhere on purpose:
+there, the conservative answer is the safe one. Usage text moved to standard error on every
+failing path, and `--help` and `--version` moved out of `Options.Parse`, which had been
+calling `Environment.Exit` from inside argument parsing. Discovery walks the tree by hand
+instead of using `EnumerationOptions.AttributesToSkip`, whose reparse-point filter also
+applies to files and would have silently dropped a symlinked source file. A `.cs` path is
+now the file to split rather than a list of paths, `--dry-run` combined with `--phase` is
+rejected instead of letting argument order pick. A plan row the content phase never
+received stays in the rewritten manifest verbatim while appearing in the report as a skip,
+which is why `Run` returns a `RunOutcome` with separate manifest and report views: an
+earlier version rewrote the row as `skipped`, which destroyed the reviewed plan as soon as
+an agent applied content in batches. A file symlink discovered alongside its target is
+de-duplicated by physical identity so one file is never split twice. Case sensitivity is
+taken from the operating system, not probed per volume; a case-sensitive volume mounted on
+Windows or macOS is a stated limitation rather than a filesystem write on every run.
+
+## Unrecorded decisions
 
 Recorded so nobody assumes these were considered.
 

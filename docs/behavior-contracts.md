@@ -25,7 +25,7 @@ document disagree, the code wins and this document is a bug.
 ## The command
 
 ```
-AgenticRoslynTool split-types --input <csv-or-list> [options]
+agentic-roslyn-tool split-types --input <dir|csv|list|-> [options]
 ```
 
 | Contract | Value |
@@ -33,13 +33,95 @@ AgenticRoslynTool split-types --input <csv-or-list> [options]
 | Idempotency | Yes for `plan`. Yes for `content` once a file is already split, because a single type file is skipped. |
 | Side effects | `plan` writes only the manifest. `renames` runs `git mv`. `content` writes source files. |
 | Failure mode | Per file, but only inside the guarded section. Verification failures are recorded `failed` and the run continues. Work done before that section is unguarded, so an unexpected exception while resolving the read path, reading the file, setting up the parse, planning, or running the empty directive shell check propagates and ends the run. A missing content manifest also ends the run. |
-| Exit code | 1 when any row in this run is `failed`. 0 otherwise. Skips are not failures. |
+| Exit code | 0 no failures, 1 at least one row `failed`, 2 the command line was wrong, 3 the run could not complete. Skips are not failures. |
+| Streams | Standard output carries a parseable document or nothing: the manifest CSV in `plan`, the JSON report under `--json`, and nothing in `renames` and `content` without `--json`. The manifest path, the one-line summary, and every error go to standard error. |
 | Performance | Syntax parse only, no semantic model and no MSBuild load. A 7,818 file run completed in a single pass, measured outside this repository. |
 | Data sensitivity | Reads and rewrites source files in place. No network calls. |
 | Ordering | `plan` must run before `content`. `renames`, when used, belongs between them and must be committed first. |
 
-`--help`, `-h`, and `help` print usage and exit 0. No arguments, or an unrecognized verb,
-prints usage and exits 1.
+`--help`, `-h`, and `help` print usage on standard output and exit 0, in either the verb
+position or after `split-types`, and never depend on the rest of the command line being
+valid. `--version` prints the package version and exits 0, also in either position. No
+arguments, an unrecognized verb, or a bad option prints a one-line `error: ...` on standard
+error, prints usage on standard error too, and exits 2. No error path prints a stack trace,
+and no error path writes to standard output.
+
+## Input sources
+
+`--input` accepts five shapes, resolved in this order:
+
+| Shape | Behavior |
+|---|---|
+| `-` | Reads newline-delimited paths from standard input. The manifest defaults into `--repo-root`. |
+| An existing directory | Recursively discovers every `.cs` file beneath it, skipping any directory named `bin` or `obj` and not following directory symlinks. A file symlink is followed and split like any other file. The manifest defaults into `--repo-root`, not into the scanned tree. |
+| A path ending in `.cs` | One file to split. It is never read as a list of paths. |
+| A path ending in `.csv` | Reads the `file` column. A CSV without that column ends the run. |
+| Anything else | Reads one path per line. |
+
+Directory discovery skips `bin` and `obj` because a build owns those directories and
+recreates their contents. That is a fact about how .NET lays out a build, not an opinion
+about a repository, which is the line decision 14 draws around `--exclude`. Unlike an
+`--exclude` match, a path that discovery never returns produces no manifest row, so it is
+invisible to the caller. Pass a list file instead of a directory when you need a file under
+a `bin` or `obj` segment. Everything discovered still passes through `--exclude`, so a
+caller can narrow further.
+
+Duplicate input paths are dropped, compared the way the running platform's filesystem
+treats case: case-insensitively on Windows and macOS, case-sensitively elsewhere. On Linux
+that keeps `Foo.cs` and `foo.cs` as the two separate files they are. The content phase keys
+the plan manifest the same way, so a plan row can never be applied to a different file.
+Collision detection deliberately stays case-insensitive on every platform, because
+over-detecting a collision costs a skipped file while under-detecting one costs an
+overwrite.
+
+A directory scan that cannot read a subdirectory ends the run with exit code 3 rather than
+returning a partial list. A partial scan would exit 0 and look exactly like a scan that
+found nothing to do. Pass a list file when you need to scan around an unreadable directory.
+
+`--dry-run` and `--phase` both set the phase, so supplying both is rejected with exit code
+2 rather than letting argument order decide between writing a manifest and rewriting source.
+
+A plan row the content phase's input never supplied stays in the rewritten manifest
+verbatim, still `split` and still actionable, and appears in the run report as `skipped`
+with the reason `planned as split but not supplied to the content phase input`. The
+content phase overwrites the manifest it read, so applying a plan in batches would
+otherwise destroy the reviewed plan for every batch after the first. The manifest records
+what is planned; the report records what this run did.
+
+A file symlink whose target is also inside the scanned tree is de-duplicated by physical
+identity, and the real path wins. Two paths naming one file would otherwise be split
+twice, with the second pass reporting nothing to do.
+
+Standard input is read once. A `plan` run and a `content` run are separate processes, so
+each needs the path list piped to it again.
+
+## JSON report
+
+`--json` replaces the standard output document with one JSON object. Its field names and
+its status vocabulary match the CSV manifest, so the two formats are one contract:
+
+```json
+{
+  "phase": "plan",
+  "manifest": "C:\\repo\\sa1402-split-manifest.csv",
+  "summary": { "total": 2, "split": 1, "skipped": 1, "failed": 0, "newFiles": 1 },
+  "files": [
+    {
+      "originalPath": "C:\\repo\\src\\Foo.cs",
+      "keptPath": "C:\\repo\\src\\Foo.cs",
+      "gitMove": false,
+      "status": "split",
+      "reason": null,
+      "note": null,
+      "newFiles": [{ "newFilePath": "C:\\repo\\src\\Bar.cs", "type": "Bar" }]
+    }
+  ]
+}
+```
+
+The CSV repeats the row once per new file; the JSON nests them under `newFiles` instead.
+Both carry the same values. `summary` exists so a caller never has to tally rows to learn
+whether work happened. `total` counts manifest rows, which is one per distinct input path.
 
 ## Phase contracts
 
@@ -53,8 +135,8 @@ Promises:
 - **No source file is written.** Verified by `PlanPhaseTests`, which asserts the input
   bytes are unchanged and that no output file appeared on disk.
 - Every input appears in the manifest with status `split`, `skipped`, or `failed`, except
-  that inputs repeating an earlier path are dropped by a case-insensitive de-duplication
-  and produce no row.
+  that inputs repeating an earlier path are dropped by a de-duplication that follows the
+  platform's filesystem case rules, and produce no row.
 - The manifest round trips through `ManifestWriter.Read`.
 
 You can run `plan` as many times as you like. It is the review step, and it is the reason
@@ -230,8 +312,9 @@ The things that would surprise a reader who only skimmed the signatures.
 2. **Verification is complete before the first write of that file.** There is no partially
    verified file. There is also no run level transaction: inputs are processed one at a
    time, so a failure late in a run leaves every earlier file already rewritten.
-3. **Skips are not failures.** A run where every file is skipped exits 0. Check the
-   manifest, not just the exit code, when you care whether work happened.
+3. **Skips are not failures.** A run where every file is skipped exits 0. Read the
+   `summary` counts (from `--json`, or the summary line on standard error) rather than the
+   exit code alone when you care whether work happened.
 4. **The content phase can overwrite the plan manifest.** Same default path.
 5. **A cross file name collision is usually resolved to `FileName.TypeName.cs`**, which
    satisfies SA1402 but violates SA1649, so those files need a human decision afterwards.
