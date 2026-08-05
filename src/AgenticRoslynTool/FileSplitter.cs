@@ -39,6 +39,12 @@ internal sealed class FileSplitter
 {
     private readonly Options _options;
 
+    /// <summary>
+    /// Reason recorded when the content phase is handed a file the plan never covered. Named
+    /// because the reason string decides whether the row reaches the manifest.
+    /// </summary>
+    private const string NotPlannedReason = "not present as split in plan manifest";
+
     /// <summary>Constructs a splitter bound to a set of parsed options.</summary>
     /// <param name="options">The options that select the input list, manifest path, repository root, phase, and optional required header.</param>
     public FileSplitter(Options options)
@@ -47,17 +53,16 @@ internal sealed class FileSplitter
     }
 
     /// <summary>
-    /// Runs the phase selected by <see cref="Options.Phase"/> and returns one
-    /// <see cref="FileResult"/> per input path.
+    /// Runs the phase selected by <see cref="Options.Phase"/>.
     /// </summary>
-    /// <returns>The per-input results, in input order.</returns>
+    /// <returns>The manifest and report views of the run.</returns>
     /// <exception cref="InvalidOperationException">Thrown if the phase value is unrecognized, or, in the content phase, if the plan manifest is missing.</exception>
-    public IReadOnlyList<FileResult> Run()
+    public RunOutcome Run()
     {
         return _options.Phase switch
         {
-            Phase.Plan => RunPlan(),
-            Phase.Renames => RunRenames(),
+            Phase.Plan => RunOutcome.Same(RunPlan()),
+            Phase.Renames => RunOutcome.Same(RunRenames()),
             Phase.Content => RunContent(),
             _ => throw new InvalidOperationException($"Unsupported phase: {_options.Phase}"),
         };
@@ -90,7 +95,7 @@ internal sealed class FileSplitter
     private IReadOnlyList<FileResult> BuildResolvedPlan()
     {
         var results = new List<FileResult>();
-        foreach (var path in ReadRunnableInputs(_options.InputPath))
+        foreach (var path in ReadRunnableInputs(_options.InputPath).ToArray())
         {
             results.Add(Process(path, Phase.Plan, null));
         }
@@ -104,33 +109,77 @@ internal sealed class FileSplitter
     /// <c>split</c> in the manifest are skipped with a diagnostic reason.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when the manifest file does not exist.</exception>
-    private IReadOnlyList<FileResult> RunContent()
+    /// <remarks>
+    /// The input list is materialized before the loop. Enumeration itself can fail, on an
+    /// unreadable list file or a malformed path, and the content phase rewrites source as it
+    /// goes. Streaming would let an early input be rewritten and a later one abort the run
+    /// before the manifest is written, leaving changed files and no record of which. Per-file
+    /// failures inside the loop are handled the same way for the same reason: <see cref="Process"/>
+    /// turns any failure on one input, expected or not, into a row rather than an abort, so the
+    /// manifest describes what the run actually did. That holds as far as the manifest write
+    /// itself; a run whose <c>ManifestWriter.Write</c> fails still loses the record, and nothing
+    /// inside this method can prevent that.
+    /// </remarks>
+    private RunOutcome RunContent()
     {
         if (!File.Exists(_options.ManifestPath))
         {
             throw new InvalidOperationException($"Content phase requires an existing plan manifest: {_options.ManifestPath}");
         }
 
-        var plannedFiles = ManifestWriter.Read(_options.ManifestPath)
+        var inputs = ReadRunnableInputs(_options.InputPath).ToArray();
+
+        // Read once and keep every row. The split-only view below decides what this run can
+        // act on; the full set is what gets preserved, because a skipped or failed row is
+        // part of the plan of record and a content run must not quietly drop it.
+        //
+        // Read already collapses the CSV to one row per path, so nothing re-groups here.
+        var manifestPlan = ManifestWriter.Read(_options.ManifestPath);
+        var plannedFiles = manifestPlan
             .Where(r => r.Status == "split")
-            .GroupBy(r => r.OriginalPath, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
-            .ToDictionary(r => r.OriginalPath, StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(r => r.OriginalPath, PathComparison.Comparer);
 
         var results = new List<FileResult>();
-        foreach (var path in ReadRunnableInputs(_options.InputPath))
+        var applied = new HashSet<string>(PathComparison.Comparer);
+        foreach (var path in inputs)
         {
             var originalPath = Path.GetFullPath(path);
             if (!plannedFiles.TryGetValue(originalPath, out var planned))
             {
-                results.Add(FileResult.Skip(originalPath, originalPath, "not present as split in plan manifest"));
+                results.Add(FileResult.Skip(originalPath, originalPath, NotPlannedReason));
                 continue;
             }
 
+            applied.Add(originalPath);
             results.Add(Process(originalPath, Phase.Content, planned));
         }
 
-        return results;
+        // The manifest is the plan of record; the report is what this run did. So the two
+        // views diverge here.
+        //
+        // A planned row the current input never mentioned must survive the rewrite verbatim,
+        // or applying content in batches would destroy the reviewed plan for every batch
+        // after the first. That covers every row, not only the split ones: a skipped or
+        // failed row carries the reason the plan phase refused that file, and losing it
+        // means the next reader cannot tell a refused file from one never examined. Only
+        // the split rows are reported as unapplied, because only they described work.
+        //
+        // An input the plan never covered is the mirror image: it belongs in the report so
+        // the caller sees the mismatch, and not in the manifest, where it would accumulate a
+        // permanent tail of rows the plan phase never produced.
+        var unapplied = manifestPlan.Where(p => !applied.Contains(p.OriginalPath)).ToArray();
+        var manifestRows = results
+            .Where(r => !string.Equals(r.Reason, NotPlannedReason, StringComparison.Ordinal))
+            .Concat(unapplied)
+            .ToArray();
+        var reportRows = results.Concat(unapplied
+            .Where(p => p.Status == "split")
+            .Select(p => FileResult.Skip(
+                p.OriginalPath,
+                p.KeptPath,
+                "planned as split but not supplied to the content phase input"))).ToArray();
+
+        return new RunOutcome(manifestRows, reportRows);
     }
 
     /// <summary>
@@ -145,15 +194,20 @@ internal sealed class FileSplitter
     /// first type). The tool prefers a StyleCop violation over a build break; the
     /// alternative would be to refuse to split, which loses coverage.
     /// </remarks>
-    private static IReadOnlyList<FileResult> ResolvePlannedOutputCollisions(IReadOnlyList<FileResult> results)
+    internal static IReadOnlyList<FileResult> ResolvePlannedOutputCollisions(IReadOnlyList<FileResult> results)
     {
         var entries = results
             .Where(r => r.Status == "split")
             .SelectMany(r => r.NewFiles.Select(f => new PlannedOutputEntry(r.OriginalPath, f.Type, f.Path, GetQualifiedPath(r.OriginalPath, f.Path))))
             .ToArray();
+        // Two comparers, on purpose. Grouping by output path asks "could these two writes
+        // hit the same file", which stays ignore-case so a same-name-different-case pair is
+        // treated as a collision. Counting distinct sources asks "are these two different
+        // files", which is identity and must follow the platform: on Linux, Foo.cs and
+        // foo.cs really are two inputs, and folding them into one hides a real collision.
         var collisionGroups = entries
             .GroupBy(e => e.Path, StringComparer.OrdinalIgnoreCase)
-            .Where(g => g.Select(e => e.OriginalPath).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+            .Where(g => g.Select(e => e.OriginalPath).Distinct(PathComparison.Comparer).Count() > 1)
             .ToArray();
 
         if (collisionGroups.Length == 0)
@@ -169,7 +223,7 @@ internal sealed class FileSplitter
             .GroupBy(e => e.QualifiedPath, StringComparer.OrdinalIgnoreCase)
             .Where(g => g.Count() > 1)
             .SelectMany(g => g.Select(e => e.OriginalPath))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .ToHashSet(PathComparison.Comparer);
         var notesBySource = collisionGroups
             .SelectMany(group => group.Select(entry => new
             {
@@ -178,8 +232,8 @@ internal sealed class FileSplitter
                     .OrderBy(e => e.OriginalPath, StringComparer.OrdinalIgnoreCase)
                     .Select(e => $"{e.OriginalPath} -> {resolvedPaths[(e.OriginalPath, e.Type, e.Path)]}")),
             }))
-            .GroupBy(x => x.OriginalPath, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => string.Join(" | ", g.Select(x => x.Note).Distinct(StringComparer.Ordinal)), StringComparer.OrdinalIgnoreCase);
+            .GroupBy(x => x.OriginalPath, PathComparison.Comparer)
+            .ToDictionary(g => g.Key, g => string.Join(" | ", g.Select(x => x.Note).Distinct(StringComparer.Ordinal)), PathComparison.Comparer);
 
         return results.Select(result =>
         {
@@ -250,7 +304,49 @@ internal sealed class FileSplitter
     /// <param name="phase">The phase currently running.</param>
     /// <param name="planned">The manifest row for this input, or null in the plan and renames phases.</param>
     /// <returns>A result describing the outcome for this input.</returns>
+    /// <remarks>
+    /// The catch is unfiltered on purpose, and for the same reason the one in
+    /// <c>Program.Main</c> is. The content phase rewrites files as it goes and writes the
+    /// manifest at the end, so anything that escapes this method strands every file already
+    /// rewritten with no record of them. A filtered catch only holds until some path throws a
+    /// type nobody listed, and this method reaches an inconsistent rename state, a hand-edited
+    /// manifest, and the file system. One bad input costs a failed row; one escaped exception
+    /// costs the plan of record.
+    /// </remarks>
     private FileResult Process(string path, Phase phase, FileResult? planned)
+    {
+        try
+        {
+            return ProcessCore(path, phase, planned);
+        }
+        catch (Exception ex)
+        {
+            // Path.GetFullPath throws on a malformed path. Every caller resolves the path
+            // before handing it over, so this is idempotent today, but a guard of last resort
+            // that can defeat itself on one line is not a guard.
+            string reported;
+            try
+            {
+                reported = Path.GetFullPath(path);
+            }
+            catch (Exception resolveFailure) when (resolveFailure is ArgumentException or PathTooLongException or NotSupportedException)
+            {
+                reported = path;
+            }
+
+            return FileResult.Failed(reported, reported, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Implements <see cref="Process"/>. Kept separate so every exit path, including an
+    /// unexpected throw, funnels through the one guard in the caller.
+    /// </summary>
+    /// <param name="path">Absolute or relative input path.</param>
+    /// <param name="phase">The phase currently running.</param>
+    /// <param name="planned">The manifest row for this input, or null in the plan and renames phases.</param>
+    /// <returns>A result describing the outcome for this input.</returns>
+    private FileResult ProcessCore(string path, Phase phase, FileResult? planned)
     {
         var originalPath = Path.GetFullPath(path);
         var excluded = MatchExclude(originalPath);
@@ -265,8 +361,32 @@ internal sealed class FileSplitter
             return FileResult.Skip(originalPath, readPath, "input file does not exist");
         }
 
-        var originalBytes = File.ReadAllBytes(readPath);
-        var source = EncodedSource.FromBytes(originalBytes);
+        byte[] originalBytes;
+        try
+        {
+            originalBytes = File.ReadAllBytes(readPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // File.Exists said yes a moment ago, so this is a lock, a permission change, or a
+            // disk error arriving mid-run. Same rule as the decode failure below: one bad file
+            // becomes a row the caller can read, not an abort that strands every file already
+            // rewritten in this run with no manifest recording them.
+            return FileResult.Failed(originalPath, readPath, $"cannot read input: {ex.Message}");
+        }
+
+        EncodedSource source;
+        try
+        {
+            source = EncodedSource.FromBytes(originalBytes);
+        }
+        catch (DecoderFallbackException ex)
+        {
+            // A file that does not decode cannot be round-tripped byte for byte, which is
+            // the promise this tool makes. Skipping keeps one odd file from ending a run
+            // that may already have rewritten hundreds of others.
+            return FileResult.Skip(originalPath, readPath, $"input is not valid UTF-8 and has no byte order mark: {ex.Message}");
+        }
         var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
         var tree = CSharpSyntaxTree.ParseText(SourceText.From(source.Text, source.Encoding), parseOptions, path: readPath);
         var root = tree.GetCompilationUnitRoot();
@@ -1117,36 +1237,155 @@ internal sealed class FileSplitter
     }
 
     /// <summary>
-    /// Streams input paths from either a CSV file (which must contain a <c>file</c>
-    /// column) or a newline-delimited text file. Empty lines and empty <c>file</c>
-    /// values are skipped.
+    /// Streams input paths from a directory (every <c>.cs</c> file beneath it), from a
+    /// single <c>.cs</c> file, from standard input when the path is <c>-</c>, from a CSV
+    /// file (which must contain a <c>file</c> column), or from a newline-delimited text
+    /// file. Empty lines and empty <c>file</c> values are skipped.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when the CSV input has no <c>file</c> column.</exception>
     private static IEnumerable<string> ReadInputs(string inputPath)
     {
-        if (Path.GetExtension(inputPath).Equals(".csv", StringComparison.OrdinalIgnoreCase))
+        if (inputPath == Options.StdinPath)
         {
-            using var parser = new CsvFieldReader(inputPath);
-            var header = parser.ReadFields() ?? Array.Empty<string>();
-            var fileIndex = Array.FindIndex(header, h => h.Equals("file", StringComparison.OrdinalIgnoreCase));
-            if (fileIndex < 0)
-            {
-                throw new InvalidOperationException("CSV must contain a file column.");
-            }
-
-            while (!parser.EndOfData)
-            {
-                var fields = parser.ReadFields();
-                if (fields is not null && fields.Length > fileIndex && !string.IsNullOrWhiteSpace(fields[fileIndex]))
-                {
-                    yield return fields[fileIndex];
-                }
-            }
-
-            yield break;
+            return ReadLinePaths(ReadStandardInputLines());
         }
 
-        foreach (var line in File.ReadLines(inputPath))
+        if (Directory.Exists(inputPath))
+        {
+            return DiscoverSourceFiles(inputPath);
+        }
+
+        // A .cs file is the file to split, not a list of paths. Reading it as a list would
+        // feed every line of C# in as a path and report a screen of "input file does not
+        // exist" skips at exit code 0, which reads like success.
+        if (Path.GetExtension(inputPath).Equals(".cs", StringComparison.OrdinalIgnoreCase))
+        {
+            return [inputPath];
+        }
+
+        if (Path.GetExtension(inputPath).Equals(".csv", StringComparison.OrdinalIgnoreCase))
+        {
+            return ReadCsvPaths(inputPath);
+        }
+
+        return ReadLinePaths(File.ReadLines(inputPath));
+    }
+
+    private static IEnumerable<string> ReadStandardInputLines()
+    {
+        while (Console.In.ReadLine() is { } line)
+        {
+            yield return line;
+        }
+    }
+
+    /// <summary>
+    /// Enumerates every <c>.cs</c> file beneath a directory, skipping <c>bin</c> and
+    /// <c>obj</c> segments. Those hold compiler and generator output that a build
+    /// recreates, so splitting them would churn files nobody reads. That is a fact
+    /// about how .NET lays out a build rather than an opinion about one repository,
+    /// which is the line decision 14 draws around <c>--exclude</c>.
+    /// </summary>
+    /// <remarks>
+    /// Walks the tree by hand rather than using <see cref="EnumerationOptions"/>. That
+    /// type's <c>AttributesToSkip</c> applies to files as well as directories, so skipping
+    /// reparse points there would silently drop a symlinked source file, which is a second
+    /// undocumented exclusion. Here only directory symlinks are cut, which is what stops a
+    /// link pointing at an ancestor from recursing forever.
+    /// </remarks>
+    private static IEnumerable<string> DiscoverSourceFiles(string root)
+    {
+        // The whole list is materialized before any file is processed, so an unreadable
+        // directory fails the run before the content phase has rewritten anything.
+        var files = new List<string>();
+        var pending = new Stack<string>();
+        pending.Push(root);
+
+        while (pending.Count > 0)
+        {
+            var directory = pending.Pop();
+            try
+            {
+                files.AddRange(Directory.EnumerateFiles(directory, "*.cs", SearchOption.TopDirectoryOnly));
+
+                foreach (var child in Directory.EnumerateDirectories(directory))
+                {
+                    var name = Path.GetFileName(child);
+                    var isBuildOutput = name.Equals("bin", StringComparison.OrdinalIgnoreCase)
+                        || name.Equals("obj", StringComparison.OrdinalIgnoreCase);
+                    var isLink = new DirectoryInfo(child).LinkTarget is not null;
+
+                    if (!isBuildOutput && !isLink)
+                    {
+                        pending.Push(child);
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+            {
+                // Not swallowed. A partial scan exits 0 and looks exactly like a scan that
+                // found no work, which is the one outcome an agent cannot recover from.
+                throw new InvalidOperationException(
+                    $"cannot scan directory {directory}: {ex.Message}. Pass a list file instead of a directory to skip the unreadable part.",
+                    ex);
+            }
+        }
+
+        // A file symlink and its target can both be inside the scanned tree. They are two
+        // paths naming one file, and processing both would apply the split twice: the second
+        // pass sees an already-split file and reports nothing to do, so one planned output is
+        // silently attributed to the wrong path. De-duplicate by symlink target, and keep the
+        // real path rather than the link so the manifest names the file git tracks. Aliases
+        // that are not reparse points, hard links and bind mounts, are not detected.
+        return files
+            .Select(f => (Path: f, Identity: PhysicalIdentity(f)))
+            .OrderBy(t => !PathComparison.Comparer.Equals(t.Path, t.Identity))
+            .ThenBy(t => t.Path, StringComparer.Ordinal)
+            .DistinctBy(t => t.Identity, PathComparison.Comparer)
+            .Select(t => t.Path)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Resolves a path to the file it ultimately names, so a symlink and its target compare
+    /// equal. Falls back to the path itself when the link cannot be resolved, which errs
+    /// toward processing the file rather than dropping it.
+    /// </summary>
+    private static string PhysicalIdentity(string path)
+    {
+        try
+        {
+            return File.ResolveLinkTarget(path, returnFinalTarget: true)?.FullName ?? path;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return path;
+        }
+    }
+
+    private static IEnumerable<string> ReadCsvPaths(string inputPath)
+    {
+        using var parser = new CsvFieldReader(inputPath);
+        var header = parser.ReadFields() ?? Array.Empty<string>();
+        var fileIndex = Array.FindIndex(header, h => h.Equals("file", StringComparison.OrdinalIgnoreCase));
+        if (fileIndex < 0)
+        {
+            throw new InvalidOperationException("CSV must contain a file column.");
+        }
+
+        while (!parser.EndOfData)
+        {
+            var fields = parser.ReadFields();
+            if (fields is not null && fields.Length > fileIndex && !string.IsNullOrWhiteSpace(fields[fileIndex]))
+            {
+                yield return fields[fileIndex];
+            }
+        }
+    }
+
+    private static IEnumerable<string> ReadLinePaths(IEnumerable<string> lines)
+    {
+        foreach (var line in lines)
         {
             var trimmed = line.Trim();
             if (trimmed.Length != 0)
@@ -1156,10 +1395,22 @@ internal sealed class FileSplitter
         }
     }
 
-    /// <summary>De-duplicates the input list. Every surviving path produces a manifest row, including excluded ones.</summary>
+    /// <summary>
+    /// De-duplicates the input list. Every surviving path produces a manifest row, including
+    /// excluded ones. Comparison uses <see cref="PathComparison.Comparer"/> so that
+    /// de-duplication and the content phase's manifest lookup agree on what counts as the
+    /// same file.
+    /// </summary>
+    /// <remarks>
+    /// Paths are resolved to absolute form before de-duplication, not after. A caller can
+    /// list the same file as <c>src/Foo.cs</c> and as <c>C:\repo\src\Foo.cs</c>, and the two
+    /// strings differ, so de-duplicating first let one file be split twice. The consumers
+    /// resolve to the same absolute path a moment later, which is what makes the duplicate
+    /// invisible until it has already rewritten a file.
+    /// </remarks>
     private static IEnumerable<string> ReadRunnableInputs(string inputPath)
     {
-        return ReadInputs(inputPath).Distinct(StringComparer.OrdinalIgnoreCase);
+        return ReadInputs(inputPath).Select(Path.GetFullPath).Distinct(PathComparison.Comparer);
     }
 
     /// <summary>

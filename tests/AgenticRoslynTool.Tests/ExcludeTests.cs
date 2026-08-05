@@ -38,7 +38,7 @@ public sealed class ExcludeTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
         var options = new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null, ["generated/"]);
 
-        var result = Assert.Single(new FileSplitter(options).Run());
+        var result = Assert.Single(new FileSplitter(options).Run().ReportRows);
 
         Assert.Equal("skipped", result.Status);
         Assert.Equal("excluded by pattern: generated/", result.Reason);
@@ -58,7 +58,7 @@ public sealed class ExcludeTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
         var options = new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null, [@"generated\"]);
 
-        var result = Assert.Single(new FileSplitter(options).Run());
+        var result = Assert.Single(new FileSplitter(options).Run().ReportRows);
 
         Assert.Equal("skipped", result.Status);
     }
@@ -85,7 +85,7 @@ public sealed class ExcludeTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
         var options = new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null);
 
-        var results = new FileSplitter(options).Run();
+        var results = new FileSplitter(options).Run().ReportRows;
 
         Assert.Equal(3, results.Count);
         Assert.All(results, r => Assert.Equal("split", r.Status));
@@ -104,7 +104,7 @@ public sealed class ExcludeTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
         var options = new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null, ["obj/"]);
 
-        var result = Assert.Single(new FileSplitter(options).Run());
+        var result = Assert.Single(new FileSplitter(options).Run().ReportRows);
 
         Assert.Equal("split", result.Status);
     }

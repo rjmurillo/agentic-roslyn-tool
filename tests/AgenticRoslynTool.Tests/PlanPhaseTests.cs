@@ -24,7 +24,7 @@ public sealed class PlanPhaseTests
 
         var manifest = Path.Combine(ws.Root, "manifest.csv");
         var options = new Options(listPath, manifest, ws.Root, Phase.Plan, null);
-        var results = new FileSplitter(options).Run();
+        var results = new FileSplitter(options).Run().ReportRows;
 
         var result = Assert.Single(results);
         Assert.Equal("split", result.Status);

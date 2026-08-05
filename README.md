@@ -49,7 +49,9 @@ dotnet run --project src/AgenticRoslynTool -- split-types --help
 
 ## Usage
 
-`split-types` requires `--input <csv-or-list>`. The input identifies the C# files to process.
+`split-types` requires `--input`, which identifies the C# files to process. It accepts a
+directory to scan, a single `.cs` file, a CSV with a `file` column, a text file with one
+path per line, or `-` to read paths from standard input.
 
 Use these options to control the operation:
 
@@ -57,11 +59,56 @@ Use these options to control the operation:
 | --- | --- |
 | `--phase plan\|renames\|content` | Selects one of the three phases. |
 | `--dry-run` | Runs the `plan` phase without changing source files. |
-| `--input <csv-or-list>` | Supplies the required file list. |
+| `--input <dir\|file\|csv\|list\|->` | Supplies the required file list. |
 | `--repo-root <path>` | Sets the repository root. |
 | `--manifest <path>` | Sets the CSV manifest path. |
+| `--json` | Prints one JSON report to standard output instead of CSV. |
 | `--require-header <text>` | Prepends `<text>` to every emitted file and fails the split if any output does not start with it. Off by default. |
 | `--exclude <path-substring>` | Skips any input whose path contains `<path-substring>`. Repeatable. Off by default. |
+
+### Driving it from an agent
+
+Point it at a tree and read the JSON. Nothing has to be written to disk first:
+
+```powershell
+agentic-roslyn-tool split-types --input src --dry-run --json
+```
+
+Discovery walks the directory for `.cs` files and skips `bin` and `obj`, because a build
+owns those and recreates them. Piping works too, so a `git diff` or a `ripgrep` result can
+feed the tool directly:
+
+```powershell
+git diff --name-only --diff-filter=d HEAD~1 |
+  Select-String '\.cs$' |
+  agentic-roslyn-tool split-types --input - --dry-run --json
+```
+
+Standard output carries a parseable document or nothing: the manifest CSV in `plan`, the
+JSON report under `--json`, and nothing at all in `renames` and `content` without `--json`.
+The manifest path, the one-line summary, and every error go to standard error, so a pipe
+stays clean. The JSON report leads with counts:
+
+```json
+{
+  "phase": "plan",
+  "manifest": "C:\\repo\\sa1402-split-manifest.csv",
+  "summary": { "total": 2, "split": 1, "skipped": 1, "failed": 0, "newFiles": 1 },
+  "files": [ ... ]
+}
+```
+
+Exit codes are distinct so a caller can branch without parsing anything:
+
+| Code | Meaning |
+| --- | --- |
+| `0` | The run completed and nothing failed. A run that skips every file also exits 0, so read `summary` to learn whether work happened. |
+| `1` | The run completed and at least one file failed. |
+| `2` | The command line was wrong. |
+| `3` | The run could not start or could not finish, for example a missing input file. |
+
+Errors print as a single `error: <message>` line on standard error. No error path prints a
+stack trace. `--version` prints the package version and exits 0.
 
 Use `--exclude` for directories a generator owns, so the tool records them as skipped
 instead of rewriting output that will be regenerated anyway. Matching is case insensitive
@@ -97,6 +144,8 @@ agentic-roslyn-tool split-types `
 ```
 
 `--dry-run` is an alias for the `plan` phase. The plan writes `split-types.csv` and changes nothing.
+Passing both `--dry-run` and `--phase` is an error, so argument order can never decide
+between writing a manifest and rewriting source.
 
 Next, rename files that do not match their primary type:
 

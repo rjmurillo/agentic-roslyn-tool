@@ -52,8 +52,12 @@ internal static class ManifestWriter
                 Get(fields, indexes, "type")));
         }
 
+        // The CSV repeats one logical row once per new file, so grouping reassembles them.
+        // PathComparison.Comparer, not OrdinalIgnoreCase: on a case-sensitive filesystem
+        // Foo.cs and foo.cs are two files with two plans, and merging them would apply one
+        // file's plan to the other.
         return rows
-            .GroupBy(r => r.OriginalPath, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(r => r.OriginalPath, PathComparison.Comparer)
             .Select(g =>
             {
                 var first = g.First();

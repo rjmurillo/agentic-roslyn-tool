@@ -37,11 +37,11 @@ internal sealed class TempWorkspace : IDisposable
     public IReadOnlyList<FileResult> RunPlanThenContent(string listPath, string manifestPath)
     {
         var planOptions = new Options(listPath, manifestPath, Root, Phase.Plan, null);
-        var planResults = new FileSplitter(planOptions).Run();
+        var planResults = new FileSplitter(planOptions).Run().ReportRows;
         ManifestWriter.Write(planResults, manifestPath);
 
         var contentOptions = new Options(listPath, manifestPath, Root, Phase.Content, null);
-        return new FileSplitter(contentOptions).Run();
+        return new FileSplitter(contentOptions).Run().ReportRows;
     }
 
     public void Dispose()

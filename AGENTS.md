@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 17 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 32 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 66 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `.github/workflows/ci.yml` | The CI gate. Build and test on push and pull request. |
@@ -35,8 +35,14 @@ Every source file, so you do not have to open one to find out whether it matters
 | File | Responsibility |
 |---|---|
 | `FileSplitter.cs` | The engine. Reads inputs, plans, verifies, writes. Everything below serves it. Read this first. |
-| `Program.cs` | Top level statements. Verb dispatch, manifest write, exit code. Declares no type. |
+| `Program.cs` | Top level statements. Verb dispatch, error handling, exit codes, output selection. Declares no type. |
 | `Options.cs` | Command line parsing and the option record. Add a new flag here. |
+| `RunReport.cs` | Builds the `--json` report and the one-line summary from the report rows. |
+| `RunOutcome.cs` | Splits a run into manifest rows and report rows. They differ only in the content phase. Read this before changing what the content phase writes. |
+| `RunSummary.cs` | The aggregate counts inside that report. |
+| `FileReport.cs` | One manifest row in JSON form. Field names mirror the CSV columns. |
+| `NewFileReport.cs` | One created file inside a `FileReport`, carrying its path and type name. |
+| `PathComparison.cs` | The path equality rule used for identity. Platform aware on purpose. |
 | `Phase.cs` | The `plan`, `renames`, `content` enum. |
 | `EncodedSource.cs` | Reads bytes into text while capturing encoding, byte order mark, and newline style, then writes them back unchanged. |
 | `TopLevelType.cs` | One top level type declaration plus the file name it maps to. |
@@ -52,15 +58,15 @@ Every source file, so you do not have to open one to find out whether it matters
 | `ManifestWriter.cs` | Reads and writes the CSV manifest that carries state between phases. |
 | `CsvFieldReader.cs` | Quote aware CSV field parsing for the manifest and for CSV inputs. |
 
-The tool splits itself cleanly. Running it over `src/AgenticRoslynTool/` reports 17 skips
-and exits 0. That is the cheapest smoke test in the repo, and it is how you confirm an
-end to end change actually works.
+The tool splits itself cleanly. Running it over `src/AgenticRoslynTool/` reports every file
+skipped and exits 0. That is the cheapest smoke test in the repo, and it is how you confirm
+an end to end change actually works.
 
 ## Build, test, and verify
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 32 passed, 0 failed
+dotnet test  -c Release      # must be 66 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -74,14 +80,14 @@ target framework is `net10.0`, set once in `Directory.Build.props`.
 Prove the tool still works on real files, not just that the unit tests pass:
 
 ```powershell
-"file"                                     | Out-File -Encoding utf8 in.csv
-Get-ChildItem src\AgenticRoslynTool\*.cs |
-    ForEach-Object { $_.FullName }         | Out-File -Encoding utf8 -Append in.csv
-
-dotnet run --project src\AgenticRoslynTool -- split-types --input in.csv --phase plan
+dotnet run --project src\AgenticRoslynTool -- split-types --input src\AgenticRoslynTool `
+  --manifest "$env:TEMP\smoke-manifest.csv" --dry-run --json
 ```
 
-Expect exit code 0 and every row marked `skipped`.
+Expect exit code 0, every row marked `skipped`, and `summary.failed` at 0. Point
+`--manifest` outside the repository: the plan phase writes a manifest even under
+`--dry-run`, and the default location is the repository root, which would leave an
+untracked file behind.
 
 ## Rules you must not break
 
@@ -156,9 +162,18 @@ agent does not pay again.
   travels with its type, put the comment immediately above the type declaration.
 - **The content phase overwrites the plan manifest** when both use the default path. Pass
   an explicit `--manifest` if you want to keep the plan for comparison.
-- **Exit code reflects the current run only.** It is 1 when any row in this run is
-  `failed`, and 0 otherwise. Skips are not failures, so a run that skips everything exits
-  0.
+- **Exit codes are 0, 1, 2, 3, and they mean different things.** 0 the run completed with
+  no failures, 1 a row is `failed`, 2 the command line was wrong, 3 the run could not
+  complete. Skips are not failures, so a run that skips everything exits 0. Read
+  `summary` from `--json`, or the summary line on standard error, to learn whether work
+  happened.
+- **Standard output is one document or nothing, standard error is everything else.** The
+  manifest path, the summary line, and every `error:` message go to standard error so a
+  caller can pipe standard output straight into a parser. Do not add chatter to standard
+  output.
+- **Standard input is read once per process.** A `plan` run and a `content` run are two
+  processes, so a pipe has to be repeated. Reusing one `FileSplitter` instance for both
+  phases in a test would see an empty stream on the second pass; use a list file there.
 - **`actions/setup-dotnet` with `cache: true` fails the job when no `packages.lock.json`
   exists.** It globs for lock files and errors when the glob is empty. This repository
   has no lock files, so the cache option is deliberately absent from

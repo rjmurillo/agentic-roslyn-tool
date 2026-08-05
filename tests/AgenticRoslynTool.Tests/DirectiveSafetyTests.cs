@@ -33,7 +33,7 @@ public sealed class DirectiveSafetyTests
         var listPath = ws.WriteInputList(fooPath);
 
         var options = new Options(listPath, Path.Combine(ws.Root, "m.csv"), ws.Root, Phase.Plan, null);
-        var results = new FileSplitter(options).Run();
+        var results = new FileSplitter(options).Run().ReportRows;
         var result = Assert.Single(results);
         Assert.Equal("skipped", result.Status);
         Assert.NotNull(result.Reason);
