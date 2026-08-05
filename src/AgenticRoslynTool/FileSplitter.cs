@@ -129,13 +129,20 @@ internal sealed class FileSplitter
 
         var inputs = ReadRunnableInputs(_options.InputPath).ToArray();
 
+        // Read once and keep every row. The split-only view below decides what this run can
+        // act on; the full set is what gets preserved, because a skipped or failed row is
+        // part of the plan of record and a content run must not quietly drop it.
+        //
         // PathComparison.Comparer, not OrdinalIgnoreCase: this keying has to agree with the
         // de-duplication in ReadRunnableInputs, or on Linux a plan row for Foo.cs could be
-        // applied to foo.cs.
-        var plannedFiles = ManifestWriter.Read(_options.ManifestPath)
-            .Where(r => r.Status == "split")
+        // applied to foo.cs. A path carrying both a split row and a non-split row resolves
+        // to the split one, so a duplicated manifest entry stays actionable.
+        var manifestPlan = ManifestWriter.Read(_options.ManifestPath)
             .GroupBy(r => r.OriginalPath, PathComparison.Comparer)
-            .Select(g => g.First())
+            .Select(g => g.FirstOrDefault(r => r.Status == "split") ?? g.First())
+            .ToArray();
+        var plannedFiles = manifestPlan
+            .Where(r => r.Status == "split")
             .ToDictionary(r => r.OriginalPath, PathComparison.Comparer);
 
         var results = new List<FileResult>();
@@ -158,20 +165,25 @@ internal sealed class FileSplitter
         //
         // A planned row the current input never mentioned must survive the rewrite verbatim,
         // or applying content in batches would destroy the reviewed plan for every batch
-        // after the first. It is reported as a skip, because this run did not apply it.
+        // after the first. That covers every row, not only the split ones: a skipped or
+        // failed row carries the reason the plan phase refused that file, and losing it
+        // means the next reader cannot tell a refused file from one never examined. Only
+        // the split rows are reported as unapplied, because only they described work.
         //
         // An input the plan never covered is the mirror image: it belongs in the report so
         // the caller sees the mismatch, and not in the manifest, where it would accumulate a
         // permanent tail of rows the plan phase never produced.
-        var unapplied = plannedFiles.Values.Where(p => !applied.Contains(p.OriginalPath)).ToArray();
+        var unapplied = manifestPlan.Where(p => !applied.Contains(p.OriginalPath)).ToArray();
         var manifestRows = results
             .Where(r => !string.Equals(r.Reason, NotPlannedReason, StringComparison.Ordinal))
             .Concat(unapplied)
             .ToArray();
-        var reportRows = results.Concat(unapplied.Select(p => FileResult.Skip(
-            p.OriginalPath,
-            p.KeptPath,
-            "planned as split but not supplied to the content phase input"))).ToArray();
+        var reportRows = results.Concat(unapplied
+            .Where(p => p.Status == "split")
+            .Select(p => FileResult.Skip(
+                p.OriginalPath,
+                p.KeptPath,
+                "planned as split but not supplied to the content phase input"))).ToArray();
 
         return new RunOutcome(manifestRows, reportRows);
     }
@@ -212,7 +224,7 @@ internal sealed class FileSplitter
             .GroupBy(e => e.QualifiedPath, StringComparer.OrdinalIgnoreCase)
             .Where(g => g.Count() > 1)
             .SelectMany(g => g.Select(e => e.OriginalPath))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .ToHashSet(PathComparison.Comparer);
         var notesBySource = collisionGroups
             .SelectMany(group => group.Select(entry => new
             {
