@@ -103,6 +103,6 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
 
     private static void PrintUsage()
     {
-        Console.WriteLine("Usage: AgenticRoslynTool split-types --input <csv-or-list> [--repo-root <path>] [--manifest <path>] [--phase plan|renames|content] [--dry-run] [--require-header <text>] [--exclude <path-substring>]...");
+        Console.WriteLine("Usage: agentic-roslyn-tool split-types --input <csv-or-list> [--repo-root <path>] [--manifest <path>] [--phase plan|renames|content] [--dry-run] [--require-header <text>] [--exclude <path-substring>]...");
     }
 }

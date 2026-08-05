@@ -39,7 +39,7 @@ return results.Any(r => r.Status.StartsWith("failed", StringComparison.OrdinalIg
 
 static void PrintUsage()
 {
-    Console.WriteLine("Usage: AgenticRoslynTool <command> [options]");
+    Console.WriteLine("Usage: agentic-roslyn-tool <command> [options]");
     Console.WriteLine();
     Console.WriteLine("Commands:");
     Console.WriteLine("  split-types   Split C# files that declare more than one top-level type (SA1402).");
