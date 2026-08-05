@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -39,6 +38,8 @@ internal sealed class FileSplitter
 {
     private readonly Options _options;
 
+    private readonly WorkspaceWriter _writer;
+
     /// <summary>
     /// Reason recorded when the content phase is handed a file the plan never covered. Named
     /// because the reason string decides whether the row reaches the manifest.
@@ -50,6 +51,7 @@ internal sealed class FileSplitter
     public FileSplitter(Options options)
     {
         _options = options;
+        _writer = new WorkspaceWriter(options.RepoRoot);
     }
 
     /// <summary>
@@ -85,7 +87,7 @@ internal sealed class FileSplitter
         var results = BuildResolvedPlan();
         foreach (var result in results.Where(r => r.Status == "split" && r.GitMove))
         {
-            ApplyRenameOnly(result.OriginalPath, File.ReadAllBytes(result.OriginalPath), result.KeptPath);
+            _writer.ApplyRenameOnly(result.OriginalPath, File.ReadAllBytes(result.OriginalPath), result.KeptPath);
         }
 
         return results;
@@ -422,7 +424,7 @@ internal sealed class FileSplitter
         {
             if (phase == Phase.Renames)
             {
-                ApplyRenameOnly(originalPath, originalBytes, plan.KeptPath);
+                _writer.ApplyRenameOnly(originalPath, originalBytes, plan.KeptPath);
                 return FileResult.Split(
                     originalPath,
                     plan.KeptPath,
@@ -437,7 +439,7 @@ internal sealed class FileSplitter
 
             if (phase == Phase.Content)
             {
-                WriteOutputs(readPath, originalBytes, source, plan, outputs);
+                _writer.WriteOutputs(readPath, originalBytes, source, plan, outputs);
             }
 
             return FileResult.Split(
@@ -572,109 +574,6 @@ internal sealed class FileSplitter
         return string.IsNullOrEmpty(second) ? first : first + " | " + second;
     }
 
-
-    /// <summary>
-    /// Runs the git-rename step in isolation and verifies that the file content is
-    /// unchanged after the move. If content changed for any reason, the move is
-    /// undone before reporting failure.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">Thrown when <c>git mv</c> altered the file's byte contents.</exception>
-    private void ApplyRenameOnly(string originalPath, byte[] originalBytes, string keptPath)
-    {
-        RunGitMove(originalPath, keptPath);
-        var movedBytes = File.ReadAllBytes(keptPath);
-        if (!originalBytes.SequenceEqual(movedBytes))
-        {
-            RunGitMove(keptPath, originalPath);
-            throw new InvalidOperationException($"git mv changed file content for {originalPath}");
-        }
-    }
-
-    /// <summary>
-    /// Writes every planned output file, using the encoding, BOM state, newline
-    /// style, and final-newline convention captured from the original source.
-    /// On any exception during writing, deletes the newly created sibling files and
-    /// restores the original file from the bytes read at the start of processing so
-    /// the working tree is left in its pre-run state.
-    /// </summary>
-    /// <remarks>
-    /// The local <c>moved</c> flag inside the catch block is always false, so the
-    /// <c>git mv</c> rollback branch is currently unreachable. Kept as a placeholder
-    /// for a future path where rename and content happen in one call. Do not "fix"
-    /// this by removing the branch; do it by wiring the flag correctly.
-    /// </remarks>
-    private void WriteOutputs(string originalPath, byte[] originalBytes, EncodedSource source, SplitPlan plan, IReadOnlyList<OutputFile> outputs)
-    {
-        var created = new List<string>();
-        var moved = false;
-        try
-        {
-            foreach (var output in outputs)
-            {
-                if (!StringComparer.OrdinalIgnoreCase.Equals(output.Path, originalPath) && !StringComparer.OrdinalIgnoreCase.Equals(output.Path, plan.KeptPath))
-                {
-                    created.Add(output.Path);
-                }
-
-                WriteEncoded(output.Path, output.Text, source);
-            }
-        }
-        catch
-        {
-            foreach (var path in created.Where(File.Exists))
-            {
-                File.Delete(path);
-            }
-
-            if (moved && File.Exists(plan.KeptPath))
-            {
-                RunGitMove(plan.KeptPath, originalPath);
-            }
-
-            File.WriteAllBytes(originalPath, originalBytes);
-            throw;
-        }
-    }
-
-    /// <summary>Runs <c>git mv</c> from the configured repository root and throws with stderr and stdout attached on failure.</summary>
-    /// <exception cref="InvalidOperationException">Thrown when the git process cannot be started or exits with a non-zero code.</exception>
-    private void RunGitMove(string source, string target)
-    {
-        var psi = new ProcessStartInfo("git", $"mv \"{source}\" \"{target}\"")
-        {
-            WorkingDirectory = _options.RepoRoot,
-            RedirectStandardError = true,
-            RedirectStandardOutput = true,
-            UseShellExecute = false,
-        };
-        using var process = System.Diagnostics.Process.Start(psi) ?? throw new InvalidOperationException("failed to start git mv");
-        process.WaitForExit();
-        if (process.ExitCode != 0)
-        {
-            throw new InvalidOperationException("git mv failed: " + process.StandardError.ReadToEnd() + process.StandardOutput.ReadToEnd());
-        }
-    }
-
-    /// <summary>
-    /// Writes the text to disk, preserving the source encoding and BOM. When the
-    /// source had no BOM, the output has no BOM either; this is the point where the
-    /// tool avoids gratuitous whole-file diffs on re-serialization.
-    /// </summary>
-    private static void WriteEncoded(string path, string text, EncodedSource source)
-    {
-        var body = source.Encoding.GetBytes(text);
-        if (!source.EmitPreamble)
-        {
-            File.WriteAllBytes(path, body);
-            return;
-        }
-
-        var preamble = source.Encoding.GetPreamble();
-        var bytes = new byte[preamble.Length + body.Length];
-        Buffer.BlockCopy(preamble, 0, bytes, 0, preamble.Length);
-        Buffer.BlockCopy(body, 0, bytes, preamble.Length, body.Length);
-        File.WriteAllBytes(path, bytes);
-    }
 
     /// <summary>
     /// Returns the first <c>--exclude</c> pattern matching <paramref name="path"/>, or null
