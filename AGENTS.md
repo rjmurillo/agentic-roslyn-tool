@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 17 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 64 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 66 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `.github/workflows/ci.yml` | The CI gate. Build and test on push and pull request. |
@@ -66,7 +66,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 64 passed, 0 failed
+dotnet test  -c Release      # must be 66 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`

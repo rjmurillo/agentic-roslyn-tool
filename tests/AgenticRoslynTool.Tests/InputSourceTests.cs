@@ -285,6 +285,11 @@ public sealed class InputSourceTests
         using var guard = ReadBlock.Apply(blocked);
         if (!guard.Applied)
         {
+            // A run as root, or a file system that ignores the mode bits, never creates the
+            // condition under test, so there is nothing here to assert. Opting out beats
+            // asserting against a state this test failed to produce. xunit 2.x has no dynamic
+            // skip, so the opt-out is silent; the Linux CI job runs as a non-root user and
+            // does exercise it.
             return;
         }
 

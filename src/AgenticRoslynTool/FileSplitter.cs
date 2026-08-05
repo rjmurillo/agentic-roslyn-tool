@@ -114,8 +114,8 @@ internal sealed class FileSplitter
     /// unreadable list file or a malformed path, and the content phase rewrites source as it
     /// goes. Streaming would let an early input be rewritten and a later one abort the run
     /// before the manifest is written, leaving changed files and no record of which. Per-file
-    /// failures inside the loop are handled the same way for the same reason: a read failure,
-    /// a decode failure, or a write failure becomes a row rather than an abort, so the
+    /// failures inside the loop are handled the same way for the same reason: <see cref="Process"/>
+    /// turns any failure on one input, expected or not, into a row rather than an abort, so the
     /// manifest always describes what the run actually did.
     /// </remarks>
     private RunOutcome RunContent()
@@ -291,7 +291,37 @@ internal sealed class FileSplitter
     /// <param name="phase">The phase currently running.</param>
     /// <param name="planned">The manifest row for this input, or null in the plan and renames phases.</param>
     /// <returns>A result describing the outcome for this input.</returns>
+    /// <remarks>
+    /// The catch is unfiltered on purpose, and for the same reason the one in
+    /// <c>Program.Main</c> is. The content phase rewrites files as it goes and writes the
+    /// manifest at the end, so anything that escapes this method strands every file already
+    /// rewritten with no record of them. A filtered catch only holds until some path throws a
+    /// type nobody listed, and this method reaches an inconsistent rename state, a hand-edited
+    /// manifest, and the file system. One bad input costs a failed row; one escaped exception
+    /// costs the plan of record.
+    /// </remarks>
     private FileResult Process(string path, Phase phase, FileResult? planned)
+    {
+        try
+        {
+            return ProcessCore(path, phase, planned);
+        }
+        catch (Exception ex)
+        {
+            var reported = Path.GetFullPath(path);
+            return FileResult.Failed(reported, reported, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Implements <see cref="Process"/>. Kept separate so every exit path, including an
+    /// unexpected throw, funnels through the one guard in the caller.
+    /// </summary>
+    /// <param name="path">Absolute or relative input path.</param>
+    /// <param name="phase">The phase currently running.</param>
+    /// <param name="planned">The manifest row for this input, or null in the plan and renames phases.</param>
+    /// <returns>A result describing the outcome for this input.</returns>
+    private FileResult ProcessCore(string path, Phase phase, FileResult? planned)
     {
         var originalPath = Path.GetFullPath(path);
         var excluded = MatchExclude(originalPath);

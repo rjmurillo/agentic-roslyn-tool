@@ -202,6 +202,15 @@ Reason text shown in italics is a template; the run substitutes real values.
 | File has top level statements | skipped | `contains top-level statements; manual split required` |
 | One type or fewer | skipped | `nothing to split: input has <n> top-level type declaration(s)` |
 | Any `file` scoped type | skipped | `contains file-local type; manual split required` |
+| Anything else that throws while handling one input | failed | the exception message |
+
+The last row is the catch all, and it is deliberate. The content phase rewrites files as it
+goes and writes the manifest once, at the end, so an exception that escapes one input strands
+every file already rewritten in that run with no record of them. Every failure on one input
+therefore becomes a row. Two states reach that catch without being a read, decode, or write
+failure: an inconsistent rename state, where the plan asked for a `git mv` that was never
+applied or was applied while the original path still exists, and a manifest edited into a
+shape the plan phase never produces, such as two rows for the same type.
 
 The exclusion check runs first, before the existence check, so an excluded path does not
 have to exist. Exclusion patterns come only from `--exclude`, which defaults to empty.
