@@ -24,8 +24,8 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 17 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 66 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 29 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 73 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `.github/workflows/ci.yml` | The CI gate. Build and test on push and pull request. |
@@ -34,7 +34,13 @@ Every source file, so you do not have to open one to find out whether it matters
 
 | File | Responsibility |
 |---|---|
-| `FileSplitter.cs` | The engine. Reads inputs, plans, verifies, writes. Everything below serves it. Read this first. |
+| `FileSplitter.cs` | The orchestrator. Runs a phase over the inputs and turns one input into one result row. Delegates the actual work to the six types below it. Read this first. |
+| `InputSource.cs` | Turns whatever the caller supplied, a directory, a list file, a manifest, standard input, into an ordered list of absolute paths. |
+| `SplitPlanner.cs` | Decides what a split would do: which type stays, where each moved type lands, which inputs collide, which path a phase reads. Does not act. |
+| `DirectiveAnalyzer.cs` | Decides whether preprocessor directives make a split unsafe. Returns a verdict, never acts on one. |
+| `OutputBuilder.cs` | Renders the text of every output file: name, carved source, required header, trailing newline. |
+| `OutputVerifier.cs` | The correctness checks, run against in-memory outputs before anything is written. A failure here means nothing reaches disk. |
+| `WorkspaceWriter.cs` | The only place the tool touches the working tree. Every rename runs through `git mv`; every write preserves encoding and byte order mark. |
 | `Program.cs` | Top level statements. Verb dispatch, error handling, exit codes, output selection. Declares no type. |
 | `Options.cs` | Command line parsing and the option record. Add a new flag here. |
 | `RunReport.cs` | Builds the `--json` report and the one-line summary from the report rows. |
@@ -66,7 +72,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 66 passed, 0 failed
+dotnet test  -c Release      # must be 73 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -198,9 +204,6 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   on plain `net10.0`. The custom reader is kept because it works, is covered by seven
   tests, and carries no dependency on a Visual Basic compatibility API. Replacing it with
   `TextFieldParser` is a legitimate simplification nobody has measured on Linux.
-- `FileSplitter.cs` is over a thousand lines and exceeds an ordinary method count and file
-  size bar. Splitting it is a real refactor with real behavior risk, and it has not been
-  done. Weigh that risk before you start.
 - A stale plan manifest is detected structurally only. The manifest records paths and type
   names, not a content hash, so an edit that preserves both passes the mismatch check.
 

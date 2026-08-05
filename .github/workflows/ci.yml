@@ -4,9 +4,9 @@ on:
   push:
     branches:
       - main
+  # Every pull request is gated, whatever it targets. A stacked pull request based on
+  # another feature branch is exactly the case a `- main` filter silently skips.
   pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 concurrency:

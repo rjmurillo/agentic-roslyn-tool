@@ -58,7 +58,7 @@ public sealed class FilenameCollisionTests
             Split("foo.cs", "Shared.cs"),
         };
 
-        var resolved = FileSplitter.ResolvePlannedOutputCollisions(results);
+        var resolved = SplitPlanner.ResolvePlannedOutputCollisions(results);
 
         if (OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
         {
