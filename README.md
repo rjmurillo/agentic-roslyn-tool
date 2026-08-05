@@ -92,7 +92,7 @@ stays clean. The JSON report leads with counts:
 ```json
 {
   "phase": "plan",
-  "manifest": "C:\\repo\\src\\sa1402-split-manifest.csv",
+  "manifest": "C:\\repo\\sa1402-split-manifest.csv",
   "summary": { "total": 2, "split": 1, "skipped": 1, "failed": 0, "newFiles": 1 },
   "files": [ ... ]
 }

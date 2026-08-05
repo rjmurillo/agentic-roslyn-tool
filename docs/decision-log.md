@@ -342,6 +342,17 @@ de-duplicated by physical identity so one file is never split twice. Case sensit
 taken from the operating system, not probed per volume; a case-sensitive volume mounted on
 Windows or macOS is a stated limitation rather than a filesystem write on every run.
 
+Automated review of the pull request found three ways this contract still leaked, and all
+three are now covered by a test against the real executable. The catch at the process
+boundary is unfiltered, because a filtered one only holds until some path throws a type
+nobody listed: a manifest with a duplicate header name threw `ArgumentException` out of
+`ManifestWriter.Read`, printed a stack trace, and exited `-532462766`, which is the exact
+failure this decision exists to prevent. `--help` and `--version` are recognized only in an
+option position, because scanning every token turned `--input help` into a successful
+no-op: usage on standard output, exit 0, nothing done. That reads as success to a caller
+that cannot see the screen. Knowing which tokens are values lives beside the parser switch
+in `Options`, since a new value-taking option has to update both or the scan drifts.
+
 ## Unrecorded decisions
 
 Recorded so nobody assumes these were considered.

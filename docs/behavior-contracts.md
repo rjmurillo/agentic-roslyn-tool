@@ -25,7 +25,7 @@ document disagree, the code wins and this document is a bug.
 ## The command
 
 ```
-agentic-roslyn-tool split-types --input <dir|csv|list|-> [options]
+agentic-roslyn-tool split-types --input <dir|file.cs|csv|list|-> [options]
 ```
 
 | Contract | Value |
@@ -41,10 +41,12 @@ agentic-roslyn-tool split-types --input <dir|csv|list|-> [options]
 
 `--help`, `-h`, and `help` print usage on standard output and exit 0, in either the verb
 position or after `split-types`, and never depend on the rest of the command line being
-valid. `--version` prints the package version and exits 0, also in either position. No
-arguments, an unrecognized verb, or a bad option prints a one-line `error: ...` on standard
-error, prints usage on standard error too, and exits 2. No error path prints a stack trace,
-and no error path writes to standard output.
+valid. `--version` prints the package version and exits 0, also in either position. Both
+are recognized only in an option position, so `--input help` looks for a file named `help`
+rather than printing usage. No arguments, an unrecognized verb, or a bad option prints a
+one-line `error: ...` on standard error, prints usage on standard error too, and exits 2.
+Any other failure during the run prints one `error: ...` line and exits 3. No error path
+prints a stack trace, and no error path writes to standard output.
 
 ## Input sources
 
