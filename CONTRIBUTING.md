@@ -82,3 +82,36 @@ be moved, a SHA cannot. Keep it that way when you update one.
 In the pull request body, say what changed, why, and how you verified it. If you found a
 problem and chose not to fix it, say that too, and record it in the "Known issues" section
 of AGENTS.md so the next contributor does not rediscover it.
+
+## Releasing
+
+The tool ships to NuGet as a .NET tool package. Publishing is tag driven: push a tag
+matching `v*` and `.github/workflows/release.yml` builds, tests, packs, and pushes with
+the version taken from the tag.
+
+```powershell
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+The tag must read `vMAJOR.MINOR.PATCH` with an optional prerelease suffix, for example
+`v0.2.0` or `v0.2.0-rc.1`. The workflow rejects anything else before it builds, so a
+malformed tag cannot reach NuGet. Republishing a version that already exists fails rather
+than being skipped, because NuGet does not allow true deletion and a silent skip would
+report a release that never happened.
+
+The tag is the only place the shipped version comes from. `<Version>` in the csproj is a
+fallback for local packing, so it does not need to match the tag. The workflow needs a
+`NUGET_API_KEY` secret on the `nuget` environment. Required reviewers on that environment
+gate the whole job, so an approver signs off on the tag before the package is built rather
+than on a finished artifact.
+
+Verify a package locally before tagging:
+
+```powershell
+dotnet pack src/AgenticRoslynTool -c Release -o artifacts
+dnx --source artifacts --yes AgenticRoslynTool
+```
+
+If you rename `ToolCommandName`, the command every consumer types changes. That is a
+breaking change for anyone scripting the tool, so treat it as one.

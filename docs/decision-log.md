@@ -270,7 +270,29 @@ exist.
 > pattern "because everyone excludes it", you are re-creating the defect. The caller knows
 > which of their directories are generated. The tool does not.
 
-## Decisions with unknown reasoning
+## 15. Shipped as a .NET tool package
+
+**Decision.** `PackAsTool` with `ToolCommandName` set to `agentic-roslyn-tool`, published
+to NuGet from a `v*` tag.
+
+**Why.** The tool is meant to run against other people's repositories. Cloning and building
+this one first is friction that has nothing to do with the job. A tool package supports all
+three shapes a consumer might want: `dnx` for a single run with no install, a global install
+for repeated use, and a local tool manifest for a team that wants a pinned version checked
+in.
+
+**Consequences.** The package name and the command name are now public contract. Renaming
+either breaks every script that calls the tool. Packing also pulls the README into the
+package, so a broken relative link in the README shows up on the NuGet listing where it
+cannot be fixed without a new version. That is why the README links to documentation by
+absolute URL rather than relative path.
+
+The workflow does not check that the tagged commit is reachable from `main`, so anyone who
+can push a tag can publish a commit that never went through review. Repository write access
+is the boundary being trusted here, and it is the same access that could push to `main`
+directly. Add an ancestry check if that assumption stops holding.
+
+
 
 Recorded so nobody assumes these were considered.
 

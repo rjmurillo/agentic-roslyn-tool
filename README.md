@@ -12,17 +12,38 @@ dotnet format analyzers --diagnostics SA1402
 
 Production testing confirmed this behavior before development started. This tool provides the missing repository-wide operation.
 
-## Install and build
+## Install
 
-Clone the repository, then build it:
+The tool ships as a .NET tool package on NuGet and needs the .NET 10 SDK.
+
+Run it once without installing:
+
+```powershell
+dnx AgenticRoslynTool split-types --help
+```
+
+Install it globally:
+
+```powershell
+dotnet tool install --global AgenticRoslynTool
+agentic-roslyn-tool split-types --help
+```
+
+Install it into a repository so every contributor gets the same version:
+
+```powershell
+dotnet new tool-manifest        # only if the repository has no manifest yet
+dotnet tool install AgenticRoslynTool
+dotnet agentic-roslyn-tool split-types --help
+```
+
+The examples below use `agentic-roslyn-tool`. Substitute `dnx AgenticRoslynTool`
+or `dotnet agentic-roslyn-tool` if you picked one of the other two.
+
+## Build from source
 
 ```powershell
 dotnet build
-```
-
-Run the tool from source:
-
-```powershell
 dotnet run --project src/AgenticRoslynTool -- split-types --help
 ```
 
@@ -47,14 +68,14 @@ instead of rewriting output that will be regenerated anyway. Matching is case in
 and separator agnostic, so one pattern works on Windows and Linux:
 
 ```powershell
-AgenticRoslynTool split-types --input files.txt --exclude obj/ --exclude /generated/
+agentic-roslyn-tool split-types --input files.txt --exclude obj/ --exclude /generated/
 ```
 
 Use `--require-header` when your repository mandates a file header, for example a
 license or copyright line. Pass the exact text of the first header line:
 
 ```powershell
-AgenticRoslynTool split-types --input files.txt --require-header "// Copyright (c) Contoso."
+agentic-roslyn-tool split-types --input files.txt --require-header "// Copyright (c) Contoso."
 ```
 
 The header is normalized to the newline style of each source file, so you can pass it with
@@ -68,7 +89,7 @@ emits no header and leaves each type's own leading comments attached to that typ
 Assume `files.txt` lists repository-relative C# paths. First, create and review a plan:
 
 ```powershell
-dotnet run --project src/AgenticRoslynTool -- split-types `
+agentic-roslyn-tool split-types `
   --phase plan `
   --input files.txt `
   --repo-root . `
@@ -80,7 +101,7 @@ dotnet run --project src/AgenticRoslynTool -- split-types `
 Next, rename files that do not match their primary type:
 
 ```powershell
-dotnet run --project src/AgenticRoslynTool -- split-types `
+agentic-roslyn-tool split-types `
   --phase renames `
   --input files.txt `
   --repo-root . `
@@ -99,7 +120,7 @@ review it again if the tree changed since your last plan.
 Finally, split files and review the result:
 
 ```powershell
-dotnet run --project src/AgenticRoslynTool -- split-types `
+agentic-roslyn-tool split-types `
   --phase content `
   --input files.txt `
   --repo-root . `
@@ -153,10 +174,10 @@ One production run processed 7,818 files and split 461 of them. Roslyn parsed ev
 
 | Document | What it covers |
 |---|---|
-| [AGENTS.md](AGENTS.md) | Orientation for AI agents and new contributors. Repository map, invariants that must not break, and traps that have already cost someone time. |
-| [docs/behavior-contracts.md](docs/behavior-contracts.md) | What each phase and each safety guard promises, including every skip and failure reason. |
-| [docs/decision-log.md](docs/decision-log.md) | Why the tool is built this way, and what breaks if a decision is reversed. |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Build, test, commit conventions, and the CI gate. |
+| [AGENTS.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/AGENTS.md) | Orientation for AI agents and new contributors. Repository map, invariants that must not break, and traps that have already cost someone time. |
+| [docs/behavior-contracts.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/behavior-contracts.md) | What each phase and each safety guard promises, including every skip and failure reason. |
+| [docs/decision-log.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/decision-log.md) | Why the tool is built this way, and what breaks if a decision is reversed. |
+| [CONTRIBUTING.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/CONTRIBUTING.md) | Build, test, commit conventions, and the CI gate. |
 
 ## Credit
 
@@ -164,4 +185,4 @@ One production run processed 7,818 files and split 461 of them. Roslyn parsed ev
 
 ## License
 
-This project uses the MIT License. See [LICENSE](LICENSE).
+This project uses the MIT License. See [LICENSE](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/LICENSE).
