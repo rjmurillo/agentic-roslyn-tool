@@ -8,8 +8,10 @@ namespace AgenticRoslynTool;
 /// <remarks>
 /// Split out of <see cref="FileSplitter"/> because the plan is the tool's contract with
 /// the agent driving it, and it was previously interleaved with the code that applies the
-/// plan. Everything here is static and reads only its arguments, so a plan can be built
-/// and asserted on without a run.
+/// plan. Everything here is static and reads no instance state. Two of these methods do
+/// probe the file system: <see cref="BuildPlan"/> and <see cref="GetReadPath"/> both call
+/// <c>File.Exists</c> on a candidate target, which is what makes the plan-then-apply
+/// workflow safe. The rest are pure over their arguments.
 /// </remarks>
 internal static class SplitPlanner
 {
