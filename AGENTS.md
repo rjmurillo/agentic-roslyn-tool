@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 29 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 73 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 75 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `.github/workflows/ci.yml` | The CI gate. Build and test on push and pull request. |
@@ -72,7 +72,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 73 passed, 0 failed
+dotnet test  -c Release      # must be 75 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -195,9 +195,6 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
 - The `moved` local in `FileSplitter.WriteOutputs` is never assigned `true`, so the git
   move rollback branch inside the catch block is unreachable. The file deletion and
   original restore parts of that same catch block do run.
-- `EnsureHeader` probes with an unanchored `StartsWith` on the trimmed header, so a file
-  starting with `// B-extra` satisfies a required header of `// B`. The check is weaker
-  than it looks.
 - `CsvFieldReader` exists, but not for the reason previously recorded here. The claim was
   that `Microsoft.VisualBasic.FileIO.TextFieldParser` forces a Windows only target. That
   was tested on this machine and is false: it compiles and parses quoted commas correctly

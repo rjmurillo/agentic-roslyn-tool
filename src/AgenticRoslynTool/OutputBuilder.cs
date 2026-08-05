@@ -84,9 +84,32 @@ internal static class OutputBuilder
     }
 
     /// <summary>
+    /// Reports whether <paramref name="text"/> already opens with <paramref name="header"/>.
+    /// The match is anchored at a line boundary, so a file starting with <c>// B-extra</c>
+    /// does not satisfy a required header of <c>// B</c>. Callers may hold the header in
+    /// either form the pipeline produces: bare, or followed by blank lines. This is the
+    /// single predicate behind both <see cref="EnsureHeader"/> and
+    /// <see cref="OutputVerifier.VerifyOutputs"/>; they must agree or a file would have the
+    /// banner declared present and then be rejected for not having it.
+    /// </summary>
+    internal static bool StartsWithHeader(string text, string? header)
+    {
+        var probe = header?.Trim() ?? string.Empty;
+        if (probe.Length == 0)
+        {
+            return true;
+        }
+
+        return text.StartsWith(probe, StringComparison.Ordinal)
+            && (text.Length == probe.Length || text[probe.Length] is '\r' or '\n');
+    }
+
+    /// <summary>
     /// Prepends the required header when the text does not already start with it.
-    /// A file that already carries the banner keeps its existing spacing and does
-    /// not receive a second copy.
+    /// A file that already carries the banner does not receive a second copy and keeps
+    /// its spacing below the banner. Leading whitespace above the banner is dropped in
+    /// both branches, because <see cref="OutputVerifier.VerifyOutputs"/> requires the
+    /// header at offset zero.
     /// </summary>
     internal static string EnsureHeader(string text, string header)
     {
@@ -95,13 +118,8 @@ internal static class OutputBuilder
             return text;
         }
 
-        var headerProbe = header.TrimStart();
-        if (headerProbe.Length == 0)
-        {
-            return text;
-        }
-
-        return text.TrimStart().StartsWith(headerProbe.TrimEnd(), StringComparison.Ordinal) ? text : header + text.TrimStart();
+        var trimmed = text.TrimStart();
+        return StartsWithHeader(trimmed, header) ? trimmed : header + trimmed;
     }
 
     internal static string EnsureTrailingNewLine(string text, string newLine, bool hasFinalNewLine)

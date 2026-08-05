@@ -171,6 +171,75 @@ public sealed class HeaderBehaviorTests
         }
     }
 
+    [Fact]
+    public void RequiredHeader_SourceStartsWithLongerCommentSharingThePrefix_StillGetsTheBanner()
+    {
+        // The presence probe used to be an unanchored StartsWith, so a first line of
+        // "// Copyright (c) Contoso.Extra" satisfied a required header of
+        // "// Copyright (c) Contoso." and the banner was never injected.
+        using var ws = new TempWorkspace();
+        const string required = "// Copyright (c) Contoso.";
+        var source =
+            required + "Extra\n" +
+            "using System;\n" +
+            "\n" +
+            "namespace Sample.Ns;\n" +
+            "\n" +
+            "public class Foo { }\n" +
+            "\n" +
+            "public class Bar { }\n";
+        var fooPath = ws.WriteFile("Foo.cs", source);
+        var listPath = ws.WriteInputList(fooPath);
+        var manifest = Path.Combine(ws.Root, "m.csv");
+
+        var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run().ReportRows;
+        ManifestWriter.Write(planResults, manifest);
+        var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run().ReportRows;
+        Assert.Equal("split", Assert.Single(contentResults).Status);
+
+        foreach (var path in new[] { fooPath, Path.Combine(ws.Root, "Bar.cs") })
+        {
+            Assert.StartsWith(required + "\n\n", File.ReadAllText(path));
+        }
+    }
+
+    [Fact]
+    public void RequiredHeader_SourceStartsWithBlankLineBeforeTheBanner_SplitsInsteadOfFailingVerification()
+    {
+        // EnsureHeader compared the trimmed text while the verifier compared the raw
+        // text, so a banner sitting under a leading blank line was declared present and
+        // then rejected as missing. The plan phase recorded the file as failed and the
+        // content phase then skipped it, so the file never split.
+        using var ws = new TempWorkspace();
+        const string required = "// Copyright (c) Contoso.";
+        var source =
+            "\n" +
+            required + "\n" +
+            "using System;\n" +
+            "\n" +
+            "namespace Sample.Ns;\n" +
+            "\n" +
+            "public class Foo { }\n" +
+            "\n" +
+            "public class Bar { }\n";
+        var fooPath = ws.WriteFile("Foo.cs", source);
+        var listPath = ws.WriteInputList(fooPath);
+        var manifest = Path.Combine(ws.Root, "m.csv");
+
+        var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run().ReportRows;
+        ManifestWriter.Write(planResults, manifest);
+        var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run().ReportRows;
+        var result = Assert.Single(contentResults);
+        Assert.Equal("split", result.Status);
+
+        foreach (var path in new[] { fooPath, Path.Combine(ws.Root, "Bar.cs") })
+        {
+            var text = File.ReadAllText(path);
+            Assert.StartsWith(required, text);
+            Assert.Equal(1, CountOccurrences(text, required));
+        }
+    }
+
     private static int CountOccurrences(string text, string value)
     {
         var count = 0;

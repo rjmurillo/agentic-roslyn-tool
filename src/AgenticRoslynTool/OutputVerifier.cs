@@ -31,7 +31,7 @@ internal static class OutputVerifier
     {
         foreach (var output in outputs)
         {
-            if (!string.IsNullOrEmpty(requiredHeader) && !output.Text.StartsWith(requiredHeader, StringComparison.Ordinal))
+            if (!OutputBuilder.StartsWithHeader(output.Text, requiredHeader))
             {
                 throw new InvalidOperationException($"{output.Path} does not start with required file header");
             }
