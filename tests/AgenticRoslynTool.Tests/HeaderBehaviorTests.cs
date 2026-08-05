@@ -64,9 +64,9 @@ public sealed class HeaderBehaviorTests
         var listPath = ws.WriteInputList(fooPath);
         var manifest = Path.Combine(ws.Root, "m.csv");
 
-        var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run();
+        var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run().ReportRows;
         ManifestWriter.Write(planResults, manifest);
-        var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run();
+        var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run().ReportRows;
 
         // If line conservation were still un-seeded with the header, this would be
         // "failed: non-prologue line was duplicated".
@@ -99,9 +99,9 @@ public sealed class HeaderBehaviorTests
         var listPath = ws.WriteInputList(fooPath);
         var manifest = Path.Combine(ws.Root, "m.csv");
 
-        var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run();
+        var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run().ReportRows;
         ManifestWriter.Write(planResults, manifest);
-        var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run();
+        var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run().ReportRows;
         Assert.Equal("split", Assert.Single(contentResults).Status);
 
         var barText = File.ReadAllText(Path.Combine(ws.Root, "Bar.cs"));
@@ -130,9 +130,9 @@ public sealed class HeaderBehaviorTests
         var listPath = ws.WriteInputList(fooPath);
         var manifest = Path.Combine(ws.Root, "m.csv");
 
-        var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run();
+        var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run().ReportRows;
         ManifestWriter.Write(planResults, manifest);
-        var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run();
+        var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run().ReportRows;
         Assert.Equal("split", Assert.Single(contentResults).Status);
 
         var barText = File.ReadAllText(Path.Combine(ws.Root, "Bar.cs"));
@@ -158,9 +158,9 @@ public sealed class HeaderBehaviorTests
         var listPath = ws.WriteInputList(fooPath);
         var manifest = Path.Combine(ws.Root, "m.csv");
 
-        var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run();
+        var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run().ReportRows;
         ManifestWriter.Write(planResults, manifest);
-        var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run();
+        var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run().ReportRows;
         Assert.Equal("split", Assert.Single(contentResults).Status);
 
         foreach (var path in new[] { fooPath, Path.Combine(ws.Root, "Bar.cs") })

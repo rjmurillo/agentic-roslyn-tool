@@ -26,7 +26,7 @@ public sealed class ManifestPathTamperingTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var planOptions = new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null);
-        var planResults = new FileSplitter(planOptions).Run();
+        var planResults = new FileSplitter(planOptions).Run().ReportRows;
         ManifestWriter.Write(planResults, manifestPath);
 
         // Redirect the planned output for Bar onto an existing, unrelated file.
@@ -38,7 +38,7 @@ public sealed class ManifestPathTamperingTests
         ManifestWriter.Write(tampered, manifestPath);
 
         var contentOptions = new Options(listPath, manifestPath, workspace.Root, Phase.Content, null);
-        var results = new FileSplitter(contentOptions).Run();
+        var results = new FileSplitter(contentOptions).Run().ReportRows;
 
         var result = Assert.Single(results);
         Assert.Equal("skipped", result.Status);
@@ -59,7 +59,7 @@ public sealed class ManifestPathTamperingTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var planOptions = new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null);
-        var planResults = new FileSplitter(planOptions).Run();
+        var planResults = new FileSplitter(planOptions).Run().ReportRows;
         ManifestWriter.Write(planResults, manifestPath);
 
         // Point both new files at the same path. Left unchecked, the second write wins and
@@ -74,7 +74,7 @@ public sealed class ManifestPathTamperingTests
 
         var contentOptions = new Options(listPath, manifestPath, workspace.Root, Phase.Content, null);
 
-        var result = Assert.Single(new FileSplitter(contentOptions).Run());
+        var result = Assert.Single(new FileSplitter(contentOptions).Run().ReportRows);
 
         Assert.Equal("skipped", result.Status);
         Assert.Contains("target path collision within split", result.Reason);
