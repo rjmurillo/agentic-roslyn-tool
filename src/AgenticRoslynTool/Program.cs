@@ -37,13 +37,14 @@ if (verb != "split-types")
 // Handled here rather than inside Options.Parse so that asking for help or for the version
 // never depends on the rest of the command line being valid, and so parsing never
 // terminates the process. Both are accepted in either position for the same reason.
-if (args.Skip(1).Any(arg => arg is "--help" or "-h" or "help"))
+var rest = args.Skip(1).ToArray();
+if (Options.HasMetaOption(rest, "--help", "-h", "help"))
 {
     PrintUsage(Console.Out);
     return 0;
 }
 
-if (args.Skip(1).Contains("--version"))
+if (Options.HasMetaOption(rest, "--version"))
 {
     Console.WriteLine(ReadVersion());
     return 0;
@@ -52,7 +53,7 @@ if (args.Skip(1).Contains("--version"))
 Options options;
 try
 {
-    options = Options.Parse(args.Skip(1).ToArray());
+    options = Options.Parse(rest);
 }
 catch (ArgumentException ex)
 {
@@ -83,7 +84,13 @@ try
     Console.Error.WriteLine(report.ToSummaryLine());
     return report.Summary.Failed > 0 ? 1 : 0;
 }
-catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+// Unfiltered on purpose. This is the process boundary, and the contract an agent depends on
+// is that a failed run emits one "error:" line and exit 3, never a stack trace and never
+// exit -532462766. A filter here only holds until some path throws a type nobody listed:
+// a manifest with a duplicate header name, for instance, throws ArgumentException out of
+// ManifestWriter.Read. The stack trace is still available to a human through the exception
+// message plus the failing input, which is what the summary and manifest already carry.
+catch (Exception ex)
 {
     Console.Error.WriteLine($"error: {ex.Message}");
     return 3;

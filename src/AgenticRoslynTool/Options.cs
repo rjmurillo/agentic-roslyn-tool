@@ -100,6 +100,40 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
     /// <summary>The <c>--input</c> value that means "read newline-delimited paths from standard input".</summary>
     public const string StdinPath = "-";
 
+    /// <summary>Options that consume the token after them, so that token is a value and never a flag.</summary>
+    private static readonly string[] ValueOptions =
+        ["--input", "--manifest", "--repo-root", "--phase", "--require-header", "--exclude"];
+
+    /// <summary>
+    /// True when any of <paramref name="names"/> appears in an option position.
+    /// </summary>
+    /// <remarks>
+    /// Scanning every token instead would make <c>--input help</c> print usage and exit 0
+    /// rather than looking for a file named <c>help</c>, which is a silent no-op for a
+    /// caller that cannot see the screen. Lives here because <see cref="ValueOptions"/>
+    /// has to stay in step with the switch in <see cref="Parse"/>.
+    /// </remarks>
+    /// <param name="args">Command-line arguments after the verb.</param>
+    /// <param name="names">The meta-option spellings to look for.</param>
+    public static bool HasMetaOption(string[] args, params string[] names)
+    {
+        for (var i = 0; i < args.Length; i++)
+        {
+            if (Array.IndexOf(ValueOptions, args[i]) >= 0)
+            {
+                i++;
+                continue;
+            }
+
+            if (Array.IndexOf(names, args[i]) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Chooses where an unspecified manifest lands: beside a list or CSV input, and in the
     /// repository root when the input is a directory or standard input. A scanned directory
