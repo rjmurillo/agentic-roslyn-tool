@@ -353,6 +353,19 @@ no-op: usage on standard output, exit 0, nothing done. That reads as success to 
 that cannot see the screen. Knowing which tokens are values lives beside the parser switch
 in `Options`, since a new value-taking option has to update both or the scan drifts.
 
+The same argument runs one level down, at the per-file boundary. The content phase rewrites
+source as it goes and writes the manifest once at the end, so an exception escaping one
+input strands every file already rewritten with no record of them, and the manifest is what
+an agent applies in batches. Three review rounds each found another site inside `Process`
+that threw past the write: enumeration of a lazy input list, `File.ReadAllBytes` on a file
+`File.Exists` had just approved, `GetReadPath` on a rename the operator never applied, and
+`BuildPlan` on a manifest carrying two rows for one type. Guarding them one at a time was
+losing to the same pattern as a filtered catch, so the guard moved to the boundary:
+`Process` wraps `ProcessCore` and turns anything that escapes into a failed row. The cost is
+that a genuine bug in the tool now reports as a failed row and exit 1 rather than exit 3.
+That is the better trade here, because exit 1 comes with a manifest naming the input that
+failed, and exit 3 came with nothing.
+
 ## Unrecorded decisions
 
 Recorded so nobody assumes these were considered.
