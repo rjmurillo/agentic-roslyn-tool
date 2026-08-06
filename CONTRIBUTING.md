@@ -94,6 +94,17 @@ git tag v0.2.0
 git push origin v0.2.0
 ```
 
+The same workflow also runs from `workflow_dispatch`, so a release can be cut without
+pushing a tag. It takes a `version` input and a `push_nuget` toggle. Run it with
+`push_nuget` off when the NuGet credential is unusable: the GitHub release and its
+attached package still get published, and the same run can be repeated later with the
+toggle on. A dispatch run creates the tag if it does not exist yet.
+
+The workflow publishes the GitHub release before it pushes to NuGet, so a NuGet failure
+never costs you the release. When the release already exists, the package is uploaded to
+it with `--clobber` and hand written notes are left alone. When it does not, notes are
+generated from the commits.
+
 The tag must read `vMAJOR.MINOR.PATCH` with an optional prerelease suffix, for example
 `v0.2.0` or `v0.2.0-rc.1`. The workflow rejects anything else before it builds, so a
 malformed tag cannot reach NuGet. Republishing a version that already exists fails rather
@@ -101,10 +112,16 @@ than being skipped, because NuGet does not allow true deletion and a silent skip
 report a release that never happened.
 
 The tag is the only place the shipped version comes from. `<Version>` in the csproj is a
-fallback for local packing, so it does not need to match the tag. The workflow needs a
-`NUGET_API_KEY` secret on the `nuget` environment. Required reviewers on that environment
-gate the whole job, so an approver signs off on the tag before the package is built rather
-than on a finished artifact.
+fallback for local packing, so it does not need to match the tag.
+
+Publishing uses NuGet trusted publishing, so there is no API key anywhere in this
+repository. The job requests a GitHub OIDC token, `NuGet/login` exchanges it for an API
+key that expires in one hour, and `dotnet nuget push` uses that. The nuget.org policy
+pins the repository owner, the repository, the workflow file name `release.yml`, and the
+`production` environment, so all four have to keep matching. Renaming this workflow file
+or changing the `environment:` line breaks publishing until the policy is updated to
+match. Required reviewers on that environment gate the whole job, so an approver signs off
+on the tag before the package is built rather than on a finished artifact.
 
 Verify a package locally before tagging:
 

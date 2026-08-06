@@ -301,6 +301,14 @@ can push a tag can publish a commit that never went through review. Repository w
 is the boundary being trusted here, and it is the same access that could push to `main`
 directly. Add an ancestry check if that assumption stops holding.
 
+Publishing authenticates with NuGet trusted publishing rather than a stored API key, so
+there is no long lived credential to leak or rotate. The cost is that the nuget.org policy
+matches on repository owner, repository name, workflow file name, and environment name.
+Those four values are now contract too. Renaming `release.yml`, moving the publish job to
+another workflow, or changing `environment: production` silently breaks publishing, and
+the failure shows up as a rejected token exchange rather than as anything resembling a
+rename error.
+
 ## 16. The command line is an agent interface first
 
 **Decision.** `--input` takes a directory, a CSV, a list file, or `-` for standard input.
