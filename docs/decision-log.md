@@ -420,10 +420,14 @@ does run gained the test it never had.
 
 The third was recorded as an asymmetric reason field on `FileResult.Split`. That is not a
 defect: a success has no reason, which is why the field is null. The real asymmetry sits one
-level up. Every refusal site answers with the original path and no git move, correct while
+level up. Every refusal site answered with the original path and no git move, correct while
 planning and wrong once the renames phase has emptied that path, so the manifest pointed a
-reader at a file that had moved. `Process` now lets the planned row win for any non-split
-outcome.
+reader at a file that had moved. Two things changed. Each site below the resolved read path
+now answers with that path, which is by construction where the file is. And `Process`
+restores `GitMove` from the planned row, because whether a rename was asked for is a fact
+about the plan that cannot go stale. `KeptPath` is deliberately not restored: the planned
+value is wrong before the rename lands, and a row naming an empty path sends the next run
+looking in the wrong place.
 
 ## Unrecorded decisions
 
