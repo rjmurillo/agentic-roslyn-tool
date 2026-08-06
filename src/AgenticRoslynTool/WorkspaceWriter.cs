@@ -50,15 +50,18 @@ internal sealed class WorkspaceWriter
     /// the working tree is left in its pre-run state.
     /// </summary>
     /// <remarks>
-    /// The local <c>moved</c> flag inside the catch block is always false, so the
-    /// <c>git mv</c> rollback branch is currently unreachable. Kept as a placeholder
-    /// for a future path where rename and content happen in one call. Do not "fix"
-    /// this by removing the branch; do it by wiring the flag correctly.
+    /// This method never moves a file, so there is nothing to undo on that axis. Renames
+    /// are their own phase (<see cref="ApplyRenameOnly"/>), and
+    /// <see cref="SplitPlanner.GetReadPath"/> refuses to run the content phase for a
+    /// renamed row unless the rename already landed, in which case the caller passes the
+    /// kept path here and the restore below writes to it. An earlier <c>moved</c> flag
+    /// and <c>git mv</c> rollback branch stood here permanently false; it was removed
+    /// rather than wired, because wiring it would mean giving this method a rename
+    /// responsibility the phase split deliberately took away.
     /// </remarks>
     internal void WriteOutputs(string originalPath, byte[] originalBytes, EncodedSource source, SplitPlan plan, IReadOnlyList<OutputFile> outputs)
     {
         var created = new List<string>();
-        var moved = false;
         try
         {
             foreach (var output in outputs)
@@ -76,11 +79,6 @@ internal sealed class WorkspaceWriter
             foreach (var path in created.Where(File.Exists))
             {
                 File.Delete(path);
-            }
-
-            if (moved && File.Exists(plan.KeptPath))
-            {
-                RunGitMove(plan.KeptPath, originalPath);
             }
 
             File.WriteAllBytes(originalPath, originalBytes);

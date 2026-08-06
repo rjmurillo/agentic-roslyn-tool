@@ -77,4 +77,24 @@ public sealed class ContentPhaseRunIntegrityTests
         // here while leaving the failing input half applied.
         Assert.False(File.Exists(Path.Combine(workspace.Root, "Lambda.cs")));
     }
+
+    [Fact]
+    public void WriteFailureMidRun_RestoresTheOriginalFileAndLeavesNoSiblings()
+    {
+        // The write loop is the one place that leaves a file half rewritten, so its
+        // rollback is the contract. A directory occupying a planned output path is the
+        // cheapest way to make WriteEncoded throw after the kept file was rewritten.
+        using var workspace = new TempWorkspace();
+        const string source = "public class Alpha { }\npublic class Beta { }\npublic class Gamma { }\n";
+        var input = workspace.WriteFile("Alpha.cs", source);
+        Directory.CreateDirectory(Path.Combine(workspace.Root, "Gamma.cs"));
+
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+        var results = workspace.RunPlanThenContent(listPath, manifestPath);
+
+        Assert.Equal("failed", Assert.Single(results).Status);
+        Assert.Equal(source, File.ReadAllText(input));
+        Assert.False(File.Exists(Path.Combine(workspace.Root, "Beta.cs")));
+    }
 }

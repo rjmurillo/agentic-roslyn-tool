@@ -289,9 +289,9 @@ The only method that writes source files.
 - Each created path is recorded **before** the write is attempted, so a file that fails
   partway through is still cleaned up.
 - On any exception it deletes the files it created and restores the original file from
-  the bytes read at the start.
-- Observation: the `moved` local is never assigned `true`, so the git move rollback branch
-  inside that catch is unreachable. The delete and restore parts of the same catch do run.
+  the bytes read at the start. For a row whose rename already landed, the caller passes
+  the kept path, so the restore writes there and no `git mv` is undone. `WriteOutputs`
+  never moves a file.
 
 ### Encoding round trip
 
