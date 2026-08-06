@@ -202,8 +202,22 @@ internal sealed class FileSplitter
     /// type nobody listed, and this method reaches an inconsistent rename state, a hand-edited
     /// manifest, and the file system. One bad input costs a failed row; one escaped exception
     /// costs the plan of record.
+    /// <para>
+    /// A non-split outcome does not get to restate where the file lives. Most refusal sites
+    /// answer with the original path and no git move, which is right while the plan is still
+    /// being made and wrong once a rename has landed: the manifest would point a reader at a
+    /// path the renames phase already emptied. When a planned row exists, its location wins.
+    /// </para>
     /// </remarks>
     private FileResult Process(string path, Phase phase, FileResult? planned)
+    {
+        var result = ProcessOrFail(path, phase, planned);
+        return planned is null || result.Status == "split"
+            ? result
+            : result with { KeptPath = planned.KeptPath, GitMove = planned.GitMove };
+    }
+
+    private FileResult ProcessOrFail(string path, Phase phase, FileResult? planned)
     {
         try
         {
@@ -230,7 +244,7 @@ internal sealed class FileSplitter
 
     /// <summary>
     /// Implements <see cref="Process"/>. Kept separate so every exit path, including an
-    /// unexpected throw, funnels through the one guard in the caller.
+    /// unexpected throw, funnels through the one guard in <see cref="ProcessOrFail"/>.
     /// </summary>
     /// <param name="path">Absolute or relative input path.</param>
     /// <param name="phase">The phase currently running.</param>

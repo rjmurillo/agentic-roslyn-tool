@@ -405,20 +405,39 @@ answer.
 with no repeated conditional. Five classes to replace one switch is not a trade.
 
 **No behavior changes.** Three known defects live in `FileSplitter.cs`: an unreachable
-rollback branch, an asymmetric reason field on `FileResult.Split`, and the unanchored
+rollback branch, a non-split row that restates where the file lives, and the unanchored
 `EnsureHeader` probe recorded below. Fixing one here would have made every commit in this
 series unreviewable as a move. They stay for their own change.
+
+### Decision 18. The three deferred defects, settled
+
+Two were real and are fixed. `EnsureHeader` probed with an unanchored `StartsWith`, so
+`// B-extra` satisfied a required `// B`, and it disagreed with `OutputVerifier` about
+leading whitespace, which failed any file carrying the banner under a blank line. One
+anchored predicate now serves both. The `moved` flag in `WriteOutputs` was never
+assigned, and there was nothing to wire it to, so the branch went away and the rollback that
+does run gained the test it never had.
+
+The third was recorded as an asymmetric reason field on `FileResult.Split`. That is not a
+defect: a success has no reason, which is why the field is null. The real asymmetry sits one
+level up. Every refusal site answers with the original path and no git move, correct while
+planning and wrong once the renames phase has emptied that path, so the manifest pointed a
+reader at a file that had moved. `Process` now lets the planned row win for any non-split
+outcome.
 
 ## Unrecorded decisions
 
 Recorded so nobody assumes these were considered.
 
-### `EnsureHeader` uses an unanchored probe
+### The manifest is both the plan and the run report
 
-The header check is `StartsWith` on the trimmed header, so `// B-extra` satisfies a
-required `// B`. Whether this looseness was deliberate is not recorded. It predates the
-port. Treat as load bearing until someone establishes otherwise, since tightening it could
-start rejecting files that pass today.
+Found while settling the above, not fixed. `Program` writes the run's manifest rows back
+to the plan path after every phase, so a content run that fails a row replaces that row's
+`split` plan with `failed`. Re-running content then answers `not present as split in
+plan manifest`, and the only recovery is to re-run the plan phase. Making a failed row keep
+its plan would restore the retry, at the cost of a manifest that claims `split` for work
+that did not happen. That is a decision about what the file means, not a patch, so it waits
+for one.
 
 ## Credit
 

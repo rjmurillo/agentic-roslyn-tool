@@ -97,4 +97,59 @@ public sealed class ContentPhaseRunIntegrityTests
         Assert.Equal(source, File.ReadAllText(input));
         Assert.False(File.Exists(Path.Combine(workspace.Root, "Beta.cs")));
     }
+
+    [Fact]
+    public void ContentFailureAfterARename_KeepsThePlannedLocationInTheRow()
+    {
+        // A refusal or failure answers with the original path and no git move, which is
+        // right while planning and wrong once the renames phase has emptied that path.
+        // The row must keep saying where the file actually is.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Zed.cs", "public class Gamma { }\npublic class Delta { }\n");
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+
+        var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
+        ManifestWriter.Write(plan.ManifestRows, manifestPath);
+        Assert.True(Assert.Single(plan.ReportRows).GitMove);
+
+        // Stand in for the renames phase, which needs a real repository to run git mv.
+        var keptPath = Path.Combine(workspace.Root, "Gamma.cs");
+        File.Move(input, keptPath);
+
+        // A directory squatting on a planned output makes the content write throw.
+        Directory.CreateDirectory(Path.Combine(workspace.Root, "Delta.cs"));
+
+        var content = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run();
+        var row = Assert.Single(content.ReportRows);
+        Assert.Equal("failed", row.Status);
+        Assert.Equal(keptPath, row.KeptPath);
+        Assert.True(row.GitMove);
+    }
+
+    [Fact]
+    public void ContentRefusalAfterARename_KeepsThePlannedLocationInTheRow()
+    {
+        // Same contract on the refusal path, which answers with the original path for both
+        // fields rather than only dropping the git move flag.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Zed.cs", "public class Gamma { }\npublic class Delta { }\n");
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+
+        var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
+        ManifestWriter.Write(plan.ManifestRows, manifestPath);
+
+        var keptPath = Path.Combine(workspace.Root, "Gamma.cs");
+        File.Move(input, keptPath);
+
+        // Edited between the phases into something the tool refuses to split.
+        File.WriteAllText(keptPath, "public class Gamma { }\n");
+
+        var content = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run();
+        var row = Assert.Single(content.ReportRows);
+        Assert.Equal("skipped", row.Status);
+        Assert.Equal(keptPath, row.KeptPath);
+        Assert.True(row.GitMove);
+    }
 }
