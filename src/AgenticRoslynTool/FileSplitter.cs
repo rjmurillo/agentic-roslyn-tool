@@ -202,26 +202,12 @@ internal sealed class FileSplitter
     /// type nobody listed, and this method reaches an inconsistent rename state, a hand-edited
     /// manifest, and the file system. One bad input costs a failed row; one escaped exception
     /// costs the plan of record.
-    /// <para>
-    /// A non-split outcome does not get to restate where the file lives. Most refusal sites
-    /// answer with the original path and no git move, which is right while the plan is still
-    /// being made and wrong once a rename has landed: the manifest would point a reader at a
-    /// path the renames phase already emptied. When a planned row exists, its location wins.
-    /// </para>
     /// </remarks>
     private FileResult Process(string path, Phase phase, FileResult? planned)
     {
-        var result = ProcessOrFail(path, phase, planned);
-        return planned is null || result.Status == "split"
-            ? result
-            : result with { KeptPath = planned.KeptPath, GitMove = planned.GitMove };
-    }
-
-    private FileResult ProcessOrFail(string path, Phase phase, FileResult? planned)
-    {
         try
         {
-            return ProcessCore(path, phase, planned);
+            return WithPlannedGitMove(ProcessCore(path, phase, planned), planned);
         }
         catch (Exception ex)
         {
@@ -238,13 +224,23 @@ internal sealed class FileSplitter
                 reported = path;
             }
 
-            return FileResult.Failed(reported, reported, ex.Message);
+            return WithPlannedGitMove(FileResult.Failed(reported, reported, ex.Message), planned);
         }
     }
 
     /// <summary>
+    /// Restores the pending-rename flag the refusal and failure factories drop. Whether a
+    /// rename is owed is a fact about the plan, not about how this run ended, so a row that
+    /// forgets it tells the next reader no move is pending for a file that still needs one.
+    /// The paths are deliberately left alone: they say where the file is, which a planned
+    /// row cannot answer for a run that refused before the rename landed.
+    /// </summary>
+    private static FileResult WithPlannedGitMove(FileResult result, FileResult? planned) =>
+        planned is null || result.Status == "split" ? result : result with { GitMove = planned.GitMove };
+
+    /// <summary>
     /// Implements <see cref="Process"/>. Kept separate so every exit path, including an
-    /// unexpected throw, funnels through the one guard in <see cref="ProcessOrFail"/>.
+    /// unexpected throw, funnels through the one guard in the caller.
     /// </summary>
     /// <param name="path">Absolute or relative input path.</param>
     /// <param name="phase">The phase currently running.</param>
@@ -297,29 +293,29 @@ internal sealed class FileSplitter
         var originalDiagnostics = tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
         if (originalDiagnostics.Length != 0)
         {
-            return FileResult.Failed(originalPath, originalPath, "input has syntax errors: " + OutputVerifier.JoinDiagnostics(originalDiagnostics));
+            return FileResult.Failed(originalPath, readPath, "input has syntax errors: " + OutputVerifier.JoinDiagnostics(originalDiagnostics));
         }
 
         if (root.Members.OfType<GlobalStatementSyntax>().Any())
         {
-            return FileResult.Skip(originalPath, originalPath, "contains top-level statements; manual split required");
+            return FileResult.Skip(originalPath, readPath, "contains top-level statements; manual split required");
         }
 
         var types = TopLevelType.Find(root).ToArray();
         if (types.Length <= 1)
         {
-            return FileResult.Skip(originalPath, originalPath, $"nothing to split: input has {types.Length} top-level type declaration(s)");
+            return FileResult.Skip(originalPath, readPath, $"nothing to split: input has {types.Length} top-level type declaration(s)");
         }
 
         if (types.Any(t => t.HasFileModifier))
         {
-            return FileResult.Skip(originalPath, originalPath, "contains file-local type; manual split required");
+            return FileResult.Skip(originalPath, readPath, "contains file-local type; manual split required");
         }
 
         var directiveSafety = DirectiveAnalyzer.AnalyzeDirectiveSafety(root, types);
         if (!directiveSafety.IsSafe)
         {
-            return FileResult.Skip(originalPath, originalPath, directiveSafety.Reason ?? "contains unsafe directive; manual split required");
+            return FileResult.Skip(originalPath, readPath, directiveSafety.Reason ?? "contains unsafe directive; manual split required");
         }
 
         var plan = SplitPlanner.BuildPlan(originalPath, readPath, types, planned, directiveSafety.Note);

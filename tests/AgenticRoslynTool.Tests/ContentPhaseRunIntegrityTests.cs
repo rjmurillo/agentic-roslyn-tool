@@ -125,6 +125,9 @@ public sealed class ContentPhaseRunIntegrityTests
         Assert.Equal("failed", row.Status);
         Assert.Equal(keptPath, row.KeptPath);
         Assert.True(row.GitMove);
+
+        // The manifest is what the next run reads, so it carries the same answer.
+        Assert.True(Assert.Single(content.ManifestRows).GitMove);
     }
 
     [Fact]
@@ -150,6 +153,29 @@ public sealed class ContentPhaseRunIntegrityTests
         var row = Assert.Single(content.ReportRows);
         Assert.Equal("skipped", row.Status);
         Assert.Equal(keptPath, row.KeptPath);
+        Assert.True(row.GitMove);
+    }
+
+    [Fact]
+    public void ContentBeforeRenames_ReportsWhereTheFileIs_NotWhereThePlanWantsIt()
+    {
+        // The mirror of the two above. Nothing has moved yet, so the row must not borrow
+        // the planned location: that path holds no file and pointing at it would send a
+        // reader looking for something that does not exist. The pending rename is still
+        // a fact about the plan, so that part survives.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Zed.cs", "public class Gamma { }\npublic class Delta { }\n");
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+
+        var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
+        ManifestWriter.Write(plan.ManifestRows, manifestPath);
+
+        var content = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run();
+        var row = Assert.Single(content.ReportRows);
+        Assert.Equal("failed", row.Status);
+        Assert.Contains("expected renamed file", row.Reason!, System.StringComparison.Ordinal);
+        Assert.Equal(input, row.KeptPath);
         Assert.True(row.GitMove);
     }
 }
