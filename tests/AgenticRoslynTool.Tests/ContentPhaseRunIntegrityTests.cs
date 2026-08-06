@@ -84,6 +84,10 @@ public sealed class ContentPhaseRunIntegrityTests
         // The write loop is the one place that leaves a file half rewritten, so its
         // rollback is the contract. A directory occupying a planned output path is the
         // cheapest way to make WriteEncoded throw after the kept file was rewritten.
+        // The rollback loop filters on File.Exists, which is false for a directory, so the
+        // squatting directory is skipped rather than deleted. Widening that filter to
+        // Path.Exists would make the rollback try to File.Delete a directory and throw
+        // inside the catch, so leave it as File.Exists.
         using var workspace = new TempWorkspace();
         const string source = "public class Alpha { }\npublic class Beta { }\npublic class Gamma { }\n";
         var input = workspace.WriteFile("Alpha.cs", source);
@@ -205,5 +209,32 @@ public sealed class ContentPhaseRunIntegrityTests
         Assert.Equal("failed", row.Status);
         Assert.Equal(keptPath, row.KeptPath);
         Assert.Equal(keptPath, Assert.Single(content.ManifestRows).KeptPath);
+    }
+
+    [Fact]
+    public void UndecodableInputAfterARename_ReportsTheRenamedLocation()
+    {
+        // Covers the decode refusal, which is a different exit than the two tests above and
+        // was the site most likely to be missed when the refusals were moved onto readPath.
+        // Falsified by pointing that one site back at the original path.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Zed.cs", "public class Gamma { }\npublic class Delta { }\n");
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+
+        var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
+        ManifestWriter.Write(plan.ManifestRows, manifestPath);
+
+        // Stand in for the renames phase, which needs a real repository to run git mv.
+        var keptPath = Path.Combine(workspace.Root, "Gamma.cs");
+        File.Move(input, keptPath);
+
+        // Bytes that are neither valid UTF-8 nor carry a byte order mark.
+        File.WriteAllBytes(keptPath, new byte[] { 0xC3, 0x28, 0xA0, 0xA1 });
+
+        var content = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run();
+        var row = Assert.Single(content.ReportRows);
+        Assert.NotEqual("split", row.Status);
+        Assert.Equal(keptPath, row.KeptPath);
     }
 }

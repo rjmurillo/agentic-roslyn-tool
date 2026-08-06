@@ -68,7 +68,8 @@ internal static class OutputBuilder
 
     /// <summary>
     /// Normalizes a supplied required-header string to the source file's own newline
-    /// style and strips whitespace at both ends. The normalized value is used both for
+    /// style and strips whitespace at both ends, so a banner supplied with a stray leading
+    /// or trailing space is injected without it. The normalized value is used both for
     /// injection and for the check in <see cref="OutputVerifier.VerifyOutputs"/>;
     /// they must stay in sync or a multi-line header supplied with <c>\n</c> against
     /// a CRLF source would fail verification and refuse to split. Leading whitespace
