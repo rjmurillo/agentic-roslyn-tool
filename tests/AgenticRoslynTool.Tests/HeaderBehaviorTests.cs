@@ -171,6 +171,130 @@ public sealed class HeaderBehaviorTests
         }
     }
 
+    [Fact]
+    public void RequiredHeader_SourceStartsWithLongerCommentSharingThePrefix_StillGetsTheBanner()
+    {
+        // The presence probe used to be an unanchored StartsWith, so a first line of
+        // "// Copyright (c) Contoso.Extra" satisfied a required header of
+        // "// Copyright (c) Contoso." and the banner was never injected.
+        using var ws = new TempWorkspace();
+        const string required = "// Copyright (c) Contoso.";
+        var source =
+            required + "Extra\n" +
+            "using System;\n" +
+            "\n" +
+            "namespace Sample.Ns;\n" +
+            "\n" +
+            "public class Foo { }\n" +
+            "\n" +
+            "public class Bar { }\n";
+        var fooPath = ws.WriteFile("Foo.cs", source);
+        var listPath = ws.WriteInputList(fooPath);
+        var manifest = Path.Combine(ws.Root, "m.csv");
+
+        var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run().ReportRows;
+        ManifestWriter.Write(planResults, manifest);
+        var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run().ReportRows;
+        Assert.Equal("split", Assert.Single(contentResults).Status);
+
+        foreach (var path in new[] { fooPath, Path.Combine(ws.Root, "Bar.cs") })
+        {
+            Assert.StartsWith(required + "\n\n", File.ReadAllText(path));
+        }
+    }
+
+    [Fact]
+    public void RequiredHeader_SourceStartsWithBlankLineBeforeTheBanner_SplitsInsteadOfFailingVerification()
+    {
+        // EnsureHeader compared the trimmed text while the verifier compared the raw
+        // text, so a banner sitting under a leading blank line was declared present and
+        // then rejected as missing. The plan phase recorded the file as failed and the
+        // content phase then skipped it, so the file never split.
+        using var ws = new TempWorkspace();
+        const string required = "// Copyright (c) Contoso.";
+        var source =
+            "\n" +
+            required + "\n" +
+            "using System;\n" +
+            "\n" +
+            "namespace Sample.Ns;\n" +
+            "\n" +
+            "public class Foo { }\n" +
+            "\n" +
+            "public class Bar { }\n";
+        var fooPath = ws.WriteFile("Foo.cs", source);
+        var listPath = ws.WriteInputList(fooPath);
+        var manifest = Path.Combine(ws.Root, "m.csv");
+
+        var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run().ReportRows;
+        ManifestWriter.Write(planResults, manifest);
+        var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run().ReportRows;
+        var result = Assert.Single(contentResults);
+        Assert.Equal("split", result.Status);
+
+        foreach (var path in new[] { fooPath, Path.Combine(ws.Root, "Bar.cs") })
+        {
+            var text = File.ReadAllText(path);
+            Assert.StartsWith(required, text);
+            Assert.Equal(1, CountOccurrences(text, required));
+        }
+    }
+
+    [Fact]
+    public void RequiredHeader_SourceBannerHasTrailingSpaces_IsStillTheSameBanner()
+    {
+        // Anchoring the probe at end of line must not turn trailing whitespace into a
+        // second banner. This case passed before the probe was anchored and still does.
+        using var ws = new TempWorkspace();
+        const string required = "// Copyright (c) Contoso.";
+        var source =
+            required + "   \n" +
+            "using System;\n" +
+            "\n" +
+            "namespace Sample.Ns;\n" +
+            "\n" +
+            "public class Foo { }\n" +
+            "\n" +
+            "public class Bar { }\n";
+        var fooPath = ws.WriteFile("Foo.cs", source);
+        var listPath = ws.WriteInputList(fooPath);
+        var manifest = Path.Combine(ws.Root, "m.csv");
+
+        var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run().ReportRows;
+        ManifestWriter.Write(planResults, manifest);
+        var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run().ReportRows;
+        Assert.Equal("split", Assert.Single(contentResults).Status);
+
+        foreach (var path in new[] { fooPath, Path.Combine(ws.Root, "Bar.cs") })
+        {
+            Assert.Equal(1, CountOccurrences(File.ReadAllText(path), required));
+        }
+    }
+
+    [Fact]
+    public void RequiredHeader_SuppliedWithLeadingWhitespace_StillVerifies()
+    {
+        // The verifier demands the banner at offset zero, so a header carrying leading
+        // whitespace could be injected and then never found again. Normalize it away once,
+        // at the boundary, rather than letting two call sites disagree about it.
+        using var ws = new TempWorkspace();
+        const string supplied = "   // Copyright (c) Contoso.";
+        const string expected = "// Copyright (c) Contoso.";
+        var fooPath = ws.WriteFile("Foo.cs", "public class Foo { }\n\npublic class Bar { }\n");
+        var listPath = ws.WriteInputList(fooPath);
+        var manifest = Path.Combine(ws.Root, "m.csv");
+
+        var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, supplied)).Run().ReportRows;
+        ManifestWriter.Write(planResults, manifest);
+        var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, supplied)).Run().ReportRows;
+        Assert.Equal("split", Assert.Single(contentResults).Status);
+
+        foreach (var path in new[] { fooPath, Path.Combine(ws.Root, "Bar.cs") })
+        {
+            Assert.StartsWith(expected, File.ReadAllText(path), System.StringComparison.Ordinal);
+        }
+    }
+
     private static int CountOccurrences(string text, string value)
     {
         var count = 0;

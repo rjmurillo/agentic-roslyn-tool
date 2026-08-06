@@ -68,10 +68,13 @@ internal static class OutputBuilder
 
     /// <summary>
     /// Normalizes a supplied required-header string to the source file's own newline
-    /// style and strips any trailing newlines. The normalized value is used both for
-    /// injection and for the <c>StartsWith</c> check in <see cref="OutputVerifier.VerifyOutputs"/>;
+    /// style and strips whitespace at both ends, so a banner supplied with a stray leading
+    /// or trailing space is injected without it. The normalized value is used both for
+    /// injection and for the check in <see cref="OutputVerifier.VerifyOutputs"/>;
     /// they must stay in sync or a multi-line header supplied with <c>\n</c> against
-    /// a CRLF source would fail verification and refuse to split.
+    /// a CRLF source would fail verification and refuse to split. Leading whitespace
+    /// goes because the verifier requires the banner at offset zero, so a header that
+    /// kept it could never be found where it was just written.
     /// </summary>
     internal static string NormalizeHeaderText(string? requiredHeader, string newLine)
     {
@@ -80,13 +83,47 @@ internal static class OutputBuilder
             return string.Empty;
         }
 
-        return requiredHeader.Replace("\r\n", "\n").Replace("\n", newLine).TrimEnd('\r', '\n');
+        return requiredHeader.Trim().Replace("\r\n", "\n").Replace("\n", newLine);
+    }
+
+    /// <summary>
+    /// Reports whether <paramref name="text"/> already opens with <paramref name="header"/>.
+    /// The match is anchored at the end of a line, so a file starting with <c>// B-extra</c>
+    /// does not satisfy a required header of <c>// B</c>, while trailing spaces on the banner
+    /// line still count as the same banner. Callers may hold the header in either form the
+    /// pipeline produces: bare, or followed by blank lines. This is the single predicate
+    /// behind both <see cref="EnsureHeader"/> and <see cref="OutputVerifier.VerifyOutputs"/>;
+    /// they must agree or a file would have the banner declared present and then be rejected
+    /// for not having it.
+    /// </summary>
+    internal static bool StartsWithHeader(string text, string? header)
+    {
+        var probe = header?.Trim() ?? string.Empty;
+        if (probe.Length == 0)
+        {
+            return true;
+        }
+
+        if (!text.StartsWith(probe, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var index = probe.Length;
+        while (index < text.Length && text[index] is ' ' or '\t')
+        {
+            index++;
+        }
+
+        return index == text.Length || text[index] is '\r' or '\n';
     }
 
     /// <summary>
     /// Prepends the required header when the text does not already start with it.
-    /// A file that already carries the banner keeps its existing spacing and does
-    /// not receive a second copy.
+    /// A file that already carries the banner does not receive a second copy and keeps
+    /// its spacing below the banner. Leading whitespace above the banner is dropped in
+    /// both branches, because <see cref="OutputVerifier.VerifyOutputs"/> requires the
+    /// header at offset zero.
     /// </summary>
     internal static string EnsureHeader(string text, string header)
     {
@@ -95,13 +132,8 @@ internal static class OutputBuilder
             return text;
         }
 
-        var headerProbe = header.TrimStart();
-        if (headerProbe.Length == 0)
-        {
-            return text;
-        }
-
-        return text.TrimStart().StartsWith(headerProbe.TrimEnd(), StringComparison.Ordinal) ? text : header + text.TrimStart();
+        var trimmed = text.TrimStart();
+        return StartsWithHeader(trimmed, header) ? trimmed : header + trimmed;
     }
 
     internal static string EnsureTrailingNewLine(string text, string newLine, bool hasFinalNewLine)

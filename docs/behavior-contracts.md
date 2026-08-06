@@ -32,7 +32,7 @@ agentic-roslyn-tool split-types --input <dir|file.cs|csv|list|-> [options]
 |---|---|
 | Idempotency | Yes for `plan`. Yes for `content` once a file is already split, because a single type file is skipped. |
 | Side effects | `plan` writes only the manifest. `renames` runs `git mv`. `content` writes source files. |
-| Failure mode | Per file, but only inside the guarded section. Verification failures are recorded `failed` and the run continues. Work done before that section is unguarded, so an unexpected exception while resolving the read path, reading the file, setting up the parse, planning, or running the empty directive shell check propagates and ends the run. A missing content manifest also ends the run. |
+| Failure mode | Per file. An unexpected exception while reading, parsing, planning, or writing becomes a `failed` row and the run continues. So does a verification failure. Only a throw before the read path is resolved, or a missing content manifest, ends the run. |
 | Exit code | 0 no failures, 1 at least one row `failed`, 2 the command line was wrong, 3 the run could not complete. Skips are not failures. |
 | Streams | Standard output carries a parseable document or nothing: the manifest CSV in `plan`, the JSON report under `--json`, and nothing in `renames` and `content` without `--json`. The manifest path, the one-line summary, and every error go to standard error. |
 | Performance | Syntax parse only, no semantic model and no MSBuild load. A 7,818 file run completed in a single pass, measured outside this repository. |
@@ -248,8 +248,9 @@ Two refusals here are what make the plan then apply workflow trustworthy:
    write at the file being read. The substituted paths are also checked for uniqueness
    against each other and against the kept path, because two rows pointing at one path
    would silently drop a type when the second write lands.
-2. **A recomputed plan that disagrees with the supplied manifest aborts the content
-   phase.** A reviewed plan is applied, or nothing is. See the structural limit noted
+2. **A recomputed plan that disagrees with the supplied manifest refuses that file.** The
+   row is `skipped` and no output is written for it, so a reviewed plan is applied or
+   nothing is. Other files in the run are unaffected. See the structural limit noted
    under the `content` phase above.
 
 Within a single input file, two types with the same simple name that do not differ by
@@ -289,9 +290,9 @@ The only method that writes source files.
 - Each created path is recorded **before** the write is attempted, so a file that fails
   partway through is still cleaned up.
 - On any exception it deletes the files it created and restores the original file from
-  the bytes read at the start.
-- Observation: the `moved` local is never assigned `true`, so the git move rollback branch
-  inside that catch is unreachable. The delete and restore parts of the same catch do run.
+  the bytes read at the start. For a row whose rename already landed, the caller passes
+  the kept path, so the restore writes there and no `git mv` is undone. `WriteOutputs`
+  never moves a file.
 
 ### Encoding round trip
 
@@ -320,8 +321,10 @@ Off unless `--require-header <text>` is passed.
 - `EnsureHeader` does not add the header when the text already begins with it, so a file
   that already carries the banner keeps its existing spacing and does not get a second
   copy.
-- The probe is an unanchored `StartsWith` on the trimmed header, so `// B-extra` satisfies
-  a required `// B`. The check is weaker than it appears.
+- The probe is `StartsWithHeader`, anchored at the end of a line, so `// B-extra` does not
+  satisfy a required `// B`. Spaces and tabs after the banner line are tolerated. Injection
+  and verification call the same predicate, so a banner cannot be declared present and then
+  rejected for being absent.
 
 ## Critical behavioral rules
 

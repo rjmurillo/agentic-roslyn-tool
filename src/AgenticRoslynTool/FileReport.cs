@@ -8,7 +8,7 @@ namespace AgenticRoslynTool;
 /// </summary>
 /// <param name="OriginalPath">Absolute path of the input file.</param>
 /// <param name="KeptPath">Absolute path of the kept file after the split.</param>
-/// <param name="GitMove">True when the renames phase must move the kept file.</param>
+/// <param name="GitMove">True when the plan calls for the renames phase to move the kept file. Stays true on a later row even after that move has landed.</param>
 /// <param name="Status">One of <c>split</c>, <c>skipped</c>, or <c>failed</c>.</param>
 /// <param name="Reason">Diagnostic text for a skip or a failure, otherwise null.</param>
 /// <param name="Note">Supplementary note, for example the directive-safety summary.</param>

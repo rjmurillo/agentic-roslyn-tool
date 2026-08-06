@@ -11,7 +11,7 @@ namespace AgenticRoslynTool;
 /// Absolute path where the kept file lives after the split. Equal to
 /// <paramref name="OriginalPath"/> unless a rename was applied.
 /// </param>
-/// <param name="GitMove">True when the kept file must be moved via <c>git mv</c> during the renames phase.</param>
+/// <param name="GitMove">True when the plan calls for the kept file to be moved via <c>git mv</c> in the renames phase. This records what the plan asked for, so it stays true on a later row once that move has landed. Compare <see cref="KeptPath"/> against the original path to tell whether the move is still owed.</param>
 /// <param name="Status">One of <c>split</c>, <c>skipped</c>, or <c>failed</c>.</param>
 /// <param name="Reason">Diagnostic text explaining a skip or failure.</param>
 /// <param name="Note">Free-form supplementary note, for example the directive-safety summary.</param>

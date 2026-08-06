@@ -77,4 +77,164 @@ public sealed class ContentPhaseRunIntegrityTests
         // here while leaving the failing input half applied.
         Assert.False(File.Exists(Path.Combine(workspace.Root, "Lambda.cs")));
     }
+
+    [Fact]
+    public void WriteFailureMidRun_RestoresTheOriginalFileAndLeavesNoSiblings()
+    {
+        // The write loop is the one place that leaves a file half rewritten, so its
+        // rollback is the contract. A directory occupying a planned output path is the
+        // cheapest way to make WriteEncoded throw after the kept file was rewritten.
+        // The rollback loop filters on File.Exists, which is false for a directory, so the
+        // squatting directory is skipped rather than deleted. Widening that filter to
+        // Path.Exists would make the rollback try to File.Delete a directory and throw
+        // inside the catch, so leave it as File.Exists.
+        using var workspace = new TempWorkspace();
+        const string source = "public class Alpha { }\npublic class Beta { }\npublic class Gamma { }\n";
+        var input = workspace.WriteFile("Alpha.cs", source);
+        Directory.CreateDirectory(Path.Combine(workspace.Root, "Gamma.cs"));
+
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+        var results = workspace.RunPlanThenContent(listPath, manifestPath);
+
+        Assert.Equal("failed", Assert.Single(results).Status);
+        Assert.Equal(source, File.ReadAllText(input));
+        Assert.False(File.Exists(Path.Combine(workspace.Root, "Beta.cs")));
+    }
+
+    [Fact]
+    public void ContentFailureAfterARename_KeepsThePlannedLocationInTheRow()
+    {
+        // A refusal or failure answers with the original path and no git move, which is
+        // right while planning and wrong once the renames phase has emptied that path.
+        // The row must keep saying where the file actually is.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Zed.cs", "public class Gamma { }\npublic class Delta { }\n");
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+
+        var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
+        ManifestWriter.Write(plan.ManifestRows, manifestPath);
+        Assert.True(Assert.Single(plan.ReportRows).GitMove);
+
+        // Stand in for the renames phase, which needs a real repository to run git mv.
+        var keptPath = Path.Combine(workspace.Root, "Gamma.cs");
+        File.Move(input, keptPath);
+
+        // A directory squatting on a planned output makes the content write throw.
+        Directory.CreateDirectory(Path.Combine(workspace.Root, "Delta.cs"));
+
+        var content = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run();
+        var row = Assert.Single(content.ReportRows);
+        Assert.Equal("failed", row.Status);
+        Assert.Equal(keptPath, row.KeptPath);
+        Assert.True(row.GitMove);
+
+        // The manifest is what the next run reads, so it carries the same answer.
+        Assert.True(Assert.Single(content.ManifestRows).GitMove);
+    }
+
+    [Fact]
+    public void ContentRefusalAfterARename_KeepsThePlannedLocationInTheRow()
+    {
+        // Same contract on the refusal path, which answers with the original path for both
+        // fields rather than only dropping the git move flag.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Zed.cs", "public class Gamma { }\npublic class Delta { }\n");
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+
+        var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
+        ManifestWriter.Write(plan.ManifestRows, manifestPath);
+
+        var keptPath = Path.Combine(workspace.Root, "Gamma.cs");
+        File.Move(input, keptPath);
+
+        // Edited between the phases into something the tool refuses to split.
+        File.WriteAllText(keptPath, "public class Gamma { }\n");
+
+        var content = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run();
+        var row = Assert.Single(content.ReportRows);
+        Assert.Equal("skipped", row.Status);
+        Assert.Equal(keptPath, row.KeptPath);
+        Assert.True(row.GitMove);
+    }
+
+    [Fact]
+    public void ContentBeforeRenames_ReportsWhereTheFileIs_NotWhereThePlanWantsIt()
+    {
+        // The mirror of the two above. Nothing has moved yet, so the row must not borrow
+        // the planned location: that path holds no file and pointing at it would send a
+        // reader looking for something that does not exist. The pending rename is still
+        // a fact about the plan, so that part survives.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Zed.cs", "public class Gamma { }\npublic class Delta { }\n");
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+
+        var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
+        ManifestWriter.Write(plan.ManifestRows, manifestPath);
+
+        var content = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run();
+        var row = Assert.Single(content.ReportRows);
+        Assert.Equal("failed", row.Status);
+        Assert.Contains("expected renamed file", row.Reason!, System.StringComparison.Ordinal);
+        Assert.Equal(input, row.KeptPath);
+        Assert.True(row.GitMove);
+    }
+
+    [Fact]
+    public void PlanBuildFailureAfterARename_ReportsTheRenamedLocation()
+    {
+        // Planning reads the manifest row, so a tampered row throws inside BuildPlan.
+        // That throw sits above the write guard, so before the local catch it escaped to
+        // the outer guard and reported the original path, which the rename has emptied.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Zed.cs", "public class Gamma { }\npublic class Delta { }\n");
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+
+        var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
+        var tampered = plan.ManifestRows
+            .Select(r => r with { NewFiles = r.NewFiles.Concat(r.NewFiles).ToArray() })
+            .ToArray();
+        ManifestWriter.Write(tampered, manifestPath);
+
+        // Stand in for the renames phase, which needs a real repository to run git mv.
+        var keptPath = Path.Combine(workspace.Root, "Gamma.cs");
+        File.Move(input, keptPath);
+
+        var content = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run();
+        var row = Assert.Single(content.ReportRows);
+        Assert.Equal("failed", row.Status);
+        Assert.Equal(keptPath, row.KeptPath);
+        Assert.Equal(keptPath, Assert.Single(content.ManifestRows).KeptPath);
+    }
+
+    [Fact]
+    public void UndecodableInputAfterARename_ReportsTheRenamedLocation()
+    {
+        // Covers the decode refusal, which is a different exit than the two tests above and
+        // was the site most likely to be missed when the refusals were moved onto readPath.
+        // Falsified by pointing that one site back at the original path.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Zed.cs", "public class Gamma { }\npublic class Delta { }\n");
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+
+        var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
+        ManifestWriter.Write(plan.ManifestRows, manifestPath);
+
+        // Stand in for the renames phase, which needs a real repository to run git mv.
+        var keptPath = Path.Combine(workspace.Root, "Gamma.cs");
+        File.Move(input, keptPath);
+
+        // Bytes that are neither valid UTF-8 nor carry a byte order mark.
+        File.WriteAllBytes(keptPath, new byte[] { 0xC3, 0x28, 0xA0, 0xA1 });
+
+        var content = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run();
+        var row = Assert.Single(content.ReportRows);
+        Assert.NotEqual("split", row.Status);
+        Assert.Equal(keptPath, row.KeptPath);
+    }
 }

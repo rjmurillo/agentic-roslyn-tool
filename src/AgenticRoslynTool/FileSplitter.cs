@@ -207,7 +207,7 @@ internal sealed class FileSplitter
     {
         try
         {
-            return ProcessCore(path, phase, planned);
+            return WithPlannedGitMove(ProcessCore(path, phase, planned), planned);
         }
         catch (Exception ex)
         {
@@ -224,9 +224,19 @@ internal sealed class FileSplitter
                 reported = path;
             }
 
-            return FileResult.Failed(reported, reported, ex.Message);
+            return WithPlannedGitMove(FileResult.Failed(reported, reported, ex.Message), planned);
         }
     }
+
+    /// <summary>
+    /// Restores the pending-rename flag the refusal and failure factories drop. Whether a
+    /// rename is owed is a fact about the plan, not about how this run ended, so a row that
+    /// forgets it tells the next reader no move is pending for a file that still needs one.
+    /// The paths are deliberately left alone: they say where the file is, which a planned
+    /// row cannot answer for a run that refused before the rename landed.
+    /// </summary>
+    private static FileResult WithPlannedGitMove(FileResult result, FileResult? planned) =>
+        planned is null || result.Status == "split" ? result : result with { GitMove = planned.GitMove };
 
     /// <summary>
     /// Implements <see cref="Process"/>. Kept separate so every exit path, including an
@@ -246,6 +256,27 @@ internal sealed class FileSplitter
         }
 
         var readPath = SplitPlanner.GetReadPath(originalPath, phase, planned);
+        try
+        {
+            return ProcessResolved(originalPath, readPath, phase, planned);
+        }
+        catch (Exception ex)
+        {
+            // Everything below reads or plans against readPath, so readPath is where the
+            // file is. The guard in the caller only knows the pre-rename path, which a
+            // landed rename has emptied, and a row naming an empty path sends the next run
+            // looking in the wrong place.
+            return FileResult.Failed(originalPath, readPath, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Implements <see cref="ProcessCore"/> from the point the file's real location is
+    /// known. Split out so one catch covers every throw below it, not just the ones that
+    /// carry their own filter.
+    /// </summary>
+    private FileResult ProcessResolved(string originalPath, string readPath, Phase phase, FileResult? planned)
+    {
         if (!File.Exists(readPath))
         {
             return FileResult.Skip(originalPath, readPath, "input file does not exist");
@@ -283,32 +314,32 @@ internal sealed class FileSplitter
         var originalDiagnostics = tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
         if (originalDiagnostics.Length != 0)
         {
-            return FileResult.Failed(originalPath, originalPath, "input has syntax errors: " + OutputVerifier.JoinDiagnostics(originalDiagnostics));
+            return FileResult.Failed(originalPath, readPath, "input has syntax errors: " + OutputVerifier.JoinDiagnostics(originalDiagnostics));
         }
 
         if (root.Members.OfType<GlobalStatementSyntax>().Any())
         {
-            return FileResult.Skip(originalPath, originalPath, "contains top-level statements; manual split required");
+            return FileResult.Skip(originalPath, readPath, "contains top-level statements; manual split required");
         }
 
         var types = TopLevelType.Find(root).ToArray();
         if (types.Length <= 1)
         {
-            return FileResult.Skip(originalPath, originalPath, $"nothing to split: input has {types.Length} top-level type declaration(s)");
+            return FileResult.Skip(originalPath, readPath, $"nothing to split: input has {types.Length} top-level type declaration(s)");
         }
 
         if (types.Any(t => t.HasFileModifier))
         {
-            return FileResult.Skip(originalPath, originalPath, "contains file-local type; manual split required");
+            return FileResult.Skip(originalPath, readPath, "contains file-local type; manual split required");
         }
 
         var directiveSafety = DirectiveAnalyzer.AnalyzeDirectiveSafety(root, types);
         if (!directiveSafety.IsSafe)
         {
-            return FileResult.Skip(originalPath, originalPath, directiveSafety.Reason ?? "contains unsafe directive; manual split required");
+            return FileResult.Skip(originalPath, readPath, directiveSafety.Reason ?? "contains unsafe directive; manual split required");
         }
 
-        var plan = SplitPlanner.BuildPlan(originalPath, readPath, types, planned, directiveSafety.Note);
+        var plan = SplitPlanner.BuildPlan(originalPath, readPath, types, planned, directiveNote: directiveSafety.Note);
         if (plan.SkipReason is not null)
         {
             return FileResult.Skip(originalPath, plan.KeptPath, plan.SkipReason);
