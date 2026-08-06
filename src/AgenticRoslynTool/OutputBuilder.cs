@@ -85,12 +85,13 @@ internal static class OutputBuilder
 
     /// <summary>
     /// Reports whether <paramref name="text"/> already opens with <paramref name="header"/>.
-    /// The match is anchored at a line boundary, so a file starting with <c>// B-extra</c>
-    /// does not satisfy a required header of <c>// B</c>. Callers may hold the header in
-    /// either form the pipeline produces: bare, or followed by blank lines. This is the
-    /// single predicate behind both <see cref="EnsureHeader"/> and
-    /// <see cref="OutputVerifier.VerifyOutputs"/>; they must agree or a file would have the
-    /// banner declared present and then be rejected for not having it.
+    /// The match is anchored at the end of a line, so a file starting with <c>// B-extra</c>
+    /// does not satisfy a required header of <c>// B</c>, while trailing spaces on the banner
+    /// line still count as the same banner. Callers may hold the header in either form the
+    /// pipeline produces: bare, or followed by blank lines. This is the single predicate
+    /// behind both <see cref="EnsureHeader"/> and <see cref="OutputVerifier.VerifyOutputs"/>;
+    /// they must agree or a file would have the banner declared present and then be rejected
+    /// for not having it.
     /// </summary>
     internal static bool StartsWithHeader(string text, string? header)
     {
@@ -100,8 +101,18 @@ internal static class OutputBuilder
             return true;
         }
 
-        return text.StartsWith(probe, StringComparison.Ordinal)
-            && (text.Length == probe.Length || text[probe.Length] is '\r' or '\n');
+        if (!text.StartsWith(probe, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var index = probe.Length;
+        while (index < text.Length && text[index] is ' ' or '\t')
+        {
+            index++;
+        }
+
+        return index == text.Length || text[index] is '\r' or '\n';
     }
 
     /// <summary>

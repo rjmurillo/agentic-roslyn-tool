@@ -240,6 +240,37 @@ public sealed class HeaderBehaviorTests
         }
     }
 
+    [Fact]
+    public void RequiredHeader_SourceBannerHasTrailingSpaces_IsStillTheSameBanner()
+    {
+        // Anchoring the probe at end of line must not turn trailing whitespace into a
+        // second banner. This case passed before the probe was anchored and still does.
+        using var ws = new TempWorkspace();
+        const string required = "// Copyright (c) Contoso.";
+        var source =
+            required + "   \n" +
+            "using System;\n" +
+            "\n" +
+            "namespace Sample.Ns;\n" +
+            "\n" +
+            "public class Foo { }\n" +
+            "\n" +
+            "public class Bar { }\n";
+        var fooPath = ws.WriteFile("Foo.cs", source);
+        var listPath = ws.WriteInputList(fooPath);
+        var manifest = Path.Combine(ws.Root, "m.csv");
+
+        var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run().ReportRows;
+        ManifestWriter.Write(planResults, manifest);
+        var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run().ReportRows;
+        Assert.Equal("split", Assert.Single(contentResults).Status);
+
+        foreach (var path in new[] { fooPath, Path.Combine(ws.Root, "Bar.cs") })
+        {
+            Assert.Equal(1, CountOccurrences(File.ReadAllText(path), required));
+        }
+    }
+
     private static int CountOccurrences(string text, string value)
     {
         var count = 0;
