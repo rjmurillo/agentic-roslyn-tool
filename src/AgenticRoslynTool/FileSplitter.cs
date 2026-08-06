@@ -318,7 +318,20 @@ internal sealed class FileSplitter
             return FileResult.Skip(originalPath, readPath, directiveSafety.Reason ?? "contains unsafe directive; manual split required");
         }
 
-        var plan = SplitPlanner.BuildPlan(originalPath, readPath, types, planned, directiveSafety.Note);
+        SplitPlan plan;
+        try
+        {
+            plan = SplitPlanner.BuildPlan(originalPath, readPath, types, planned, directiveNote: directiveSafety.Note);
+        }
+        catch (Exception ex)
+        {
+            // Planning reads the manifest row, so a tampered row can throw here. The outer
+            // guard would report originalPath, which is wrong once a rename has landed, and
+            // a row naming a path with no file in it sends the next run looking in the wrong
+            // place. readPath is where the file is, so answer with that.
+            return FileResult.Failed(originalPath, readPath, ex.Message);
+        }
+
         if (plan.SkipReason is not null)
         {
             return FileResult.Skip(originalPath, plan.KeptPath, plan.SkipReason);

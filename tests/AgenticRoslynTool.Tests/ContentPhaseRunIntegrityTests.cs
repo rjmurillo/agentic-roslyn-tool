@@ -178,4 +178,32 @@ public sealed class ContentPhaseRunIntegrityTests
         Assert.Equal(input, row.KeptPath);
         Assert.True(row.GitMove);
     }
+
+    [Fact]
+    public void PlanBuildFailureAfterARename_ReportsTheRenamedLocation()
+    {
+        // Planning reads the manifest row, so a tampered row throws inside BuildPlan.
+        // That throw sits above the write guard, so before the local catch it escaped to
+        // the outer guard and reported the original path, which the rename has emptied.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Zed.cs", "public class Gamma { }\npublic class Delta { }\n");
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+
+        var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
+        var tampered = plan.ManifestRows
+            .Select(r => r with { NewFiles = r.NewFiles.Concat(r.NewFiles).ToArray() })
+            .ToArray();
+        ManifestWriter.Write(tampered, manifestPath);
+
+        // Stand in for the renames phase, which needs a real repository to run git mv.
+        var keptPath = Path.Combine(workspace.Root, "Gamma.cs");
+        File.Move(input, keptPath);
+
+        var content = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run();
+        var row = Assert.Single(content.ReportRows);
+        Assert.Equal("failed", row.Status);
+        Assert.Equal(keptPath, row.KeptPath);
+        Assert.Equal(keptPath, Assert.Single(content.ManifestRows).KeptPath);
+    }
 }
