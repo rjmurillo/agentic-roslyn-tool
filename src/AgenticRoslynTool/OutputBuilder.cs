@@ -68,10 +68,12 @@ internal static class OutputBuilder
 
     /// <summary>
     /// Normalizes a supplied required-header string to the source file's own newline
-    /// style and strips any trailing newlines. The normalized value is used both for
-    /// injection and for the <c>StartsWith</c> check in <see cref="OutputVerifier.VerifyOutputs"/>;
+    /// style and strips whitespace at both ends. The normalized value is used both for
+    /// injection and for the check in <see cref="OutputVerifier.VerifyOutputs"/>;
     /// they must stay in sync or a multi-line header supplied with <c>\n</c> against
-    /// a CRLF source would fail verification and refuse to split.
+    /// a CRLF source would fail verification and refuse to split. Leading whitespace
+    /// goes because the verifier requires the banner at offset zero, so a header that
+    /// kept it could never be found where it was just written.
     /// </summary>
     internal static string NormalizeHeaderText(string? requiredHeader, string newLine)
     {
@@ -80,7 +82,7 @@ internal static class OutputBuilder
             return string.Empty;
         }
 
-        return requiredHeader.Replace("\r\n", "\n").Replace("\n", newLine).TrimEnd('\r', '\n');
+        return requiredHeader.Trim().Replace("\r\n", "\n").Replace("\n", newLine);
     }
 
     /// <summary>

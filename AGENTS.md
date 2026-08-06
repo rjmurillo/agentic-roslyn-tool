@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 29 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 80 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 82 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `.github/workflows/ci.yml` | The CI gate. Build and test on push and pull request. |
@@ -72,7 +72,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 80 passed, 0 failed
+dotnet test  -c Release      # must be 82 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -191,6 +191,12 @@ agent does not pay again.
 ## Known issues, not yet fixed
 
 Recorded so nobody rediscovers them and nobody assumes they are intentional.
+
+- The header probe matches a multi-line banner literally, so an existing banner whose
+  internal lines carry trailing spaces or tabs is not recognized and a second copy is
+  injected. Trailing whitespace on the final banner line is tolerated. Matching every line
+  loosely would need a line-by-line comparer, which is not worth it until a real file hits
+  this.
 
 - The manifest is both the plan and the run report. `Program` writes each run's rows back
   to the plan path, so a content run that fails a row replaces its `split` plan with

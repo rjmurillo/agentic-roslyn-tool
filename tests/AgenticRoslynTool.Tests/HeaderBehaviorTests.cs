@@ -271,6 +271,30 @@ public sealed class HeaderBehaviorTests
         }
     }
 
+    [Fact]
+    public void RequiredHeader_SuppliedWithLeadingWhitespace_StillVerifies()
+    {
+        // The verifier demands the banner at offset zero, so a header carrying leading
+        // whitespace could be injected and then never found again. Normalize it away once,
+        // at the boundary, rather than letting two call sites disagree about it.
+        using var ws = new TempWorkspace();
+        const string supplied = "   // Copyright (c) Contoso.";
+        const string expected = "// Copyright (c) Contoso.";
+        var fooPath = ws.WriteFile("Foo.cs", "public class Foo { }\n\npublic class Bar { }\n");
+        var listPath = ws.WriteInputList(fooPath);
+        var manifest = Path.Combine(ws.Root, "m.csv");
+
+        var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, supplied)).Run().ReportRows;
+        ManifestWriter.Write(planResults, manifest);
+        var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, supplied)).Run().ReportRows;
+        Assert.Equal("split", Assert.Single(contentResults).Status);
+
+        foreach (var path in new[] { fooPath, Path.Combine(ws.Root, "Bar.cs") })
+        {
+            Assert.StartsWith(expected, File.ReadAllText(path), System.StringComparison.Ordinal);
+        }
+    }
+
     private static int CountOccurrences(string text, string value)
     {
         var count = 0;
