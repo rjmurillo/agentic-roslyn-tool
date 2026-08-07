@@ -107,11 +107,13 @@ never costs you the release. Re-running a version whose release is already publi
 leaves that release alone and retries only the NuGet push, which is the recovery path for
 a run that published but failed to push.
 
-Immutable releases are on for this repository. A published release cannot be edited and
-its tag name is reserved forever, so deleting a release does not free the version number.
-Never delete a published release to redo it; edit it, or move to the next version. That is
-also why the workflow creates a draft, uploads the package to it, and only then publishes:
-a create that died mid upload would burn the tag on a release with no package attached.
+Immutable releases are on for this repository. Once a release is published, its assets and
+its tag are frozen, and the tag name is reserved forever, so deleting a release does not
+free the version number. The title and the notes stay editable, so a wrong description is
+fixable. A wrong package is not: ship the next version instead. That two step create is
+also why the workflow builds a draft first, attaches the package, and only then publishes.
+A draft carries no tag, so a run that dies partway through leaves nothing behind but a
+draft you can delete.
 
 The tag must read `vMAJOR.MINOR.PATCH` with an optional prerelease suffix, for example
 `v0.2.0` or `v0.2.0-rc.1`. The workflow rejects anything else before it builds, so a

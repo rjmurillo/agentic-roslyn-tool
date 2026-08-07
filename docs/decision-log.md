@@ -310,11 +310,12 @@ the failure shows up as a rejected token exchange rather than as anything resemb
 rename error.
 
 Immutable releases are enabled, which makes a version number a one shot resource: once a
-release has used a tag name, that name is reserved forever, and deleting the release does
-not return it. So the workflow never edits a published release, it creates a draft and
-publishes only after the package is attached, and a re-run of a published version retries
-the NuGet push alone. `v0.1.0` was burned by deleting a release to retag it, which is why
-the first published version is `v0.1.1`.
+release is published, its assets and tag are frozen and that tag name is reserved forever,
+even after the release is deleted. Title and notes remain editable. So the workflow never
+re-uploads to a published release, it creates a draft and publishes only after the package
+is attached, and a re-run of a published version retries the NuGet push alone. `v0.1.0`
+was burned by deleting a release to retag it, which is why the first published version is
+`v0.1.1`.
 
 ## 16. The command line is an agent interface first
 

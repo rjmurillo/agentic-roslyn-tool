@@ -191,8 +191,12 @@ agent does not pay again.
   releases are enabled, so a tag name that a release has used can never be recreated, by
   you or by the workflow. Deleting the release and the tag does not free it, and turning
   the feature off does not either. `v0.1.0` was lost this way and the first published
-  version is `v0.1.1`. To correct a release, edit it. To change what it points at, ship
-  the next version.
+  version is `v0.1.1`. The title and notes of a published release stay editable, so fix
+  wording in place. Assets and the tag do not, so a wrong package means the next version.
+- **A draft release does not create its tag.** GitHub files it under a placeholder
+  `untagged-` name and creates the tag only when the draft is published. That is what
+  makes the workflow's draft, upload, publish order safe to retry, and it was verified
+  against this repository rather than assumed.
 
 ## Known issues, not yet fixed
 
