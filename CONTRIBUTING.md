@@ -103,9 +103,15 @@ tag that already exists rebuilds that tag rather than whatever the branch has mo
 so a retry cannot attach a package built from a different commit.
 
 The workflow publishes the GitHub release before it pushes to NuGet, so a NuGet failure
-never costs you the release. When the release already exists, the package is uploaded to
-it with `--clobber` and hand written notes are left alone. When it does not, notes are
-generated from the commits.
+never costs you the release. Re-running a version whose release is already published
+leaves that release alone and retries only the NuGet push, which is the recovery path for
+a run that published but failed to push.
+
+Immutable releases are on for this repository. A published release cannot be edited and
+its tag name is reserved forever, so deleting a release does not free the version number.
+Never delete a published release to redo it; edit it, or move to the next version. That is
+also why the workflow creates a draft, uploads the package to it, and only then publishes:
+a create that died mid upload would burn the tag on a release with no package attached.
 
 The tag must read `vMAJOR.MINOR.PATCH` with an optional prerelease suffix, for example
 `v0.2.0` or `v0.2.0-rc.1`. The workflow rejects anything else before it builds, so a

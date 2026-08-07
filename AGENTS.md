@@ -187,6 +187,12 @@ agent does not pay again.
 - **Keyword searching is not proof of absence.** The rollback logic in `WriteOutputs`
   never uses the words revert, restore, or rollback, so a grep for those terms reports
   that no rollback exists. It does exist. Read the code path.
+- **Deleting a published GitHub release burns its version number permanently.** Immutable
+  releases are enabled, so a tag name that a release has used can never be recreated, by
+  you or by the workflow. Deleting the release and the tag does not free it, and turning
+  the feature off does not either. `v0.1.0` was lost this way and the first published
+  version is `v0.1.1`. To correct a release, edit it. To change what it points at, ship
+  the next version.
 
 ## Known issues, not yet fixed
 
