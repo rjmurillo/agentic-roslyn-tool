@@ -309,6 +309,14 @@ another workflow, or changing `environment: production` silently breaks publishi
 the failure shows up as a rejected token exchange rather than as anything resembling a
 rename error.
 
+Immutable releases are enabled, which makes a version number a one shot resource: once a
+release is published, its assets and tag are frozen and that tag name is reserved forever,
+even after the release is deleted. Title and notes remain editable. So the workflow never
+re-uploads to a published release, it creates a draft and publishes only after the package
+is attached, and a re-run of a published version retries the NuGet push alone. `v0.1.0`
+was burned by deleting a release to retag it, which is why the first published version is
+`v0.1.1`.
+
 ## 16. The command line is an agent interface first
 
 **Decision.** `--input` takes a directory, a CSV, a list file, or `-` for standard input.

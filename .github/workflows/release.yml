@@ -57,9 +57,17 @@ jobs:
         run: |
           # A retry of an already tagged version must build that tag, not whatever
           # ref the dispatch selected. A tag that does not exist yet is created later
-          # from this commit, so leaving the checkout alone is correct there.
-          git fetch --depth 1 origin "refs/tags/$TAG:refs/tags/$TAG" || exit 0
-          git checkout --detach --force "$TAG"
+          # from this commit, so leaving the checkout alone is correct there. Probe
+          # for the tag separately, because folding the probe into the fetch would
+          # let a network failure look like an absent tag and quietly ship a package
+          # built from the wrong commit.
+          if git ls-remote --exit-code origin "refs/tags/$TAG" >/dev/null; then
+            git fetch --depth 1 origin "refs/tags/$TAG:refs/tags/$TAG"
+            git checkout --detach --force "$TAG"
+          elif [ $? -ne 2 ]; then
+            echo "Could not determine whether tag '$TAG' exists." >&2
+            exit 1
+          fi
 
       - name: Restore dependencies
         run: dotnet restore
@@ -82,14 +90,28 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" artifacts/*.nupkg --clobber
-          else
-            gh release create "$TAG" artifacts/*.nupkg \
-              --target "$GITHUB_SHA" \
-              --title "$TAG" \
-              --generate-notes
+          # Immutable releases are on, so a published release cannot be changed and its
+          # tag name can never be reused. That shapes all three branches below.
+          state=$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null || echo missing)
+          if [ "$state" = false ]; then
+            # Already published. Leave it alone and let the NuGet push retry.
+            echo "Release $TAG is already published, leaving it untouched." >&2
+            exit 0
           fi
+          if [ "$state" = true ]; then
+            # A draft is a run that died before publishing. It holds no tag, so it is
+            # safe to drop and rebuild.
+            gh release delete "$TAG" --yes
+          fi
+          # Publish in two steps. Creating a release publishes the tag, and a create that
+          # dies while uploading would burn that tag name on a release with no package on
+          # it. A draft carries no tag, so a failure here is recoverable.
+          gh release create "$TAG" artifacts/*.nupkg \
+            --target "$GITHUB_SHA" \
+            --title "$TAG" \
+            --generate-notes \
+            --draft
+          gh release edit "$TAG" --draft=false
 
       - name: NuGet login
         if: github.event_name != 'workflow_dispatch' || inputs.push_nuget
