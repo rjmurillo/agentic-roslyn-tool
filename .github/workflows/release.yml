@@ -18,6 +18,14 @@ permissions:
   contents: write
   id-token: write
 
+# One release at a time. Two runs for the same new version can both see the tag missing
+# and build different refs, and the second would clobber the first one's asset. Releases
+# are rare enough that a single lane costs nothing, and cancelling is not an option here
+# because a cancelled run can leave a release published with no package attached.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
