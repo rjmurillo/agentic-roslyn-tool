@@ -19,9 +19,10 @@ permissions:
   id-token: write
 
 # One release at a time. Two runs for the same new version can both see the tag missing
-# and build different refs, and the second would clobber the first one's asset. Releases
-# are rare enough that a single lane costs nothing, and cancelling is not an option here
-# because a cancelled run can leave a release published with no package attached.
+# and race on creating it. Releases are rare enough that a single lane costs nothing, and
+# cancelling is not an option here because a run killed after the release is published but
+# before the package is pushed leaves the version half shipped, and the version cannot be
+# reused.
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: false
@@ -90,8 +91,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
-          # Immutable releases are on, so a published release cannot be changed and its
-          # tag name can never be reused. That shapes all three branches below.
+          # Immutable releases are on, so a published release has frozen assets and a
+          # frozen tag, and that tag name can never be reused. Title and notes stay
+          # editable. That shapes all three branches below.
           state=$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null || echo missing)
           if [ "$state" = false ]; then
             # Already published. Leave it alone and let the NuGet push retry.
@@ -107,7 +109,7 @@ jobs:
           # dies while uploading would burn that tag name on a release with no package on
           # it. A draft carries no tag, so a failure here is recoverable.
           gh release create "$TAG" artifacts/*.nupkg \
-            --target "$GITHUB_SHA" \
+            --target "$(git rev-parse HEAD)" \
             --title "$TAG" \
             --generate-notes \
             --draft
