@@ -193,6 +193,11 @@ agent does not pay again.
   the feature off does not either. `v0.1.0` was lost this way and the first published
   version is `v0.1.1`. The title and notes of a published release stay editable, so fix
   wording in place. Assets and the tag do not, so a wrong package means the next version.
+- **A burned tag name reports itself as a ruleset violation.** Pushing or creating a tag
+  whose name a release already used fails with `Cannot create ref due to creations being
+  restricted`, which reads like a branch or tag protection rule and is not one. Ordinary
+  tag pushes work fine. The giveaway is the second line, `tag_name was used by an
+  immutable release`. Do not go hunting through rulesets for this.
 - **A draft release does not create its tag.** GitHub files it under a placeholder
   `untagged-` name and creates the tag only when the draft is published. That is what
   makes the workflow's draft, upload, publish order safe to retry, and it was verified
