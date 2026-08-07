@@ -4,14 +4,32 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, with or without a leading v (for example v0.1.0)."
+        required: true
+      push_nuget:
+        description: "Push the package to NuGet. Turn off to cut a GitHub release only."
+        type: boolean
+        default: true
 
 permissions:
-  contents: read
+  contents: write
+  id-token: write
+
+# One release at a time. Two runs for the same new version can both see the tag missing
+# and build different refs, and the second would clobber the first one's asset. Releases
+# are rare enough that a single lane costs nothing, and cancelling is not an option here
+# because a cancelled run can leave a release published with no package attached.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment: nuget
+    environment: production
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -22,7 +40,7 @@ jobs:
       - name: Resolve version from tag
         id: version
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.version || github.ref_name }}
         run: |
           version="${TAG#v}"
           pre='(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
@@ -31,6 +49,17 @@ jobs:
             exit 1
           fi
           echo "value=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the existing tag
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          # A retry of an already tagged version must build that tag, not whatever
+          # ref the dispatch selected. A tag that does not exist yet is created later
+          # from this commit, so leaving the checkout alone is correct there.
+          git fetch --depth 1 origin "refs/tags/$TAG:refs/tags/$TAG" || exit 0
+          git checkout --detach --force "$TAG"
 
       - name: Restore dependencies
         run: dotnet restore
@@ -48,7 +77,29 @@ jobs:
           VERSION: ${{ steps.version.outputs.value }}
         run: dotnet pack src/AgenticRoslynTool/AgenticRoslynTool.csproj --configuration Release --no-build --output artifacts -p:Version="$VERSION"
 
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" artifacts/*.nupkg --clobber
+          else
+            gh release create "$TAG" artifacts/*.nupkg \
+              --target "$GITHUB_SHA" \
+              --title "$TAG" \
+              --generate-notes
+          fi
+
+      - name: NuGet login
+        if: github.event_name != 'workflow_dispatch' || inputs.push_nuget
+        id: nuget_login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: rjmurillo
+
       - name: Push to NuGet
+        if: github.event_name != 'workflow_dispatch' || inputs.push_nuget
         run: dotnet nuget push "artifacts/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY"
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
