@@ -98,7 +98,9 @@ The same workflow also runs from `workflow_dispatch`, so a release can be cut wi
 pushing a tag. It takes a `version` input and a `push_nuget` toggle. Run it with
 `push_nuget` off when the NuGet credential is unusable: the GitHub release and its
 attached package still get published, and the same run can be repeated later with the
-toggle on. A dispatch run creates the tag if it does not exist yet.
+toggle on. A dispatch run creates the tag if it does not exist yet, and a dispatch for a
+tag that already exists rebuilds that tag rather than whatever the branch has moved on to,
+so a retry cannot attach a package built from a different commit.
 
 The workflow publishes the GitHub release before it pushes to NuGet, so a NuGet failure
 never costs you the release. When the release already exists, the package is uploaded to

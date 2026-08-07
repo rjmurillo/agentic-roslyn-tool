@@ -43,6 +43,16 @@ jobs:
           echo "value=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
+      - name: Check out the existing tag
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          # A retry of an already tagged version must build that tag, not whatever
+          # ref the dispatch selected. A tag that does not exist yet is created later
+          # from this commit, so leaving the checkout alone is correct there.
+          git fetch --depth 1 origin "refs/tags/$TAG:refs/tags/$TAG" || exit 0
+          git checkout --detach --force "$TAG"
+
       - name: Restore dependencies
         run: dotnet restore
 
