@@ -19,8 +19,10 @@ The tool ships as a .NET tool package on NuGet and needs the .NET 10 SDK.
 Run it once without installing:
 
 ```powershell
-dnx AgenticRoslynTool split-types --help
+dnx AgenticRoslynTool -- split-types --help
 ```
+
+The `--` matters. Without it, `dnx` reads options such as `--help` as its own.
 
 Install it globally:
 
@@ -37,7 +39,7 @@ dotnet tool install AgenticRoslynTool
 dotnet agentic-roslyn-tool split-types --help
 ```
 
-The examples below use `agentic-roslyn-tool`. Substitute `dnx AgenticRoslynTool`
+The examples below use `agentic-roslyn-tool`. Substitute `dnx AgenticRoslynTool --`
 or `dotnet agentic-roslyn-tool` if you picked one of the other two.
 
 ## Build from source
