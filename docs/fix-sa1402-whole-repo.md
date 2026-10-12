@@ -69,10 +69,13 @@ dotnet tool install --global AgenticRoslynTool
 > `--dry-run`. Never run `split-types` without `--dry-run` or `--phase`.
 
 Run these from the repository root. The list file and the manifest live one directory up,
-outside the repository, so a later `git add -A` does not commit them.
+outside the repository, so a later `git add -A` does not commit them. The
+`core.quotePath=false` setting makes Git print a path such as `Café.cs` as is, instead of
+quoting it with octal escapes. The tool reads a quoted line as a path that does not exist and
+skips it with `input file does not exist`.
 
 ```bash
-git ls-files '*.cs' > ../split-types.txt
+git -c core.quotePath=false ls-files '*.cs' > ../split-types.txt
 
 # 1. Plan. Writes ../split-types.csv and changes no source file.
 agentic-roslyn-tool split-types --input ../split-types.txt --dry-run --manifest ../split-types.csv
@@ -90,7 +93,7 @@ The same steps in PowerShell. Keep the forward slashes: backslash paths failed w
 block ran in PowerShell 7 on Linux.
 
 ```powershell
-git ls-files '*.cs' | Set-Content ../split-types.txt
+git -c core.quotePath=false ls-files '*.cs' | Set-Content ../split-types.txt
 
 agentic-roslyn-tool split-types --input ../split-types.txt --dry-run --manifest ../split-types.csv
 
@@ -334,6 +337,8 @@ public class Square
 
 - [README](../README.md): install options, every flag, and the recommended workflow.
 - [docs/verification.md](verification.md): how to verify a large split.
+- [docs/one-type-per-file-without-resharper.md](one-type-per-file-without-resharper.md):
+  one class per file without ReSharper or an IDE.
 - [docs/behavior-contracts.md](behavior-contracts.md): what each phase and guard promises.
 - [docs/decision-log.md](decision-log.md): why the tool works in three phases and never
   prunes usings.
