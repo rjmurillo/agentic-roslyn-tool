@@ -274,14 +274,15 @@ Sample|ClassDeclaration|Square|0|public sealed|: IShape|
 Sample|InterfaceDeclaration|IShape|0|public||
 ```
 
-Run it on the commit before the split and on the commit after, then compare:
+Run it on the commit before the split and on the commit after, then compare. The `&&`
+chain stops at the first scan that fails, so a parse error never reaches the comparison:
 
 ```bash
-git checkout --detach <commit-before-the-split>
-dotnet run ~/tools/scan.cs -- . > ../before.txt
-git checkout --detach <commit-after-the-split>
-dotnet run ~/tools/scan.cs -- . > ../after.txt
-diff ../before.txt ../after.txt && echo "type sets match"
+git checkout --detach <commit-before-the-split> &&
+  dotnet run ~/tools/scan.cs -- . > ../before.txt &&
+  git checkout --detach <commit-after-the-split> &&
+  dotnet run ~/tools/scan.cs -- . > ../after.txt &&
+  diff ../before.txt ../after.txt && echo "type sets match"
 ```
 
 An empty diff means every top-level type still exists, once per declaration, with the same
