@@ -1,17 +1,16 @@
-# Roslyn MCP servers vs a single-purpose Roslyn CLI: when an AI agent needs which
+# Choose a Roslyn MCP server, agentic-roslyn-tool, or both
 
-Use a Roslyn MCP server when an agent needs to ask questions about C# code as it works:
-find references, navigate symbols, read diagnostics, make targeted refactorings. Use a
-single-purpose CLI such as agentic-roslyn-tool when the job is one mechanical change across
-a whole repository that needs a reviewable plan, verification, and a clear pass or fail exit
-code. Many teams want both.
+Choose a Roslyn MCP server when your agent needs to explore C# code as it works: find
+references, navigate symbols, read diagnostics, or make targeted refactorings. Choose
+`agentic-roslyn-tool` when you need to split types across a repository with a reviewable
+plan and a clear exit code. You can use both.
 
-agentic-roslyn-tool is not an MCP server. It is a .NET tool with one verb, `split-types`,
-that an agent calls through the shell.
+`agentic-roslyn-tool` is not an MCP server. It is a .NET command-line interface (CLI)
+with one verb: `split-types`. An agent calls it through the shell.
 
 ## What a Roslyn MCP server gives an agent
 
-An [MCP](https://modelcontextprotocol.io) server runs beside the agent and exposes tools the
+A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server runs beside the agent and exposes tools the
 agent can call in the middle of a conversation. The Roslyn servers below open a solution or
 project and answer from the [Roslyn](https://learn.microsoft.com/dotnet/csharp/roslyn-sdk/)
 compiler's view of it, so they can resolve types, find every reference to a symbol, and
@@ -47,8 +46,7 @@ include CI restores.
 
 agentic-roslyn-tool does one job: it splits C# files that declare more than one top-level
 type into one file per type, so a codebase can turn on StyleCop SA1402. It is shaped for an
-agent caller. See [decision 16](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/decision-log.md#16-the-command-line-is-an-agent-interface-first)
-for why.
+agent caller. See [why the CLI is designed for agents](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/decision-log.md#16-the-command-line-is-an-agent-interface-first).
 
 - **One command.** No server process, no session, no tool list to choose from. The same
   command runs in a terminal, in an agent's shell tool, and in CI with no agent at all.
@@ -69,7 +67,10 @@ for why.
 
 It reads syntax only. It builds no semantic model and loads no MSBuild workspace, so it
 runs on code that does not compile as a set. The cost is that it cannot answer any question
-that needs symbols. See [decision 1](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/decision-log.md#1-roslyn-syntax-api-with-no-semantic-model).
+that needs symbols. See [why the tool uses the syntax API](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/decision-log.md#1-roslyn-syntax-api-with-no-semantic-model).
+
+Install the CLI using the [README install instructions](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/README.md#install)
+before running these examples. The Bash report example also requires `jq` and `mktemp`.
 
 A dry run over a directory, with the plan kept outside the repository:
 
@@ -97,7 +98,7 @@ real output carries the full absolute path.
 /repo/src/Broken.cs: input has syntax errors: CS1513 } expected
 ```
 
-## Decision table
+## Choose a tool for your task
 
 | The job | Reach for | Why |
 |---|---|---|
@@ -126,17 +127,38 @@ separate `git mv` step so history follows the file, verification of every output
 file is written, a `failed` row with a reason instead of a partial edit, and an exit code a
 script can trust. Check what the server you use offers for each of those.
 
-## Using both from Claude Code or Copilot
+## Use a Roslyn MCP server and the CLI from an agent
 
-Register an MCP server the way its own documentation describes. Configuration formats change
-between releases, so this page links to each project in the table above rather than copying
-its setup.
+Register a Roslyn MCP server using its project documentation. Configuration formats change
+between releases. This page links to each project above instead of copying setup instructions.
 
-Call the CLI as a shell command. Install it with `dotnet tool install --global
-AgenticRoslynTool`, or see the [README](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/README.md#install)
-for the other two install options.
+Run the CLI through your shell. Install it with `dotnet tool install --global
+AgenticRoslynTool`. The README lists [other installation options](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/README.md#install).
 
-To keep these instructions in your repository, add a short section to `AGENTS.md` or `CLAUDE.md`:
+### Get package instructions through NuGet MCP
+
+Before requesting package context, configure the
+[NuGet MCP server](https://learn.microsoft.com/en-us/nuget/concepts/nuget-mcp-server) in
+your agent host. NuGet MCP requires the .NET 10 SDK. It runs separately from the Roslyn
+MCP servers above.
+
+Ask your agent to call `get_package_context` for `AgenticRoslynTool`. In
+[NuGet MCP 1.4.16](https://www.nuget.org/packages/NuGet.Mcp.Server/1.4.16), the tool returns
+the package's `AGENTS.md` when available. Otherwise, it returns the package README.
+
+We pack [`package/AGENTS.md`](../package/AGENTS.md) as `AGENTS.md` at the root of
+`AgenticRoslynTool`. Versions containing the file return its split instructions.
+Earlier versions return the README. Look for `# AgenticRoslynTool agent context` in the
+result. That heading confirms NuGet MCP found the packaged instructions.
+
+NuGet MCP only supplies context. Run `agentic-roslyn-tool` through the shell to split
+files. The repository's root `AGENTS.md` guides contributors; `package/AGENTS.md`
+supplies package consumers.
+
+### Keep instructions in your repository
+
+To keep the instructions available without NuGet MCP, add this section to your
+`AGENTS.md` or `CLAUDE.md`:
 
 ```markdown
 ## Splitting C# files (SA1402)
@@ -146,6 +168,9 @@ To keep these instructions in your repository, add a short section to `AGENTS.md
 - Exit 2: fix the arguments. Exit 3: read the `error:` line on standard error.
 - Then run `--phase renames`, commit, run `--phase content` with the same `--input` and `--manifest`, and build.
 ```
+
+Replace `<list file>` with your saved path list. Replace `<path outside the repo>`
+with a writable location outside your checkout.
 
 Pass the same list file of original paths to all three phases. Capture it once, before the
 plan, so every phase sees the paths the plan was built from:
@@ -165,22 +190,6 @@ renamed file under its new name, and the content phase maps that name back to it
 The README's
 [recommended workflow](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/README.md#recommended-workflow)
 walks through them.
-
-### Package instructions through NuGet MCP
-
-The [NuGet MCP server](https://www.nuget.org/packages/NuGet.Mcp.Server/1.4.16) is separate
-from the Roslyn MCP servers above. Its `get_package_context` tool returns a package's
-`AGENTS.md` when available. Otherwise, it returns the package README.
-
-We pack [`package/AGENTS.md`](../package/AGENTS.md) as `AGENTS.md` at the root of
-`AgenticRoslynTool`. With NuGet MCP configured, call `get_package_context` for
-`AgenticRoslynTool`. Versions containing the file return its split instructions.
-Earlier versions return the README. The repository's root `AGENTS.md` guides contributors;
-`package/AGENTS.md` supplies package consumers.
-
-This lookup supplies context only. Install and run `agentic-roslyn-tool` through the shell
-for the split. The snippet above remains useful in a consuming repository's `AGENTS.md` or
-`CLAUDE.md` when NuGet MCP is unavailable.
 
 ## Trade-offs
 
@@ -218,17 +227,11 @@ are a stable contract to build on. This repository ships no such wrapper.
 
 ## See also
 
-- [README](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/README.md): install,
-  usage, and the recommended workflow.
-- [docs/behavior-contracts.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/behavior-contracts.md):
-  what each phase and each guard promises.
-- [docs/one-type-per-file-without-resharper.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/one-type-per-file-without-resharper.md):
-  moving every C# type into its own file without ReSharper.
-- [docs/fix-sa1402-whole-repo.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/fix-sa1402-whole-repo.md):
-  why `dotnet format` cannot fix SA1402, and the three step workflow.
-- [docs/verification.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/verification.md):
-  what each check before a write proves, and what it does not.
-- [docs/decision-log.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/decision-log.md):
-  why the tool is a syntax-only command line tool.
+- [Install and use agentic-roslyn-tool](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/README.md) explains setup and the recommended workflow.
+- [Understand phase behavior and guards](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/behavior-contracts.md) explains each phase's contract.
+- [Move types without ReSharper](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/one-type-per-file-without-resharper.md) compares other tools.
+- [Fix SA1402 across a repository](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/fix-sa1402-whole-repo.md) explains the three-phase workflow.
+- [Verify a split](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/verification.md) explains how to check outputs.
+- [Read the design decisions](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/decision-log.md) explains the syntax-only design.
 - [Model Context Protocol](https://modelcontextprotocol.io)
 - [The .NET Compiler Platform SDK (Roslyn)](https://learn.microsoft.com/dotnet/csharp/roslyn-sdk/)
