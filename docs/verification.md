@@ -339,3 +339,7 @@ No. That repository is closed source.
 - [behavior-contracts.md: VerifyLineConservation](behavior-contracts.md#verifylineconservation)
 - [behavior-contracts.md: Encoding round trip](behavior-contracts.md#encoding-round-trip)
 - [decision-log.md](decision-log.md)
+- [fix-sa1402-whole-repo.md](fix-sa1402-whole-repo.md): splitting every multi-type file in
+  a repository in three steps.
+- [one-type-per-file-without-resharper.md](one-type-per-file-without-resharper.md): moving
+  every C# type into its own file without ReSharper.
