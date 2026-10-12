@@ -2,6 +2,8 @@
 
 AgenticRoslynTool is a .NET console tool for mechanical, verifiable C# refactoring. Its `split-types` command enforces StyleCop SA1402 by placing each top-level type in a separate file, one class per file.
 
+It is not an MCP server. For when to use a Roslyn MCP server instead, see [docs/roslyn-mcp-vs-cli.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/roslyn-mcp-vs-cli.md).
+
 ## Why this exists
 
 `dotnet format` cannot fix SA1402 across a repository. `SA1402CodeFixProvider` does not implement Fix All. As a result, this command succeeds without changing files:
@@ -241,6 +243,7 @@ One production run processed 7,818 files and split 461 of them. Roslyn parsed ev
 | [docs/decision-log.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/decision-log.md) | Why the tool is built this way, and what breaks if a decision is reversed. |
 | [docs/one-type-per-file-without-resharper.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/one-type-per-file-without-resharper.md) | How to move every C# type into its own file without ReSharper, with a worked example and a comparison of the options. |
 | [docs/verification.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/verification.md) | How to verify a large split: what each check proves, and a before/after type scan you run yourself. |
+| [docs/roslyn-mcp-vs-cli.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/roslyn-mcp-vs-cli.md) | When an agent needs a Roslyn MCP server and when it needs this command line tool. |
 | [docs/sa1402-sa1649-naming.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/sa1402-sa1649-naming.md) | What file name SA1649 expects for generic and same-name types, and how to fix the names the tool cannot choose. |
 | [CONTRIBUTING.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/CONTRIBUTING.md) | Build, test, commit conventions, and the CI gate. |
 
