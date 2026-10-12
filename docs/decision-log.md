@@ -445,6 +445,31 @@ about the plan that cannot go stale. `KeptPath` is deliberately not restored: th
 value is wrong before the rename lands, and a row naming an empty path sends the next run
 looking in the wrong place.
 
+### Decision 19. The content phase finds a renamed file by its kept path
+
+**Context.** A directory input is scanned again in every phase. After the renames phase,
+the scan finds `Order2.cs`, not `Stuff.cs`. The content phase looked plan rows up by
+original path only. So it skipped `Order2.cs` as not planned, reported the `Stuff.cs` row
+as not supplied, and exited 0 with the split undone. A list file captured before the plan
+did not hit this, because it keeps naming `Stuff.cs`.
+
+**Decision.** `SplitPlanner.IndexByInputPath` keys each `split` row by its original path,
+and also by its kept path when the row has a git move. The content phase then processes
+the row exactly as if the original path had been supplied. Three rules keep the lookup from
+guessing. An original path match wins over a kept path match. A kept path that two rows
+claim maps to neither. A row reached through both of its paths runs once.
+
+**Rejected.** Deriving the content inputs from the manifest instead of from `--input`. That
+would also fix the bug, but it changes what `--input` means in one phase, and it breaks
+applying a plan in batches.
+
+**Consequences.** No guard moved. `GetReadPath` still demands that the kept path exists
+and the original does not, and `BuildPlan` still runs every existence, uniqueness, and
+manifest match check. `ManifestPathTamperingTests` is unchanged.
+
+**Reversal warning.** Remove the kept path key and a directory run of all three phases
+loses every split whose kept type differs from its file name, at exit code 0.
+
 ## Unrecorded decisions
 
 Recorded so nobody assumes these were considered.

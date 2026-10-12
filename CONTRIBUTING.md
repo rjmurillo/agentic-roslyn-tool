@@ -10,7 +10,7 @@ orientation for a human too.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 32 passed, 0 failed
+dotnet test  -c Release      # must be 93 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on. A warning fails the build. There is no separate lint step.
