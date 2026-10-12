@@ -246,12 +246,16 @@ are most likely to see:
 | Path matches `--exclude` | skipped | `excluded by pattern: <pattern>` |
 | File does not parse | failed | `input has syntax errors: <diagnostics>` |
 
-The same-name row covers partial types. SA1402 allows two parts of one partial class in a
-file, but the tool sees two types that want the same file name and skips it. That is
-harmless, since SA1402 does not flag that file, but the tool does not merge or move
-partial parts. Two types with the same name are split when their type parameter lists
-differ. Each generic one gets its parameter names in braces, so `Box` and `Box<T>` become
-`Box.cs` and `Box{T}.cs`, and `Box<T>` and `Box<U>` become `Box{T}.cs` and `Box{U}.cs`.
+The same-name row covers partial types that are not generic. SA1402 allows two parts of
+one partial class in a file, but the tool sees two types that want the same file name and
+skips it. That is harmless, since SA1402 does not flag that file. Two parts of a generic
+partial type, such as `partial class Q<T>` twice, are marked `failed` instead, with a
+reason saying the declaration appears 2 times across outputs. Nothing is written for that
+file either. The tool does not merge or move partial parts.
+
+Two types with the same name are split when their type parameter lists differ. The moved
+type gets its type parameter names in braces, so `Box` and `Box<T>` become `Box.cs` and
+`Box{T}.cs`.
 
 ## Stricter than SA1402 by default
 
@@ -281,12 +285,12 @@ does not match.
 
 The tool names each new file after its type. A generic type gets its type parameter names
 in braces only when it shares a name with another type in the same file, as in `Name.cs`
-and `Name{T}.cs`, or `Name{T}.cs` and `Name{U}.cs`. When two source files in the same
-folder would each create the same new file, the tool names both `SourceFile.TypeName.cs`.
-That form conflicts with SA1649 unless the type is `partial`, since SA1649 reports nothing
-when the first type in a file is partial. Disable SA1649 in repositories that need the
-form for other types. The tool fixes SA1402. It does not fix
-SA1649.
+and `Name{T}.cs`. When two source files in the same folder would each create the same new
+file, the tool names both `SourceFile.TypeName.cs`. That form conflicts with SA1649 unless
+the type is `partial`, since SA1649 reports nothing when the first type in a file is
+partial. Disable SA1649 in repositories that need the form for other types. The tool fixes
+SA1402. It does not fix SA1649. [docs/sa1402-sa1649-naming.md](sa1402-sa1649-naming.md)
+explains which file names satisfy both rules.
 
 ## FAQ
 
