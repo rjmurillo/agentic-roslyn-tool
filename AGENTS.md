@@ -28,6 +28,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | `tests/AgenticRoslynTool.Tests/` | xUnit tests. 83 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
+| `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
 | `.github/workflows/ci.yml` | The CI gate. Build and test on push and pull request. |
 
 Every source file, so you do not have to open one to find out whether it matters:
