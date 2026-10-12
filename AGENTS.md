@@ -29,6 +29,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
+| `package/AGENTS.md` | Agent instructions packed at the NuGet package root. |
 | `.github/workflows/ci.yml` | The CI gate. Build and test on push and pull request. |
 
 Every source file, so you do not have to open one to find out whether it matters:
