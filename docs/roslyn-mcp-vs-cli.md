@@ -148,10 +148,16 @@ To tell the agent which to use, add a short section to `AGENTS.md` or `CLAUDE.md
 ```
 
 Pass the same list file of original paths to all three phases. Capture it once, before the
-renames phase:
+plan, so every phase sees the paths the plan was built from:
 
 ```bash
 git -c core.quotePath=false ls-files '*.cs' > files.txt
+```
+
+In PowerShell, write the file as UTF-8 so paths with non-ASCII characters survive:
+
+```powershell
+git -c core.quotePath=false ls-files '*.cs' | Set-Content -Encoding utf8 files.txt
 ```
 
 Do not pass a directory to all three phases. After renames, the content phase sees the
