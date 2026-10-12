@@ -1,0 +1,26 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "minimumReleaseAge": "14 days",
+  "internalChecksFilter": "strict",
+  "platformAutomerge": true,
+  "automergeType": "pr",
+  "vulnerabilityAlerts": {
+    "enabled": false
+  },
+  "packageRules": [
+    {
+      "description": "Merge non-major updates once CI and the repository ruleset pass.",
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
+      "automerge": true
+    },
+    {
+      "description": "Leave major updates for a human. CI does not run the release workflow, so a major action bump there is untested.",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    }
+  ]
+}

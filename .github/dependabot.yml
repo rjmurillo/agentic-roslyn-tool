@@ -1,0 +1,15 @@
+# Dependabot owns security updates only. Renovate owns version updates.
+# A limit of 0 turns off version updates but keeps security updates.
+# Without it, both bots open the same pull request.
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0

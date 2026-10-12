@@ -202,6 +202,21 @@ agent does not pay again.
   `untagged-` name and creates the tag only when the draft is published. That is what
   makes the workflow's draft, upload, publish order safe to retry, and it was verified
   against this repository rather than assumed.
+- **Two dependency bots, split on purpose.** Renovate opens version updates, and only
+  for releases at least 14 days old. Dependabot opens security updates only, at once.
+  `open-pull-requests-limit: 0` in `.github/dependabot.yml` is what keeps Dependabot off
+  version updates. Renovate's `vulnerabilityAlerts` is off so it does not repeat
+  Dependabot. Undo either line and both bots open the same pull request. Both bots merge
+  minor and patch updates themselves once the ruleset passes. Majors wait for a human.
+- **Every action must be pinned to a full commit SHA.** The repository's Actions policy
+  enforces it, so a workflow that uses a tag such as `@v4` fails before any step runs.
+  Pin the SHA and put the version in a trailing comment.
+- **A `v*` tag cannot be moved or deleted.** A tag ruleset blocks both. Creating one is
+  allowed, because the release workflow creates the tag when it publishes.
+- **The `production` environment waits for the maintainer.** A release job pauses until
+  the maintainer approves it, and only `main` and `v*` tags can deploy there. A published
+  version can never be reused, so that click is the last human check. An agent must never
+  approve a pending deployment, even though the maintainer's token would let it.
 
 ## Known issues, not yet fixed
 
