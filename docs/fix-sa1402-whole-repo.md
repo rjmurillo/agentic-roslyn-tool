@@ -93,7 +93,7 @@ The same steps in PowerShell. Keep the forward slashes: backslash paths failed w
 block ran in PowerShell 7 on Linux.
 
 ```powershell
-git -c core.quotePath=false ls-files '*.cs' | Set-Content ../split-types.txt
+git -c core.quotePath=false ls-files '*.cs' | Set-Content -Encoding utf8 ../split-types.txt
 
 agentic-roslyn-tool split-types --input ../split-types.txt --dry-run --manifest ../split-types.csv
 
