@@ -4,7 +4,7 @@
 [![NuGet downloads](https://img.shields.io/nuget/dt/AgenticRoslynTool)](https://www.nuget.org/packages/AgenticRoslynTool)
 [![CI](https://github.com/rjmurillo/agentic-roslyn-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/rjmurillo/agentic-roslyn-tool/actions/workflows/ci.yml)
 
-AgenticRoslynTool splits C# files into one class per file across a whole repository, so you can fix StyleCop SA1402 without ReSharper or Visual Studio. Its `split-types` command moves every top-level type (class, struct, record, interface, enum, delegate) into its own file.
+AgenticRoslynTool splits C# files into one class per file across a whole repository, so you can fix StyleCop SA1402 without ReSharper or Visual Studio. Its `split-types` command gives each top-level type (class, struct, record, interface, enum, delegate) its own file.
 
 It is not an MCP server. For when to use a Roslyn MCP server instead, see [docs/roslyn-mcp-vs-cli.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/roslyn-mcp-vs-cli.md).
 
@@ -240,7 +240,7 @@ One production run processed 7,818 files and split 461 of them. Roslyn parsed ev
 
 **Can Visual Studio move all classes to separate files at once?** Not on its own: its quick action moves one type at a time, and [the one class per file guide](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/one-type-per-file-without-resharper.md) compares the bulk options.
 
-**Is there a free alternative to ReSharper's Move Types Into Matching Files?** Yes, you can do it without ReSharper: CodeRush is a free Visual Studio extension, and this tool is free and needs no IDE, as [the guide](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/one-type-per-file-without-resharper.md) shows.
+**Is there a free alternative to ReSharper's Move Types Into Matching Files?** Yes, without ReSharper: CodeRush is a free Visual Studio extension, and this tool is free and needs no IDE, as [the guide](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/one-type-per-file-without-resharper.md) shows.
 
 **Will it break my build?** It is a syntax-only move that copies every using and the namespace into each new file, so [build after the `content` phase](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/one-type-per-file-without-resharper.md#preview-rename-split) to confirm.
 
