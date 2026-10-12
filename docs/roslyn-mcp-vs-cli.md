@@ -147,7 +147,16 @@ To tell the agent which to use, add a short section to `AGENTS.md` or `CLAUDE.md
 - Then run `--phase renames`, commit, run `--phase content` with the same `--input` and `--manifest`, and build.
 ```
 
-Pass the same list file of original paths to all three phases. The README's
+Pass the same list file of original paths to all three phases. Capture it once, before the
+renames phase:
+
+```bash
+git -c core.quotePath=false ls-files '*.cs' > files.txt
+```
+
+Do not pass a directory to all three phases. After renames, the content phase sees the
+renamed file under its new name and skips it with `not present as split in plan manifest`.
+The README's
 [recommended workflow](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/README.md#recommended-workflow)
 walks through them.
 
@@ -191,6 +200,8 @@ are a stable contract to build on. This repository ships no such wrapper.
   usage, and the recommended workflow.
 - [docs/behavior-contracts.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/behavior-contracts.md):
   what each phase and each guard promises.
+- [docs/one-type-per-file-without-resharper.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/one-type-per-file-without-resharper.md):
+  moving every C# type into its own file without ReSharper.
 - [docs/verification.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/verification.md):
   what each check before a write proves, and what it does not.
 - [docs/decision-log.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/decision-log.md):
