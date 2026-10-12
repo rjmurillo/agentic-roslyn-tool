@@ -191,6 +191,8 @@ are a stable contract to build on. This repository ships no such wrapper.
   usage, and the recommended workflow.
 - [docs/behavior-contracts.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/behavior-contracts.md):
   what each phase and each guard promises.
+- [docs/verification.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/verification.md):
+  what each check before a write proves, and what it does not.
 - [docs/decision-log.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/decision-log.md):
   why the tool is a syntax-only command line tool.
 - [Model Context Protocol](https://modelcontextprotocol.io)
