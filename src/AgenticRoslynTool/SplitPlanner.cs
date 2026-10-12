@@ -174,7 +174,12 @@ internal static class SplitPlanner
         paths[keptPath] = keep;
         foreach (var type in types.Where(t => !ReferenceEquals(t, keep)))
         {
-            var target = Path.Combine(directory, OutputBuilder.GetFileName(type, types));
+            // A part with the kept type's name and type parameters belongs in the kept file.
+            // GetFileName alone misses this when the kept file keeps its original name: the
+            // kept Q<T> stays in Q.cs while a second part of Q<T> is named Q{T}.cs.
+            var target = StringComparer.Ordinal.Equals(type.Key, keep.Key)
+                ? keptPath
+                : Path.Combine(directory, OutputBuilder.GetFileName(type, types));
             if (paths.ContainsKey(target))
             {
                 return new SplitPlan(keep, keptPath, gitMove, note, $"target path collision within split: {target}", Array.Empty<PlannedFile>());
