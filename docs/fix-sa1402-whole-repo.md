@@ -220,6 +220,8 @@ The tool runs its own checks before it writes each file. It refuses to overwrite
 existing file, rejects splits that cross `#if` or `#region` boundaries unsafely, checks
 that each type and its own comments land in exactly one output, and checks that no source
 line was dropped. A file that fails a check is left untouched and marked `failed`.
+[docs/verification.md](verification.md) explains what each check proves and gives a
+before and after type scan you can run yourself.
 [docs/behavior-contracts.md](behavior-contracts.md) lists every guard.
 
 There is no run level transaction. Files are processed one at a time, so a failure late in
@@ -331,6 +333,7 @@ public class Square
 ## See also
 
 - [README](../README.md): install options, every flag, and the recommended workflow.
+- [docs/verification.md](verification.md): how to verify a large split.
 - [docs/behavior-contracts.md](behavior-contracts.md): what each phase and guard promises.
 - [docs/decision-log.md](decision-log.md): why the tool works in three phases and never
   prunes usings.

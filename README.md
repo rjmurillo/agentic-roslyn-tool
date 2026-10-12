@@ -198,6 +198,9 @@ Before writing files, the tool:
 * Verifies that each type retains its owned trivia.
 * Checks line conservation across the split.
 
+How each check works, what it proves, and what it does not:
+[docs/verification.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/verification.md).
+
 Every check for a given file runs before anything is written for that file. A file that
 fails a check is left untouched on disk and recorded as `failed` in the manifest, with the
 reason. If a write fails partway through a file set, the tool deletes the files it created
@@ -230,6 +233,7 @@ One production run processed 7,818 files and split 461 of them. Roslyn parsed ev
 | [AGENTS.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/AGENTS.md) | Orientation for AI agents and new contributors. Repository map, invariants that must not break, and traps that have already cost someone time. |
 | [docs/behavior-contracts.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/behavior-contracts.md) | What each phase and each safety guard promises, including every skip and failure reason. |
 | [docs/decision-log.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/decision-log.md) | Why the tool is built this way, and what breaks if a decision is reversed. |
+| [docs/verification.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/verification.md) | How to verify a large split: what each check proves, and a before/after type scan you run yourself. |
 | [docs/fix-sa1402-whole-repo.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/fix-sa1402-whole-repo.md) | Why `dotnet format` cannot fix SA1402, and how to split every multi-type file in a repository in three steps. |
 | [CONTRIBUTING.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/CONTRIBUTING.md) | Build, test, commit conventions, and the CI gate. |
 
