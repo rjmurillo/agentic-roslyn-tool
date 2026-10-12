@@ -253,7 +253,7 @@ partial type, such as `partial class Q<T>` twice, are marked `failed` instead, w
 reason saying the declaration appears 2 times across outputs. Nothing is written for that
 file either. The tool does not merge or move partial parts.
 
-Two types with the same name are split when their type parameter lists differ. The moved
+Two types with the same name are split when their type parameter lists differ. The generic
 type gets its type parameter names in braces, so `Box` and `Box<T>` become `Box.cs` and
 `Box{T}.cs`.
 

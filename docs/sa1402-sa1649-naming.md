@@ -164,8 +164,10 @@ and the first type in that file is `Shared`. Pick one of these fixes:
 ## Two types in one file that map to one file name
 
 The tool builds generic file names from the type parameter names, not from the arity.
-`Box<T>` and `Box<U>` in two namespace blocks of one file become `Box{T}.cs` and
-`Box{U}.cs`, and the split goes ahead. Both names pass SA1649 under `stylecop`.
+Take `Box<T>` and `Box<U>` in two namespace blocks of one file. In `Box.cs`, `Box<T>`
+stays in `Box.cs` and `Box<U>` moves to `Box{U}.cs`. In a file with another name, such as
+`Holder.cs`, the file is renamed to `Box{T}.cs` and `Box<U>` moves to `Box{U}.cs`. Either
+way the split goes ahead, and every name passes SA1649 under `stylecop`.
 
 When two types in one file map to the same file name, no name can tell them apart. That
 happens for two non-generic types with the same name, or two generic types with the same
