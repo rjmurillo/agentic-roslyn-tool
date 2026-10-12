@@ -1,6 +1,6 @@
 # AgenticRoslynTool
 
-AgenticRoslynTool is a .NET console tool for mechanical, verifiable C# refactoring. Its `split-types` command enforces StyleCop SA1402 by placing each top-level type in a separate file.
+AgenticRoslynTool is a .NET console tool for mechanical, verifiable C# refactoring. Its `split-types` command enforces StyleCop SA1402 by placing each top-level type in a separate file, one class per file.
 
 ## Why this exists
 
@@ -224,6 +224,14 @@ One production run processed 7,818 files and split 461 of them. Roslyn parsed ev
 * The tool does not prune using directives. A seemingly unused using can supply an extension method or target-typed conversion. Removing it would turn a mechanical edit into a semantic change.
 * The tool uses the Roslyn Syntax API without a semantic model. It does not resolve types across projects.
 
+## FAQ
+
+**Can Visual Studio move all classes to separate files at once?** Not on its own: its quick action moves one type at a time, and [the one class per file guide](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/one-type-per-file-without-resharper.md) compares the bulk options.
+
+**Is there a free alternative to ReSharper's Move Types Into Matching Files?** Yes: CodeRush is a free Visual Studio extension, and this tool is free and needs no IDE, as [the guide](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/one-type-per-file-without-resharper.md) shows.
+
+**Will it break my build?** It is a syntax-only move that copies every using and the namespace into each new file, so [build after the `content` phase](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/one-type-per-file-without-resharper.md#preview-rename-split) to confirm.
+
 ## Documentation
 
 | Document | What it covers |
@@ -231,6 +239,7 @@ One production run processed 7,818 files and split 461 of them. Roslyn parsed ev
 | [AGENTS.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/AGENTS.md) | Orientation for AI agents and new contributors. Repository map, invariants that must not break, and traps that have already cost someone time. |
 | [docs/behavior-contracts.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/behavior-contracts.md) | What each phase and each safety guard promises, including every skip and failure reason. |
 | [docs/decision-log.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/decision-log.md) | Why the tool is built this way, and what breaks if a decision is reversed. |
+| [docs/one-type-per-file-without-resharper.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/one-type-per-file-without-resharper.md) | How to move every C# type into its own file without ReSharper, with a worked example and a comparison of the options. |
 | [docs/verification.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/verification.md) | How to verify a large split: what each check proves, and a before/after type scan you run yourself. |
 | [CONTRIBUTING.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/CONTRIBUTING.md) | Build, test, commit conventions, and the CI gate. |
 
