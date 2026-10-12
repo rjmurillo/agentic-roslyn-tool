@@ -245,12 +245,11 @@ are most likely to see:
 | Path matches `--exclude` | skipped | `excluded by pattern: <pattern>` |
 | File does not parse | failed | `input has syntax errors: <diagnostics>` |
 
-The same-name row covers partial types that are not generic. SA1402 allows two parts of
-one partial class in a file, but the tool sees two types that want the same file name and
-skips it. That is harmless, since SA1402 does not flag that file. Two parts of a generic
-partial type, such as `partial class Q<T>` twice, are marked `failed` instead, with a
-reason saying the declaration appears 2 times across outputs. Nothing is written for that
-file either. The tool does not merge or move partial parts.
+The same-name row covers partial types, generic or not. SA1402 allows two parts of one
+partial class in a file, but the tool sees two types that want the same file name and
+skips it. That is harmless, since SA1402 does not flag that file. Two parts of
+`partial class Q<T>` in `Q.cs` are skipped the same way. The tool does not merge or move
+partial parts.
 
 Two types with the same name are split when their type parameter lists differ. A generic
 type gets its type parameter names in braces, unless it stays in a file already named for

@@ -260,8 +260,10 @@ Two refusals here are what make the plan then apply workflow trustworthy:
    under the `content` phase above.
 
 Within a single input file, two types with the same simple name that do not differ by
-generic arity are refused with `target path collision within split: <path>`. The same
-reason covers two manifest rows that resolve to one path.
+generic arity are refused with `target path collision within split: <path>`. A type with
+the kept type's name and type parameters targets the kept path, so two parts of one
+partial type, generic or not, are refused this way even when the kept type keeps the
+original file name. The same reason covers two manifest rows that resolve to one path.
 
 ### VerifyOutputs
 

@@ -78,6 +78,34 @@ public sealed class FilenameCollisionTests
         }
     }
 
+    [Theory]
+    [InlineData("internal partial class Q<T> { }\n\ninternal partial class Q<T> { }\n")]
+    [InlineData("internal partial class Q<T> { void A() { } }\n\ninternal partial class Q<T> { void B() { } }\n")]
+    [InlineData("internal partial class Q<T> { }\n\ninternal partial class Q<T> { }\n\ninternal class Other { }\n")]
+    [InlineData("internal partial class Q { }\n\ninternal partial class Q { }\n")]
+    public void PartialParts_InTheirNamedFile_AreSkippedAsCollision(string types)
+    {
+        // The kept part stays at Q.cs. A second part of Q<T> would be named Q{T}.cs on its
+        // own, so it must target the kept path instead, or the collision check misses it.
+        // A miss fails identical parts in verification and splits distinct parts apart.
+        using var ws = new TempWorkspace();
+        var source = TestHeader.Copyright + "\nnamespace Sample;\n\n" + types;
+        var path = ws.WriteFile("Q.cs", source);
+        var listPath = ws.WriteInputList(path);
+        var manifestPath = Path.Combine(ws.Root, "m.csv");
+
+        var planOptions = new Options(listPath, manifestPath, ws.Root, Phase.Plan, null);
+        var plan = Assert.Single(new FileSplitter(planOptions).Run().ReportRows);
+
+        Assert.Equal("skipped", plan.Status);
+        Assert.Equal($"target path collision within split: {path}", plan.Reason);
+
+        var content = Assert.Single(ws.RunPlanThenContent(listPath, manifestPath));
+        Assert.Equal("skipped", content.Status);
+        Assert.Equal(source, File.ReadAllText(path));
+        Assert.Equal(new[] { "Q.cs" }, Directory.GetFiles(ws.Root, "*.cs").Select(Path.GetFileName));
+    }
+
     private static FileResult Split(string originalName, string outputName)
     {
         var root = Path.Combine(Path.GetTempPath(), "art-collision");
