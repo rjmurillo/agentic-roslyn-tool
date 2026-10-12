@@ -72,10 +72,10 @@ directory, so delete that file afterward or pass `--manifest` with a path outsid
 repository.
 
 For the real run, capture the file list once and reuse it for all three phases. A
-directory scan after the `renames` phase finds the new file names, which the plan does not
-know, so the `content` phase would skip them. Keep the list and the manifest outside the
-repository so `git add -A` does not commit them. The `core.quotePath=false` setting stops
-git from escaping non-ASCII file names, which the tool would then fail to find.
+directory also works: the `content` phase maps a renamed file back to its plan row. Keep
+the list and the manifest outside the repository so `git add -A` does not commit them. The
+`core.quotePath=false` setting stops git from escaping non-ASCII file names, which the tool
+would then fail to find.
 
 In Bash:
 
@@ -207,9 +207,9 @@ These rules decide what goes where:
   A non-generic type wins over a generic one. When no type matches, the first type stays
   and the file is renamed to it, unless a file with that name already exists.
 - **File names.** Each type goes to `TypeName.cs`. A lone generic type `Foo<T>` goes to
-  `Foo.cs`. When several types in one file share a name and differ by generic arity, the
-  generic ones get their type parameters in braces, such as `Result{T}.cs` and
-  `Result{TValue,TError}.cs`.
+  `Foo.cs`. When several types in one file share a name, each generic one gets its type
+  parameters in braces, such as `Result{T}.cs` and `Result{TValue,TError}.cs`. A generic
+  type that stays in a file already named for it keeps that file name.
 - **Name clashes across files.** When two input files would create the same file name,
   the tool usually names both `FileName.TypeName.cs`. That name breaks StyleCop SA1649, so
   those files need a decision from you afterward.

@@ -116,11 +116,10 @@ Notes on each step:
 3. **Content.** This phase reads the plan manifest and refuses any file whose recomputed
    plan no longer matches it. It stops with exit code 3 if the manifest does not exist.
 
-Feed every phase the same list file, not a directory. After the renames phase,
-`Shapes.cs` is gone and `Circle.cs` exists. A directory scan in the content phase finds
-`Circle.cs`, which the plan never named, and skips it with
-`not present as split in plan manifest`. The list file still names `Shapes.cs`, and the
-manifest tells the content phase where that file went.
+Feed every phase the same list file. After the renames phase, `Shapes.cs` is gone and
+`Circle.cs` exists. The list file still names `Shapes.cs`, and the manifest tells the
+content phase where that file went. A directory input works too: the content phase finds
+`Circle.cs` and maps it back to the plan row for `Shapes.cs` through its planned kept path.
 
 Each phase rewrites the manifest at `--manifest` with what it did. Copy the plan aside
 first if you want to keep it for comparison. Do not point the content phase at a new,
@@ -252,9 +251,9 @@ skips it. That is harmless, since SA1402 does not flag that file. Two parts of
 `partial class Q<T>` in `Q.cs` are skipped the same way. The tool does not merge or move
 partial parts.
 
-Two types with the same name are split when their type parameter lists differ. The moved
-type gets its type parameter names in braces, so `Box` and `Box<T>` become `Box.cs` and
-`Box{T}.cs`.
+Two types with the same name are split when their type parameter lists differ. A generic
+type gets its type parameter names in braces, unless it stays in a file already named for
+it. So `Box` and `Box<T>` become `Box.cs` and `Box{T}.cs`.
 
 ## Stricter than SA1402 by default
 
