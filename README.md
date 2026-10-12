@@ -2,6 +2,8 @@
 
 AgenticRoslynTool is a .NET console tool for mechanical, verifiable C# refactoring. Its `split-types` command enforces StyleCop SA1402 by placing each top-level type in a separate file.
 
+It is not an MCP server. For when to use a Roslyn MCP server instead, see [docs/roslyn-mcp-vs-cli.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/roslyn-mcp-vs-cli.md).
+
 ## Why this exists
 
 `dotnet format` cannot fix SA1402 across a repository. `SA1402CodeFixProvider` does not implement Fix All. As a result, this command succeeds without changing files:
