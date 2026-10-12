@@ -99,7 +99,8 @@ The rules the tool follows:
 
 Under `metadata`, SA1649 expects ``Foo`1.cs`` for `Foo<T>` and rejects both `Foo{T}.cs` and
 `Foo.cs`. The tool does not read your StyleCop settings. Every generic file it emits,
-whether `Foo{T}.cs` or a plain `Foo.cs`, raises SA1649 in a `metadata` repository.
+whether `Foo{T}.cs` or a plain `Foo.cs`, raises SA1649 in a `metadata` repository, unless
+its first type is `partial`.
 
 You have two choices:
 

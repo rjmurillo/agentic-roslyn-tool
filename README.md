@@ -217,7 +217,7 @@ One production run processed 7,818 files and split 461 of them. Roslyn parsed ev
 ## Known limitations
 
 * Two input files in different namespaces can produce the same output filename. The tool resolves that by qualifying both as `FileName.TypeName.cs`. This fallback conflicts with StyleCop SA1649. Disable SA1649 in repositories that need this naming form. (details: [docs/sa1402-sa1649-naming.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/sa1402-sa1649-naming.md))
-* Two types that share a simple name inside a *single* file are not split. Unless they differ only by generic arity, which is resolved as `Name{T}.cs`, the file is skipped with `target path collision within split` and needs manual handling. (details: [docs/sa1402-sa1649-naming.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/sa1402-sa1649-naming.md))
+* Two types that share a simple name inside a *single* file are not split. Unless they differ by generic arity or by type parameter names, which is resolved as `Name{T}.cs`, the file is skipped with `target path collision within split` and needs manual handling. (details: [docs/sa1402-sa1649-naming.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/sa1402-sa1649-naming.md))
 * The tool does not prune using directives. A seemingly unused using can supply an extension method or target-typed conversion. Removing it would turn a mechanical edit into a semantic change.
 * The tool uses the Roslyn Syntax API without a semantic model. It does not resolve types across projects.
 
