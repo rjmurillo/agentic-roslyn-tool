@@ -1,14 +1,11 @@
 # Dependabot owns security updates only. Renovate owns version updates.
 # A limit of 0 turns off version updates but keeps security updates.
 # Without it, both bots open the same pull request.
+# There is no github-actions entry. Every action is pinned to a SHA, and
+# GitHub raises no security alerts for SHA pins, so the entry would do nothing.
 version: 2
 updates:
   - package-ecosystem: nuget
-    directory: "/"
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 0
-  - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly

@@ -208,6 +208,8 @@ agent does not pay again.
   version updates. Renovate's `vulnerabilityAlerts` is off so it does not repeat
   Dependabot. Undo either line and both bots open the same pull request. Both bots merge
   minor and patch updates themselves once the ruleset passes. Majors wait for a human.
+  Dependabot covers NuGet only. GitHub raises no security alerts for SHA-pinned actions,
+  so a vulnerable action is only fixed by Renovate, after the 14 day wait.
 - **Every action must be pinned to a full commit SHA.** The repository's Actions policy
   enforces it, so a workflow that uses a tag such as `@v4` fails before any step runs.
   Pin the SHA and put the version in a trailing comment.
