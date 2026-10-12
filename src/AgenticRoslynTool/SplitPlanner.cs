@@ -100,6 +100,42 @@ internal static class SplitPlanner
     }
 
     /// <summary>
+    /// Indexes the plan's <c>split</c> rows by every path the content phase can be handed
+    /// for them: the original path, and the kept path of a row whose rename is planned.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A directory input is scanned again in each phase. After the renames phase, that scan
+    /// finds a renamed file under its kept path, which the plan never listed as an input.
+    /// Without the kept path key, the content phase skips the file, reports its plan row as
+    /// not supplied, and exits 0 with the split undone.
+    /// </para>
+    /// <para>
+    /// Only the lookup changes. The row found here still runs through
+    /// <see cref="GetReadPath"/> and <see cref="BuildPlan"/>, so every rename state and
+    /// manifest check applies exactly as it does to a row found by its original path. An
+    /// original path wins over a kept path, and a kept path that two rows claim maps to
+    /// neither, so this index never guesses which plan a file belongs to.
+    /// </para>
+    /// </remarks>
+    internal static Dictionary<string, FileResult> IndexByInputPath(IEnumerable<FileResult> splitRows)
+    {
+        var rows = splitRows.ToArray();
+        var index = rows.ToDictionary(r => r.OriginalPath, PathComparison.Comparer);
+        var renamed = rows
+            .Where(r => r.GitMove)
+            .GroupBy(r => r.KeptPath, PathComparison.Comparer)
+            .Where(g => g.Count() == 1 && !index.ContainsKey(g.Key))
+            .ToArray();
+        foreach (var group in renamed)
+        {
+            index.Add(group.Key, group.Single());
+        }
+
+        return index;
+    }
+
+    /// <summary>
     /// Chooses which path to read source from. In the content phase for a row whose
     /// rename was already applied, the original path no longer exists and the kept
     /// path is authoritative. This method enforces that state: it refuses to proceed
