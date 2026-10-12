@@ -224,7 +224,10 @@ agent does not pay again.
   because the only owner cannot approve their own pull request. See decision 20.
 - **Every action must be pinned to a full commit SHA.** The repository's Actions policy
   enforces it, so a workflow that uses a tag such as `@v4` fails before any step runs.
-  Pin the SHA and put the version in a trailing comment.
+  Pin the SHA and put the version in a trailing comment. Only actions owned by GitHub,
+  plus `NuGet/login` and `dependabot/fetch-metadata`, are allowed to run. A new third
+  party action fails until the maintainer adds it to the allow list in the Actions
+  settings.
 - **A `v*` tag cannot be moved or deleted.** A tag ruleset blocks both. Creating one is
   allowed, because the release workflow creates the tag when it publishes.
 - **The `production` environment waits for the maintainer.** A release job pauses until

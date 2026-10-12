@@ -481,7 +481,9 @@ Any bypass granted to the maintainer is also granted to every agent.
 linear history, signed commits, the `build` and `CodeQL` checks on an up to date branch,
 resolved review threads, and Copilot review. It requires zero approvals and no code owner
 review. Neither ruleset has a bypass actor. The Actions token cannot approve pull
-requests. Renovate and Dependabot both auto-merge minor and patch updates, and only for
+requests, and only GitHub owned actions plus an explicit allow list may run. The squash
+commit takes its title from the pull request title, so the Conventional Commit title a
+reviewer saw is the one that lands on `main`. Renovate and Dependabot both auto-merge minor and patch updates, and only for
 package versions at least 14 days old: Renovate through `minimumReleaseAge`, Dependabot
 through the age check in `dependabot-automerge.yml`.
 
