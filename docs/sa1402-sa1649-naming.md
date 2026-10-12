@@ -254,6 +254,8 @@ Yes. SA1402 allows several parts of one partial type in one file.
 
 ## See also
 
+* [One class per file without ReSharper](one-type-per-file-without-resharper.md), the
+  step by step guide to running the split.
 * [README: Known limitations](../README.md#known-limitations)
 * [Behavior contracts: BuildPlan](behavior-contracts.md#buildplan), which lists every skip
   reason the planner can return.
