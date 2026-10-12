@@ -142,7 +142,7 @@ To tell the agent which to use, add a short section to `AGENTS.md` or `CLAUDE.md
 ## Splitting C# files (SA1402)
 - Use the Roslyn MCP server for questions about symbols and references. Use agentic-roslyn-tool for the split.
 - Run `agentic-roslyn-tool split-types --input <list file> --dry-run --json --manifest <path outside the repo>` first. It changes no source file.
-- Exit 0: read `summary`. If `summary.split` is 0, there is nothing to do. Exit 1: read `reason` on each `failed` row.
+- Exit 0: read `summary`. If `summary.split` is 0, inspect skipped rows and their reasons. No automatic splits are planned. Exit 1: read `reason` on each `failed` row.
 - Exit 2: fix the arguments. Exit 3: read the `error:` line on standard error.
 - Then run `--phase renames`, commit, run `--phase content` with the same `--input` and `--manifest`, and build.
 ```
