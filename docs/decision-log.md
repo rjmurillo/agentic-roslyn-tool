@@ -478,7 +478,7 @@ review rule that needs a second human either blocks every pull request or gets b
 Any bypass granted to the maintainer is also granted to every agent.
 
 **Decision.** The default branch ruleset requires a pull request, squash merges only,
-linear history, signed commits, the `build` and `CodeQL` checks on an up to date branch,
+linear history, the `build` and `CodeQL` checks on an up to date branch,
 resolved review threads, and Copilot review. It requires zero approvals and no code owner
 review. Neither ruleset has a bypass actor. The Actions token cannot approve pull
 requests, and only GitHub owned actions plus an explicit allow list may run. The squash
@@ -492,7 +492,10 @@ check, and it would let an agent holding that token do the same. If the rules ar
 wrong in an emergency, turn the ruleset off in the settings page, fix the problem, and
 turn it back on. That leaves a record in the ruleset history. Code owner review was also
 rejected. With one owner it blocks the maintainer's own pull requests and adds nothing.
-CODEOWNERS can still exist so GitHub requests a review automatically.
+CODEOWNERS can still exist so GitHub requests a review automatically. Required signed
+commits was tried and removed. GitHub checks every commit on the head branch, not only
+the squash commit it signs, so an unsigned local commit by the maintainer or an agent
+blocks the merge. Turn it back on only after every machine and agent signs its commits.
 
 **Consequences.** A security fix from Dependabot waits up to 14 days before it merges by
 itself. The pull request is open from the first day, so the maintainer can merge it sooner
