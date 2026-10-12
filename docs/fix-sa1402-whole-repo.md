@@ -108,7 +108,8 @@ Notes on each step:
    you like.
 2. **Renames.** The tool runs `git mv`, which stages the rename, so `git commit` needs no
    `git add`. Keeping the rename in its own commit lets Git record a rename instead of a
-   delete and an add, so file history survives.
+   delete and an add, so file history survives. If the plan has no `gitMove` row, nothing
+   is staged and `git commit` exits 1. Skip the commit in that case.
 3. **Content.** This phase reads the plan manifest and refuses any file whose recomputed
    plan no longer matches it. It stops with exit code 3 if the manifest does not exist.
 
@@ -307,16 +308,23 @@ No. It is a .NET tool that runs on the .NET 10 SDK, locally or in CI.
 
 ### How do I suppress SA1402 instead?
 
-Put this attribute on the type:
+Put this attribute on the type the warning points at. That is the extra type, not the
+one that matches the file name:
 
 ```csharp
 [SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:FileMayOnlyContainASingleType", Justification = "Reviewed.")]
+public class Square
+{
+}
 ```
 
-Or wrap the code in a pragma:
+Or wrap that type in a pragma:
 
 ```csharp
 #pragma warning disable SA1402 // FileMayOnlyContainASingleType
+public class Square
+{
+}
 #pragma warning restore SA1402 // FileMayOnlyContainASingleType
 ```
 
