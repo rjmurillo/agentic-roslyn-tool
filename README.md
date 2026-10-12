@@ -14,6 +14,8 @@ dotnet format analyzers --diagnostics SA1402
 
 Production testing confirmed this behavior before development started. This tool provides the missing repository-wide operation.
 
+Full walkthrough: [docs/fix-sa1402-whole-repo.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/fix-sa1402-whole-repo.md).
+
 ## Install
 
 The tool ships as a .NET tool package on NuGet and needs the .NET 10 SDK.
@@ -245,6 +247,7 @@ One production run processed 7,818 files and split 461 of them. Roslyn parsed ev
 | [docs/verification.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/verification.md) | How to verify a large split: what each check proves, and a before/after type scan you run yourself. |
 | [docs/roslyn-mcp-vs-cli.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/roslyn-mcp-vs-cli.md) | When an agent needs a Roslyn MCP server and when it needs this command line tool. |
 | [docs/sa1402-sa1649-naming.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/sa1402-sa1649-naming.md) | What file name SA1649 expects for generic and same-name types, and how to fix the names the tool cannot choose. |
+| [docs/fix-sa1402-whole-repo.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/fix-sa1402-whole-repo.md) | Why `dotnet format` cannot fix SA1402, and how to split every multi-type file in a repository in three steps. |
 | [CONTRIBUTING.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/CONTRIBUTING.md) | Build, test, commit conventions, and the CI gate. |
 
 ## Credit
