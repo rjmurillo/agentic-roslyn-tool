@@ -241,7 +241,7 @@ are most likely to see:
 | File has top-level statements | skipped | `contains top-level statements; manual split required` |
 | File declares a `file` type | skipped | `contains file-local type; manual split required` |
 | An `#if` or `#region` spans two types | skipped | `<kind> group at line <n> crosses top-level type boundaries` |
-| Two types share a name in one file | skipped | `target path collision within split: <path>` |
+| Two types in one file share a name and type parameter list | skipped | `target path collision within split: <path>` |
 | File already has one type | skipped | `nothing to split: input has 1 top-level type declaration(s)` |
 | Path matches `--exclude` | skipped | `excluded by pattern: <pattern>` |
 | File does not parse | failed | `input has syntax errors: <diagnostics>` |
@@ -249,8 +249,9 @@ are most likely to see:
 The same-name row covers partial types. SA1402 allows two parts of one partial class in a
 file, but the tool sees two types that want the same file name and skips it. That is
 harmless, since SA1402 does not flag that file, but the tool does not merge or move
-partial parts. Two types with the same name that differ only by generic arity are split
-into `Name.cs` and `Name{T}.cs`.
+partial parts. Two types with the same name are split when their type parameter lists
+differ. Each generic one gets its parameter names in braces, so `Box` and `Box<T>` become
+`Box.cs` and `Box{T}.cs`, and `Box<T>` and `Box<U>` become `Box{T}.cs` and `Box{U}.cs`.
 
 ## Stricter than SA1402 by default
 
@@ -278,11 +279,13 @@ does not match.
 
 ## File naming and SA1649
 
-The tool names each new file after its type. A generic type gets `{T}` in its file name
-only when it shares a name with another type in the same file, as in `Name.cs` and
-`Name{T}.cs`. When two source files in the same folder would each create the same new
-file, the tool names both `SourceFile.TypeName.cs`. That form conflicts with SA1649, so
-disable SA1649 in repositories that need it. The tool fixes SA1402. It does not fix
+The tool names each new file after its type. A generic type gets its type parameter names
+in braces only when it shares a name with another type in the same file, as in `Name.cs`
+and `Name{T}.cs`, or `Name{T}.cs` and `Name{U}.cs`. When two source files in the same
+folder would each create the same new file, the tool names both `SourceFile.TypeName.cs`.
+That form conflicts with SA1649 unless the type is `partial`, since SA1649 reports nothing
+when the first type in a file is partial. Disable SA1649 in repositories that need the
+form for other types. The tool fixes SA1402. It does not fix
 SA1649.
 
 ## FAQ
