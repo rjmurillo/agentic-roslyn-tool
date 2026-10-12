@@ -107,8 +107,10 @@ internal sealed class FileSplitter
 
     /// <summary>
     /// Content phase entry point. Reads the plan manifest, then for each input path
-    /// runs <see cref="Process"/> against the planned row. Files not present as
-    /// <c>split</c> in the manifest are skipped with a diagnostic reason.
+    /// runs <see cref="Process"/> against the planned row. An input path matches a row by
+    /// its original path, or by its kept path once the renames phase has moved it (see
+    /// <see cref="SplitPlanner.IndexByInputPath"/>). Files not present as <c>split</c> in
+    /// the manifest are skipped with a diagnostic reason.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when the manifest file does not exist.</exception>
     /// <remarks>
@@ -137,23 +139,26 @@ internal sealed class FileSplitter
         //
         // Read already collapses the CSV to one row per path, so nothing re-groups here.
         var manifestPlan = ManifestWriter.Read(_options.ManifestPath);
-        var plannedFiles = manifestPlan
-            .Where(r => r.Status == "split")
-            .ToDictionary(r => r.OriginalPath, PathComparison.Comparer);
+        var plannedFiles = SplitPlanner.IndexByInputPath(manifestPlan.Where(r => r.Status == "split"));
 
         var results = new List<FileResult>();
         var applied = new HashSet<string>(PathComparison.Comparer);
         foreach (var path in inputs)
         {
-            var originalPath = Path.GetFullPath(path);
-            if (!plannedFiles.TryGetValue(originalPath, out var planned))
+            var inputPath = Path.GetFullPath(path);
+            if (!plannedFiles.TryGetValue(inputPath, out var planned))
             {
-                results.Add(FileResult.Skip(originalPath, originalPath, NotPlannedReason));
+                results.Add(FileResult.Skip(inputPath, inputPath, NotPlannedReason));
                 continue;
             }
 
-            applied.Add(originalPath);
-            results.Add(Process(originalPath, Phase.Content, planned));
+            // A directory scan after the renames phase hands over the kept path, and a list
+            // can name both paths of one file. Either way the plan row is the identity, so a
+            // row already applied in this run is not applied twice.
+            if (applied.Add(planned.OriginalPath))
+            {
+                results.Add(Process(planned.OriginalPath, Phase.Content, planned));
+            }
         }
 
         // The manifest is the plan of record; the report is what this run did. So the two

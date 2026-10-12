@@ -72,10 +72,10 @@ directory, so delete that file afterward or pass `--manifest` with a path outsid
 repository.
 
 For the real run, capture the file list once and reuse it for all three phases. A
-directory scan after the `renames` phase finds the new file names, which the plan does not
-know, so the `content` phase would skip them. Keep the list and the manifest outside the
-repository so `git add -A` does not commit them. The `core.quotePath=false` setting stops
-git from escaping non-ASCII file names, which the tool would then fail to find.
+directory also works: the `content` phase maps a renamed file back to its plan row. Keep
+the list and the manifest outside the repository so `git add -A` does not commit them. The
+`core.quotePath=false` setting stops git from escaping non-ASCII file names, which the tool
+would then fail to find.
 
 In Bash:
 
