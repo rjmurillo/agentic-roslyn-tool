@@ -270,7 +270,8 @@ still exits `0`, so read `summary` to learn whether work happened.
 Once each file holds one type, turn on StyleCop rule
 [SA1402](https://github.com/DotNetAnalyzers/StyleCopAnalyzers/blob/master/documentation/SA1402.md)
 so new files stay that way. By default that rule still lets enums, structs, interfaces,
-and delegates sit next to a class.
+and delegates sit next to a class. If you are here because of SA1402 warnings, see
+[Fix SA1402 across a whole repository](fix-sa1402-whole-repo.md).
 
 ## FAQ
 

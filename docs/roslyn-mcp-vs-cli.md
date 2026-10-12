@@ -208,6 +208,8 @@ are a stable contract to build on. This repository ships no such wrapper.
   what each phase and each guard promises.
 - [docs/one-type-per-file-without-resharper.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/one-type-per-file-without-resharper.md):
   moving every C# type into its own file without ReSharper.
+- [docs/fix-sa1402-whole-repo.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/fix-sa1402-whole-repo.md):
+  why `dotnet format` cannot fix SA1402, and the three step workflow.
 - [docs/verification.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/verification.md):
   what each check before a write proves, and what it does not.
 - [docs/decision-log.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/decision-log.md):

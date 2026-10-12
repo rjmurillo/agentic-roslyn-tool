@@ -286,8 +286,10 @@ in braces only when it shares a name with another type in the same file, as in `
 and `Name{T}.cs`. When two source files in the same folder would each create the same new
 file, the tool names both `SourceFile.TypeName.cs`. That form conflicts with SA1649 unless
 the type is `partial`, since SA1649 reports nothing when the first type in a file is
-partial. Disable SA1649 in repositories that need the form for other types. The tool fixes
-SA1402. It does not fix SA1649. [docs/sa1402-sa1649-naming.md](sa1402-sa1649-naming.md)
+partial. Fix just those files rather than disabling SA1649 for the whole repository: rename
+them by hand to `TypeName.SourceFile.cs`, move each into a folder named for its namespace,
+or suppress SA1649 for those paths. Disabling SA1649 remains an option. The tool fixes
+SA1402. It does not fix SA1649. [docs/sa1402-sa1649-naming.md](sa1402-sa1649-naming.md#same-type-name-in-two-namespaces)
 explains which file names satisfy both rules.
 
 ## FAQ

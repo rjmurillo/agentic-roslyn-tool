@@ -258,6 +258,8 @@ Yes. SA1402 allows several parts of one partial type in one file.
 
 * [One class per file without ReSharper](one-type-per-file-without-resharper.md), the
   step by step guide to running the split.
+* [Fix SA1402 across a whole repository](fix-sa1402-whole-repo.md), why `dotnet format`
+  cannot fix SA1402 and the three step workflow.
 * [README: Known limitations](../README.md#known-limitations)
 * [Behavior contracts: BuildPlan](behavior-contracts.md#buildplan), which lists every skip
   reason the planner can return.

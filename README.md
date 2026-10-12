@@ -1,6 +1,10 @@
 # AgenticRoslynTool
 
-AgenticRoslynTool is a .NET console tool for mechanical, verifiable C# refactoring. Its `split-types` command enforces StyleCop SA1402 by placing each top-level type in a separate file, one class per file.
+[![NuGet](https://img.shields.io/nuget/v/AgenticRoslynTool)](https://www.nuget.org/packages/AgenticRoslynTool)
+[![NuGet downloads](https://img.shields.io/nuget/dt/AgenticRoslynTool)](https://www.nuget.org/packages/AgenticRoslynTool)
+[![CI](https://github.com/rjmurillo/agentic-roslyn-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/rjmurillo/agentic-roslyn-tool/actions/workflows/ci.yml)
+
+AgenticRoslynTool splits C# files into one class per file across a whole repository, so you can fix StyleCop SA1402 without ReSharper or Visual Studio. Its `split-types` command gives each top-level type (class, struct, record, interface, enum, delegate) its own file.
 
 It is not an MCP server. For when to use a Roslyn MCP server instead, see [docs/roslyn-mcp-vs-cli.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/roslyn-mcp-vs-cli.md).
 
@@ -55,6 +59,10 @@ dotnet run --project src/AgenticRoslynTool -- split-types --help
 
 ## Usage
 
+Start with `--dry-run`. Without `--phase` or `--dry-run`, the tool runs the `content`
+phase, which rewrites files. Run `plan`, then `renames`, then `content`, as
+[docs/fix-sa1402-whole-repo.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/fix-sa1402-whole-repo.md) walks through.
+
 `split-types` requires `--input`, which identifies the C# files to process. It accepts a
 directory to scan, a single `.cs` file, a CSV with a `file` column, a text file with one
 path per line, or `-` to read paths from standard input.
@@ -63,7 +71,7 @@ Use these options to control the operation:
 
 | Option | Purpose |
 | --- | --- |
-| `--phase plan\|renames\|content` | Selects one of the three phases. |
+| `--phase plan\|renames\|content` | Selects a phase. Defaults to content, which rewrites files. |
 | `--dry-run` | Runs the `plan` phase without changing source files. |
 | `--input <dir\|file\|csv\|list\|->` | Supplies the required file list. |
 | `--repo-root <path>` | Sets the repository root. |
@@ -185,9 +193,9 @@ dotnet build
 git diff --check
 ```
 
-The content phase writes its own manifest to the same path it read, so passing the same
-`--manifest` for both phases overwrites the reviewed plan. Use a second path when you want
-to keep the plan for comparison.
+The content phase exits 3 if no plan manifest exists at `--manifest`, and overwrites that
+manifest with its results. Copy the reviewed plan to a second path first when you want to
+keep it for comparison.
 
 The content phase moves each non-primary top-level type into its own file. Each type keeps its owned XML comments, attributes, and ordinary comments. Every emitted file also receives the source using directives and namespace declaration.
 
@@ -226,6 +234,7 @@ One production run processed 7,818 files and split 461 of them. Roslyn parsed ev
 * Two input files can each plan a new file at the same output path. For example, two files in one folder each declare a type named `Shared` in different namespaces. The tool resolves that by qualifying both as `FileName.TypeName.cs`. This fallback conflicts with StyleCop SA1649. Fix just those files instead of disabling SA1649 for the whole repository: rename them by hand to `TypeName.FileName.cs`, move each into a folder named for its namespace, or suppress SA1649 for those paths in `.editorconfig`. (details: [docs/sa1402-sa1649-naming.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/sa1402-sa1649-naming.md#same-type-name-in-two-namespaces))
 * Generic file names follow StyleCop's default `stylecop` file naming convention, such as `Foo{T}.cs`. Under the `metadata` convention, SA1649 expects ``Foo`1.cs`` instead. Every generic file the tool emits, whether `Foo{T}.cs` or a plain `Foo.cs`, then raises SA1649 unless its first type is `partial`. Rename those files by hand, or switch the repository to the `stylecop` convention. (details: [docs/sa1402-sa1649-naming.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/sa1402-sa1649-naming.md#if-you-use-the-metadata-convention))
 * Two types that share a simple name inside a *single* file are not split. Unless they differ by generic arity or by type parameter names, which is resolved as `Name{T}.cs`, the file is skipped with `target path collision within split` and needs manual handling. (details: [docs/sa1402-sa1649-naming.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/sa1402-sa1649-naming.md))
+* Two or more parts of one partial type in the same file, generic or not, make the tool skip that file with `target path collision within split`. The parts are not merged, and other types in that file stay where they are.
 * The tool does not prune using directives. A seemingly unused using can supply an extension method or target-typed conversion. Removing it would turn a mechanical edit into a semantic change.
 * The tool uses the Roslyn Syntax API without a semantic model. It does not resolve types across projects.
 
@@ -233,9 +242,13 @@ One production run processed 7,818 files and split 461 of them. Roslyn parsed ev
 
 **Can Visual Studio move all classes to separate files at once?** Not on its own: its quick action moves one type at a time, and [the one class per file guide](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/one-type-per-file-without-resharper.md) compares the bulk options.
 
-**Is there a free alternative to ReSharper's Move Types Into Matching Files?** Yes: CodeRush is a free Visual Studio extension, and this tool is free and needs no IDE, as [the guide](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/one-type-per-file-without-resharper.md) shows.
+**Is there a free alternative to ReSharper's Move Types Into Matching Files?** Yes, without ReSharper: CodeRush is a free Visual Studio extension, and this tool is free and needs no IDE, as [the guide](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/one-type-per-file-without-resharper.md) shows.
 
 **Will it break my build?** It is a syntax-only move that copies every using and the namespace into each new file, so [build after the `content` phase](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/one-type-per-file-without-resharper.md#preview-rename-split) to confirm.
+
+**Does `dotnet format` fix SA1402?** No. StyleCop's SA1402 code fix has no Fix All provider, so `dotnet format analyzers --diagnostics SA1402` exits 0 and leaves every file unchanged, as [the whole-repository guide](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/fix-sa1402-whole-repo.md) shows.
+
+**Is this an MCP server?** No, it is a command line tool. From Claude Code or GitHub Copilot agent mode, run `agentic-roslyn-tool split-types --input src --dry-run --json` as a shell command, then read the JSON and the exit code, as [docs/roslyn-mcp-vs-cli.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/roslyn-mcp-vs-cli.md) explains.
 
 ## Documentation
 
