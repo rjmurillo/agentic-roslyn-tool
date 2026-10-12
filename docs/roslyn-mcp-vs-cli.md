@@ -160,8 +160,8 @@ In PowerShell, write the file as UTF-8 so paths with non-ASCII characters surviv
 git -c core.quotePath=false ls-files '*.cs' | Set-Content -Encoding utf8 files.txt
 ```
 
-Do not pass a directory to all three phases. After renames, the content phase sees the
-renamed file under its new name and skips it with `not present as split in plan manifest`.
+A directory also works for all three phases. After renames, a directory scan finds a
+renamed file under its new name, and the content phase maps that name back to its plan row.
 The README's
 [recommended workflow](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/README.md#recommended-workflow)
 walks through them.

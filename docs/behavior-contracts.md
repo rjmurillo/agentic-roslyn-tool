@@ -174,6 +174,12 @@ Promises:
 
 - **Acts only on rows the plan marked `split`.** Anything else is skipped with the reason
   `not present as split in plan manifest`.
+- **Finds a renamed file by its kept path.** A directory scan after the renames phase
+  supplies the kept path, not the original. An input that equals the kept path of exactly
+  one `split` row with a git move is applied as that row. An original path match wins over
+  a kept path match, and a kept path two rows claim matches neither. A row reached through
+  both of its paths in one run is applied once. Every rename state and manifest check still
+  runs on the row.
 - Throws when the plan manifest does not exist. The message names the missing path. This
   one ends the whole run, not just the file.
 - Refuses a file when the recomputed plan disagrees with the manifest it was handed. The
