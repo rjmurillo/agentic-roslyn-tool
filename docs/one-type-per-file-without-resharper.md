@@ -305,5 +305,7 @@ Yes, in the separate `renames` phase, through `git mv`, so git records the renam
 - [README](../README.md): every option, the full workflow, and known limitations.
 - [docs/behavior-contracts.md](behavior-contracts.md): what each phase and each guard
   promises.
+- [docs/verification.md](verification.md): how to review a large split before you merge
+  it.
 - [AgenticRoslynTool on NuGet](https://www.nuget.org/packages/AgenticRoslynTool)
 - [MIT license](../LICENSE)
