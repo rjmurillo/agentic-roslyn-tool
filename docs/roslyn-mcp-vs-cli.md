@@ -136,7 +136,7 @@ Call the CLI as a shell command. Install it with `dotnet tool install --global
 AgenticRoslynTool`, or see the [README](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/README.md#install)
 for the other two install options.
 
-To tell the agent which to use, add a short section to `AGENTS.md` or `CLAUDE.md`:
+To keep these instructions in your repository, add a short section to `AGENTS.md` or `CLAUDE.md`:
 
 ```markdown
 ## Splitting C# files (SA1402)
@@ -165,6 +165,22 @@ renamed file under its new name, and the content phase maps that name back to it
 The README's
 [recommended workflow](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/README.md#recommended-workflow)
 walks through them.
+
+### Package instructions through NuGet MCP
+
+The [NuGet MCP server](https://www.nuget.org/packages/NuGet.Mcp.Server/1.4.16) is separate
+from the Roslyn MCP servers above. Its `get_package_context` tool returns a package's
+`AGENTS.md` when available. Otherwise, it returns the package README.
+
+We pack [`package/AGENTS.md`](../package/AGENTS.md) as `AGENTS.md` at the root of
+`AgenticRoslynTool`. With NuGet MCP configured, call `get_package_context` for
+`AgenticRoslynTool`. Versions containing the file return its split instructions.
+Earlier versions return the README. The repository's root `AGENTS.md` guides contributors;
+`package/AGENTS.md` supplies package consumers.
+
+This lookup supplies context only. Install and run `agentic-roslyn-tool` through the shell
+for the split. The snippet above remains useful in a consuming repository's `AGENTS.md` or
+`CLAUDE.md` when NuGet MCP is unavailable.
 
 ## Trade-offs
 
