@@ -95,7 +95,7 @@ dotnet build
 In PowerShell:
 
 ```powershell
-git -c core.quotePath=false ls-files '*.cs' | Set-Content ../files.txt
+git -c core.quotePath=false ls-files '*.cs' | Set-Content -Encoding utf8 ../files.txt
 
 agentic-roslyn-tool split-types --input ../files.txt --manifest ../split-plan.csv --dry-run
 
@@ -248,7 +248,7 @@ is split like any other type.
 
 Add `--json` to get one JSON report on standard output instead of CSV. The manifest path,
 the summary line, and every error go to standard error, so standard output stays
-parseable. The report leads with counts:
+parseable. The report leads with counts. This excerpt shows only the `summary` object:
 
 ```json
 "summary": {
