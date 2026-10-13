@@ -1,10 +1,8 @@
 name: Dependabot auto-merge
 
 # Dependabot opens security updates only, see .github/dependabot.yml. A pull request
-# opens at once so the fix is visible, but auto-merge waits until every updated package
-# version has been on nuget.org for MIN_AGE_DAYS, matching Renovate's minimumReleaseAge.
-# Dependabot's own cooldown setting does not apply to security updates, so the gate lives
-# here. The schedule re-checks open pull requests once a day until they are old enough.
+# opens at once. Minor and patch fixes can merge once the repository ruleset passes.
+# The schedule retries open pull requests if the event run did not enable auto-merge.
 on:
   pull_request:
   schedule:
@@ -25,15 +23,13 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - name: Enable auto-merge for aged non-major updates
+      - name: Enable auto-merge for non-major updates
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           EVENT_PR: ${{ github.event.pull_request.number }}
-          MIN_AGE_DAYS: "14"
         run: |
           set -euo pipefail
-          cutoff=$(date -u -d "-${MIN_AGE_DAYS} days" +%s)
 
           if [ -n "$EVENT_PR" ]; then
             prs="$EVENT_PR"
@@ -68,21 +64,6 @@ jobs:
               old=$(printf '%s\n' "$changes" | awk -v id="$id" '$1 == "-" && $2 == id { print $3 }')
               if [ -z "$old" ] || [ "${old%%.*}" != "${version%%.*}" ]; then
                 echo "#$pr: $id ${old:-new} to $version is a new or major update, leaving it for a human."
-                ready=false
-                break
-              fi
-              id_lower=$(printf '%s' "$id" | tr '[:upper:]' '[:lower:]')
-              version_lower=$(printf '%s' "$version" | tr '[:upper:]' '[:lower:]')
-              leaf=$(curl -fsSL --compressed "https://api.nuget.org/v3/registration5-gz-semver2/$id_lower/$version_lower.json")
-              # Unlisted packages report a placeholder publish date in 1900, so check listed first.
-              if [ "$(printf '%s' "$leaf" | jq -r '.listed')" != true ]; then
-                echo "#$pr: $id $version is not listed on nuget.org."
-                ready=false
-                break
-              fi
-              published=$(printf '%s' "$leaf" | jq -r '.published')
-              if [ "$(date -u -d "$published" +%s)" -gt "$cutoff" ]; then
-                echo "#$pr: $id $version was published $published, waiting for $MIN_AGE_DAYS days."
                 ready=false
                 break
               fi

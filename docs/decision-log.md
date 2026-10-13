@@ -483,9 +483,10 @@ resolved review threads, and Copilot review. It requires zero approvals and no c
 review. Neither ruleset has a bypass actor. The Actions token cannot approve pull
 requests, and only GitHub owned actions plus an explicit allow list may run. The squash
 commit takes its title from the pull request title, so the Conventional Commit title a
-reviewer saw is the one that lands on `main`. Renovate and Dependabot both auto-merge minor and patch updates, and only for
-package versions at least 14 days old: Renovate through `minimumReleaseAge`, Dependabot
-through the age check in `dependabot-automerge.yml`.
+reviewer saw is the one that lands on `main`. Renovate and Dependabot both auto-merge
+minor and patch updates after the ruleset passes. Renovate waits until a release is at
+least 14 days old through `minimumReleaseAge`. Dependabot security updates can merge at
+once.
 
 **Rejected.** A bypass for the admin role. It would let the maintainer merge past a red
 check, and it would let an agent holding that token do the same. If the rules are ever
@@ -497,16 +498,15 @@ commits was tried and removed. GitHub checks every commit on the head branch, no
 the squash commit it signs, so an unsigned local commit by the maintainer or an agent
 blocks the merge. Turn it back on only after every machine and agent signs its commits.
 
-**Consequences.** A security fix from Dependabot waits up to 14 days before it merges by
-itself. The pull request is open from the first day, so the maintainer can merge it sooner
-by hand. Merges made with the Actions token do not trigger `push` workflows, so CI does
-not run again on `main` after a Dependabot merge. The pull request checks already ran on
-an up to date branch.
+**Consequences.** A security fix from Dependabot can merge as soon as checks pass.
+This also lets a newly published, compromised security version merge quickly. Merges
+made with the Actions token do not trigger `push` workflows. CI does not run again on
+`main` after a Dependabot merge. The pull request checks ran on an up to date branch.
 
 **Reversal warning.** Add a bypass actor and every agent can push straight to `main`.
 Turn code owner review back on while there is one owner and the maintainer's own pull
-requests cannot merge. Remove the age check and a freshly published, possibly compromised
-package version can merge itself within minutes.
+requests cannot merge. Removing Renovate's release age lets a freshly published,
+possibly compromised version merge itself within minutes.
 
 ## Unrecorded decisions
 

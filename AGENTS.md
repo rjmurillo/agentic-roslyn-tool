@@ -212,12 +212,10 @@ agent does not pay again.
   minor and patch updates themselves once the ruleset passes. Majors wait for a human.
   Dependabot covers NuGet only. GitHub raises no security alerts for SHA-pinned actions,
   so a vulnerable action is only fixed by Renovate, after the 14 day wait.
-- **A Dependabot security pull request opens at once but merges after 14 days.**
-  Dependabot's `cooldown` setting does not apply to security updates, so the age gate is
-  in `.github/workflows/dependabot-automerge.yml`. It reads the versions from the
-  `Directory.Packages.props` diff, asks nuget.org when each one was published, and turns
-  on auto-merge only when every one is at least 14 days old and none is a major bump. A
-  daily schedule re-checks open pull requests. To ship a fix sooner, merge it by hand.
+- **Dependabot security fixes merge after the ruleset passes.** The workflow reads
+  versions from the `Directory.Packages.props` diff and refuses major bumps. Renovate's
+  14 day release age applies only to Renovate updates. A daily schedule retries open
+  Dependabot pull requests if the event run did not enable auto-merge.
 - **No ruleset has a bypass actor, on purpose.** Agents here run with the maintainer's
   token, so anything the maintainer can bypass, an agent can bypass too. Every change to
   `main` goes through a pull request and the required checks. Code owner review is off
