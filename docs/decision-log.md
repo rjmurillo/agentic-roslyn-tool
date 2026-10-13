@@ -470,6 +470,44 @@ manifest match check. `ManifestPathTamperingTests` is unchanged.
 **Reversal warning.** Remove the kept path key and a directory run of all three phases
 loses every split whose kept type differs from its file name, at exit code 0.
 
+### Decision 20. Repository rules are tuned for one maintainer and many agents
+
+**Context.** One person maintains this repository, and most changes are written by AI
+agents that act with that person's GitHub token. Bots handle dependency updates. Any
+review rule that needs a second human either blocks every pull request or gets bypassed.
+Any bypass granted to the maintainer is also granted to every agent.
+
+**Decision.** The default branch ruleset requires a pull request, squash merges only,
+linear history, the `build` and `CodeQL` checks on an up to date branch,
+resolved review threads, and Copilot review. It requires zero approvals and no code owner
+review. Neither ruleset has a bypass actor. The Actions token cannot approve pull
+requests, and only GitHub owned actions plus an explicit allow list may run. The squash
+commit takes its title from the pull request title, so the Conventional Commit title a
+reviewer saw is the one that lands on `main`. Renovate and Dependabot both auto-merge minor and patch updates, and only for
+package versions at least 14 days old: Renovate through `minimumReleaseAge`, Dependabot
+through the age check in `dependabot-automerge.yml`.
+
+**Rejected.** A bypass for the admin role. It would let the maintainer merge past a red
+check, and it would let an agent holding that token do the same. If the rules are ever
+wrong in an emergency, turn the ruleset off in the settings page, fix the problem, and
+turn it back on. That leaves a record in the ruleset history. Code owner review was also
+rejected. With one owner it blocks the maintainer's own pull requests and adds nothing.
+CODEOWNERS can still exist so GitHub requests a review automatically. Required signed
+commits was tried and removed. GitHub checks every commit on the head branch, not only
+the squash commit it signs, so an unsigned local commit by the maintainer or an agent
+blocks the merge. Turn it back on only after every machine and agent signs its commits.
+
+**Consequences.** A security fix from Dependabot waits up to 14 days before it merges by
+itself. The pull request is open from the first day, so the maintainer can merge it sooner
+by hand. Merges made with the Actions token do not trigger `push` workflows, so CI does
+not run again on `main` after a Dependabot merge. The pull request checks already ran on
+an up to date branch.
+
+**Reversal warning.** Add a bypass actor and every agent can push straight to `main`.
+Turn code owner review back on while there is one owner and the maintainer's own pull
+requests cannot merge. Remove the age check and a freshly published, possibly compromised
+package version can merge itself within minutes.
+
 ## Unrecorded decisions
 
 Recorded so nobody assumes these were considered.

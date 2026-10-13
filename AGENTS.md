@@ -212,9 +212,22 @@ agent does not pay again.
   minor and patch updates themselves once the ruleset passes. Majors wait for a human.
   Dependabot covers NuGet only. GitHub raises no security alerts for SHA-pinned actions,
   so a vulnerable action is only fixed by Renovate, after the 14 day wait.
+- **A Dependabot security pull request opens at once but merges after 14 days.**
+  Dependabot's `cooldown` setting does not apply to security updates, so the age gate is
+  in `.github/workflows/dependabot-automerge.yml`. It reads the versions from the
+  `Directory.Packages.props` diff, asks nuget.org when each one was published, and turns
+  on auto-merge only when every one is at least 14 days old and none is a major bump. A
+  daily schedule re-checks open pull requests. To ship a fix sooner, merge it by hand.
+- **No ruleset has a bypass actor, on purpose.** Agents here run with the maintainer's
+  token, so anything the maintainer can bypass, an agent can bypass too. Every change to
+  `main` goes through a pull request and the required checks. Code owner review is off
+  because the only owner cannot approve their own pull request. See decision 20.
 - **Every action must be pinned to a full commit SHA.** The repository's Actions policy
   enforces it, so a workflow that uses a tag such as `@v4` fails before any step runs.
-  Pin the SHA and put the version in a trailing comment.
+  Pin the SHA and put the version in a trailing comment. Only actions owned by GitHub,
+  plus `NuGet/login` and `dependabot/fetch-metadata`, are allowed to run. A new third
+  party action fails until the maintainer adds it to the allow list in the Actions
+  settings.
 - **A `v*` tag cannot be moved or deleted.** A tag ruleset blocks both. Creating one is
   allowed, because the release workflow creates the tag when it publishes.
 - **The `production` environment waits for the maintainer.** A release job pauses until
