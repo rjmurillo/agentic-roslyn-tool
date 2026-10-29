@@ -80,7 +80,7 @@ dotnet test  -c Release      # must be 93 passed, 0 failed
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
 is on as well. There is no separate lint step to run.
 
-The SDK is pinned in `global.json` to 10.0.302 with `rollForward: latestMinor`. The
+The SDK is pinned in `global.json` to 10.0.403 with `rollForward: latestMinor`. The
 target framework is `net10.0`, set once in `Directory.Build.props`.
 
 ### End to end smoke test
