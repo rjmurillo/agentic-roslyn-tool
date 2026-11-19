@@ -543,7 +543,7 @@ below follow from that rule.
   apply whatever it computed. When a manifest exists it now refuses, with a `stale plan:`
   reason and no rename, a file whose bytes differ from the recorded hash, a file it would
   split that the manifest marks `skipped` or `failed`, and a file it would split that the
-  manifest has no row for. The byte check applies to every file renames reads, not only
+  manifest has no row for. The byte check applies to every file renames reads that has a recorded hash, not only
   the ones it would split, so a changed file is reported as changed. That covers a file
   the plan skipped that later gains a type, and a file content refused as stale and wrote
   back as `skipped`. A `git mv` does not change bytes, so a renamed file still matches in

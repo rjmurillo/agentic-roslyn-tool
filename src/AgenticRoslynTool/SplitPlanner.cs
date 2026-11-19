@@ -102,8 +102,9 @@ internal static class SplitPlanner
     /// <summary>
     /// Indexes plan rows by every path a later phase can be handed for them: the original
     /// path, and the kept path of a row whose rename is planned. The content phase passes
-    /// the <c>split</c> rows, which are the ones it can act on. The renames phase passes
-    /// every row, because it holds a file to whatever the plan recorded for it.
+    /// the <c>split</c> rows to find what it can act on, and every row to find the hash a
+    /// report row repeats. The renames phase passes every row, because it holds a file to
+    /// whatever the plan recorded for it.
     /// </summary>
     /// <remarks>
     /// <para>

@@ -158,7 +158,7 @@ internal sealed class FileSplitter
     /// <item>The row always takes its hash from the manifest row, never from the bytes just
     /// read, so this phase cannot replace or invent a recorded hash whatever the row's
     /// status turns out to be.</item>
-    /// <item>A file this run read whose bytes differ from the recorded hash is refused as
+    /// <item>A file this run read whose bytes differ from a recorded hash is refused as
     /// stale whatever the recomputed row says, so a changed file is reported as changed and
     /// not under some unrelated skip reason.</item>
     /// <item>A row that would act, a <c>split</c>, is refused unless the manifest marks that

@@ -233,7 +233,8 @@ Promises:
   planned `contentHash`, including a row for a file it never read: an excluded path, a
   missing file, an inconsistent rename state. The report row for an input the plan did
   not mark `split` repeats the hash of that input's manifest row, when it has one. The
-  row is found by the input's original path, or by its kept path once it was renamed.
+  row is found by the input's original path, or by its kept path while the manifest row
+  still records that kept path.
 - A second run over a file an earlier run already split reports that file as
   `stale plan:`, and so does a renames run after it. The earlier run rewrote the kept file, so its bytes differ from the plan.
   The file is left alone.
@@ -271,7 +272,9 @@ Reason text shown in italics is a template; the run substitutes real values.
 
 The `stale plan:` rows are the exception to "before parsing" in one phase. The content
 phase applies its three straight after the read. The renames phase computes its plan row
-first and then applies all five, and the three hash reasons apply there as well. The
+first and then applies all five. There, the missing hash and malformed hash reasons apply
+only to a row that would split, because a file nobody planned has nothing to be stale
+against. The
 catch all row above them is still last in order.
 
 The "anything else" row is the catch all, and it is deliberate. The content phase rewrites files as it

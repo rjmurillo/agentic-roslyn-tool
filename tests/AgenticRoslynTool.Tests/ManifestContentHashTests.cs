@@ -496,6 +496,27 @@ public sealed class ManifestContentHashTests
     }
 
     [Fact]
+    public void UnplannedFileThatGainsATypeBetweenRenamesRuns_IsRefusedForItsMissingHash()
+    {
+        // The first run recorded a row with no hash for a file the plan never listed. Once
+        // the file would be split, that row has to refuse it: nothing was ever reviewed.
+        using var workspace = new TempWorkspace();
+        var planned = workspace.WriteFile("Foo.cs", TwoTypes);
+        var added = workspace.WriteFile("Alpha.cs", "namespace N;\n\npublic class Alpha\n{\n}\n");
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+        Plan(workspace, manifestPath, planned);
+        RunAndWriteManifest(workspace, manifestPath, Phase.Renames, planned, added);
+
+        File.WriteAllText(added, "namespace N;\n\npublic class Alpha\n{\n}\n\npublic class Beta\n{\n}\n");
+
+        var row = Assert.Single(RunAndWriteManifest(workspace, manifestPath, Phase.Renames, planned, added).ManifestRows, r => r.OriginalPath == added);
+
+        Assert.Equal("skipped", row.Status);
+        Assert.Equal("stale plan: the manifest row carries no contentHash; re-run --phase plan", row.Reason);
+        Assert.Null(row.ContentHash);
+    }
+
+    [Fact]
     public void ContentReportRow_ForARefusedFileSuppliedByItsKeptPath_RepeatsTheManifestHash()
     {
         // After a rename, a directory scan supplies the kept path. Once the row is no longer
