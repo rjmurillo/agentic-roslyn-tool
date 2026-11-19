@@ -170,7 +170,7 @@ Promises:
 
 Requires a real git repository. Most of the test suite avoids this phase by keeping every
 fixture file name equal to its primary type name, so no `git` process starts.
-`MetadataFileNamingTests` is the exception. It runs `git init` in a temporary directory and
+`MetadataRenameTests` is the exception. It runs `git init` in a temporary directory and
 drives a real `git mv` to a file name that contains a backtick.
 
 ### content
