@@ -102,13 +102,12 @@ Under `metadata`, SA1649 expects ``Foo`1.cs`` for `Foo<T>` and rejects both `Foo
 ``Pair`2.cs``. A type that is not generic keeps its plain name, `Foo.cs`, under both
 conventions. A generic delegate follows the same rule as a generic class.
 
-The tool does not read your StyleCop settings. Tell it with `--file-naming metadata`:
+The tool does not read your StyleCop settings. Tell it with `--file-naming metadata`, on
+each of the three runs:
 
-```powershell
-agentic-roslyn-tool split-types --input files.txt --manifest plan.csv --dry-run --file-naming metadata
-agentic-roslyn-tool split-types --input files.txt --manifest plan.csv --phase renames --file-naming metadata
-agentic-roslyn-tool split-types --input files.txt --manifest plan.csv --phase content --file-naming metadata
-```
+1. `agentic-roslyn-tool split-types --input files.txt --manifest plan.csv --dry-run --file-naming metadata`
+2. `agentic-roslyn-tool split-types --input files.txt --manifest plan.csv --phase renames --file-naming metadata`
+3. `agentic-roslyn-tool split-types --input files.txt --manifest plan.csv --phase content --file-naming metadata`
 
 Pass the flag to all three phases. It decides file names, so each phase must agree. The
 content phase skips a file whose manifest row the other convention would have planned

@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
 
@@ -306,6 +307,45 @@ public sealed class MetadataFileNamingTests
         Assert.Contains("namespace Two;", File.ReadAllText(Path.Combine(ws.Root, "B.Shared`1.cs")));
     }
 
+    [Fact]
+    public void CommandLine_RejectsAnUnknownMissingOrEmptyConvention()
+    {
+        var unknown = RunTool("split-types", "--input", "list.txt", "--file-naming", "pascal");
+        var missing = RunTool("split-types", "--input", "list.txt", "--file-naming");
+        var empty = RunTool("split-types", "--input", "list.txt", "--file-naming", string.Empty);
+
+        Assert.Equal(2, unknown.ExitCode);
+        Assert.Equal(string.Empty, unknown.StandardOutput.Trim());
+        Assert.Contains("error: Unknown file naming convention: pascal", unknown.StandardError, StringComparison.Ordinal);
+        Assert.Equal(2, missing.ExitCode);
+        Assert.Contains("error: --file-naming requires a value.", missing.StandardError, StringComparison.Ordinal);
+        Assert.Equal(2, empty.ExitCode);
+        Assert.Contains("error: Unknown file naming convention", empty.StandardError, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CommandLine_Metadata_PlansAnArityFileName()
+    {
+        // The flag has to reach the planner through the real command line, not only
+        // through an Options value a test built by hand.
+        using var ws = new TempWorkspace();
+        var source = ws.WriteFile("A.cs", AWithGenericFoo);
+        var manifest = Path.Combine(ws.Root, "manifest.csv");
+
+        var result = RunTool("split-types", "--input", source, "--manifest", manifest, "--dry-run", "--json", "--file-naming", "metadata");
+
+        Assert.Equal(0, result.ExitCode);
+
+        // The JSON writer escapes a backtick as \u0060, so the raw text never holds the
+        // file name. Read it from the parsed document, as a caller would.
+        using var document = JsonDocument.Parse(result.StandardOutput);
+        var row = Assert.Single(document.RootElement.GetProperty("files").EnumerateArray());
+        var newFile = Assert.Single(row.GetProperty("newFiles").EnumerateArray());
+        Assert.Equal(Path.Combine(ws.Root, "Foo`1.cs"), newFile.GetProperty("newFilePath").GetString());
+        Assert.Contains("Foo`1.cs", File.ReadAllText(manifest), StringComparison.Ordinal);
+        Assert.Equal(new[] { "A.cs" }, CsFiles(ws));
+    }
+
     private static string[] CsFiles(TempWorkspace ws)
     {
         return Directory.GetFiles(ws.Root, "*.cs").Select(p => Path.GetFileName(p)!).Order(StringComparer.Ordinal).ToArray();
@@ -328,7 +368,20 @@ public sealed class MetadataFileNamingTests
 
     private static string Git(string workingDirectory, params string[] args)
     {
-        var start = new ProcessStartInfo("git")
+        var result = RunProcess("git", workingDirectory, args);
+        Assert.True(result.ExitCode == 0, $"git {string.Join(' ', args)} failed: {result.StandardError}");
+        return result.StandardOutput;
+    }
+
+    // Runs the built tool as its own process, the way a caller does.
+    private static CliResult RunTool(params string[] args)
+    {
+        return RunProcess("dotnet", Path.GetTempPath(), ["exec", typeof(Options).Assembly.Location, .. args]);
+    }
+
+    private static CliResult RunProcess(string fileName, string workingDirectory, string[] args)
+    {
+        var start = new ProcessStartInfo(fileName)
         {
             WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,
@@ -339,11 +392,12 @@ public sealed class MetadataFileNamingTests
             start.ArgumentList.Add(arg);
         }
 
+        // Standard error is read on its own task so a full pipe on one stream cannot
+        // block the read of the other.
         using var process = Process.Start(start)!;
-        var output = process.StandardOutput.ReadToEnd();
-        var error = process.StandardError.ReadToEnd();
+        var standardError = process.StandardError.ReadToEndAsync();
+        var standardOutput = process.StandardOutput.ReadToEnd();
         process.WaitForExit();
-        Assert.True(process.ExitCode == 0, $"git {string.Join(' ', args)} failed: {error}");
-        return output;
+        return new CliResult(process.ExitCode, standardOutput, standardError.GetAwaiter().GetResult());
     }
 }
