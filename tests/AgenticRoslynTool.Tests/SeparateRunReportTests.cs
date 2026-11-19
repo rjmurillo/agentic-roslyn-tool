@@ -584,6 +584,141 @@ public sealed class SeparateRunReportTests
         Assert.Equal(["plan.csv", "run.csv"], Directory.GetFiles(plans).Select(Path.GetFileName).Order(StringComparer.Ordinal));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ManifestThatIsASymbolicLink_IsRefusedAndThePlanIsKept(bool linkedParent)
+    {
+        // deep/plans holds the plan. The manifest path is a link to it whose target climbs
+        // out of deep/inner with "..". With linkedParent the link is reached through a
+        // linked directory, so resolving its target as text lands on a directory that does
+        // not exist. Without it the target is absolute and runs through the same link.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var plans = Path.Combine(workspace.Root, "deep", "plans");
+        var inner = Path.Combine(workspace.Root, "deep", "inner");
+        Directory.CreateDirectory(plans);
+        Directory.CreateDirectory(inner);
+        var real = Path.Combine(plans, "plan.csv");
+        Assert.Equal(0, Phase("plan", workspace, listPath, real).ExitCode);
+        var planBytes = File.ReadAllBytes(real);
+        var hop = Path.Combine(workspace.Root, "hop");
+        string manifestPath;
+        try
+        {
+            Directory.CreateSymbolicLink(hop, inner);
+            if (linkedParent)
+            {
+                File.CreateSymbolicLink(Path.Combine(inner, "m.csv"), Path.Combine("..", "plans", "plan.csv"));
+                manifestPath = Path.Combine(hop, "m.csv");
+            }
+            else
+            {
+                manifestPath = Path.Combine(workspace.Root, "m.csv");
+                File.CreateSymbolicLink(manifestPath, Path.Combine(hop, "..", "plans", "plan.csv"));
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return;
+        }
+
+        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+        Squat(workspace, "Beta.cs");
+
+        foreach (var phase in new[] { "content", "renames" })
+        {
+            var run = Phase(phase, workspace, listPath, manifestPath, "--report", real);
+
+            Assert.Equal(3, run.ExitCode);
+            Assert.Contains($"The manifest path {manifestPath} is a symbolic link", run.StandardError, StringComparison.Ordinal);
+        }
+
+        // The default report path is refused the same way. The rule is about the manifest.
+        Assert.Equal(3, Phase("content", workspace, listPath, manifestPath).ExitCode);
+        Assert.Equal(planBytes, File.ReadAllBytes(real));
+        Assert.Equal(TwoTypes, File.ReadAllText(input));
+        Assert.Empty(Directory.GetFiles(workspace.Root, "*.tmp", SearchOption.AllDirectories));
+    }
+
+    [Fact]
+    public void WriteToAnAliasOfTheManifest_IsRefusedAndTheStagedFileIsRemoved()
+    {
+        // Prepare refuses this path before a run. Write must refuse it too, because the
+        // alias can appear while the run is working.
+        using var workspace = new TempWorkspace();
+        var plans = Path.Combine(workspace.Root, "plans");
+        Directory.CreateDirectory(plans);
+        var manifestPath = Path.Combine(plans, "plan.csv");
+        var planned = new[] { FileResult.Skip(manifestPath, manifestPath, "the plan") };
+        ManifestWriter.Write(planned, manifestPath);
+        var planBytes = File.ReadAllBytes(manifestPath);
+        var alias = Path.Combine(workspace.Root, "alias");
+        try
+        {
+            Directory.CreateSymbolicLink(alias, plans);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return;
+        }
+
+        var rows = new[] { FileResult.Skip(manifestPath, manifestPath, "the report") };
+        foreach (var name in new[] { "plan.csv", "PLAN.CSV" })
+        {
+            var reason = ReportFile.Write(rows, Path.Combine(alias, name), manifestPath);
+
+            Assert.Contains("is the plan manifest under another name", reason, StringComparison.Ordinal);
+        }
+
+        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+        Assert.Equal(["plan.csv"], Directory.GetFiles(plans).Select(Path.GetFileName));
+    }
+
+    [Fact]
+    public void ReportWithTheManifestsNameInAnotherDirectory_IsAllowed()
+    {
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var reportPath = Path.Combine(workspace.Root, "other", "plan.csv");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        var planBytes = File.ReadAllBytes(manifestPath);
+
+        var content = Phase("content", workspace, listPath, manifestPath, "--report", reportPath);
+
+        Assert.Equal(0, content.ExitCode);
+        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+        Assert.Equal("split", Assert.Single(ManifestWriter.Read(reportPath)).Status);
+    }
+
+    [Fact]
+    public void ReportWithAVeryLongName_IsWritten()
+    {
+        // The staging file's name must not grow with the report's name.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var reportPath = Path.Combine(workspace.Root, new string('r', 240) + ".csv");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+
+        var content = Phase("content", workspace, listPath, manifestPath, "--report", reportPath);
+
+        Assert.Equal(0, content.ExitCode);
+        Assert.Equal("split", Assert.Single(ManifestWriter.Read(reportPath)).Status);
+    }
+
+    [Fact]
+    public void RelativeReportPath_ResolvesAgainstTheWorkingDirectory()
+    {
+        var options = Options.Parse(["--input", "list.txt", "--manifest", "plan.csv", "--report", Path.Combine("out", "run.csv")]);
+
+        Assert.Equal(Path.GetFullPath(Path.Combine("out", "run.csv")), options.ReportPath);
+    }
+
     [Fact]
     public void ReportPathEndingInASeparator_StopsTheRunBeforeAnyWrite()
     {
@@ -621,7 +756,7 @@ public sealed class SeparateRunReportTests
     }
 
     [Fact]
-    public void WriteThatFails_ReturnsTheReasonAndLeavesNoStagingFile()
+    public void WriteThatCannotStage_ReturnsTheReasonAndCreatesNothing()
     {
         // The report directory cannot be created, because a file holds its name. This is
         // the arm a full disk or a changed permission reaches mid-run.

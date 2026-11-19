@@ -34,18 +34,18 @@ internal static class ReportFile
     /// </summary>
     /// <param name="reportPath">Absolute path the run will write its report to.</param>
     /// <param name="manifestPath">Absolute path of the plan manifest.</param>
-    /// <exception cref="InvalidOperationException">Thrown when the path is the manifest, is a link or a directory, names a file that is not a report, or sits in a directory that cannot be written.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the manifest path is a link, or the report path is the manifest, is a link or a directory, names a file that is not a report, or sits in a directory that cannot be written.</exception>
     public static void Prepare(string reportPath, string manifestPath)
     {
         string? refusal;
         try
         {
-            refusal = Refusal(reportPath);
+            refusal = Refusal(reportPath, manifestPath);
             if (refusal is null)
             {
                 // A new file beside the report path proves the directory takes one, and
                 // shows whether that directory is the manifest's. The report path itself
-                // is never opened.
+                // is never opened for writing.
                 Directory.CreateDirectory(Path.GetDirectoryName(reportPath) ?? ".");
                 var probe = SiblingPath(reportPath);
                 using (new FileStream(probe, FileMode.CreateNew, FileAccess.Write))
@@ -89,7 +89,7 @@ internal static class ReportFile
         {
             // Asked again on purpose. The run has written files since Prepare, and one of
             // them may now sit at this path.
-            var refusal = Refusal(reportPath);
+            var refusal = Refusal(reportPath, manifestPath);
             if (refusal is null)
             {
                 ManifestWriter.Write(rows, staged);
@@ -126,14 +126,22 @@ internal static class ReportFile
     /// null when it may. A path nothing occupies is fine. So is a file in the manifest and
     /// report format, which is what an earlier report is.
     /// </summary>
-    private static string? Refusal(string reportPath)
+    private static string? Refusal(string reportPath, string manifestPath)
     {
+        // A linked manifest names a file somewhere else, and finding that somewhere means
+        // resolving the link by hand. Three versions of this type did that and each got a
+        // case wrong. Refusing the link leaves nothing to resolve. Also true of a dangling
+        // link, which File.Exists reports as absent.
+        if (new FileInfo(manifestPath).LinkTarget is not null)
+        {
+            return $"The manifest path {manifestPath} is a symbolic link. Pass the path of the file it names to --manifest.";
+        }
+
         if (Path.EndsInDirectorySeparator(reportPath) || Directory.Exists(reportPath))
         {
             return $"The report path {reportPath} is a directory. Pass a file path to --report.";
         }
 
-        // Covers a dangling link too, which File.Exists reports as absent.
         if (new FileInfo(reportPath).LinkTarget is not null)
         {
             return $"The report path {reportPath} is a symbolic link. Pass the path of a regular file to --report.";
@@ -166,16 +174,14 @@ internal static class ReportFile
     /// </remarks>
     /// <param name="reportPath">Absolute path of the report. Never a link, see <see cref="Refusal"/>.</param>
     /// <param name="sibling">An existing file this run created in the report's directory.</param>
-    /// <param name="manifestPath">Absolute path of the plan manifest.</param>
+    /// <param name="manifestPath">Absolute path of the plan manifest. Never a link, see <see cref="Refusal"/>.</param>
     private static bool ReachesManifest(string reportPath, string sibling, string manifestPath)
     {
-        // A manifest path that is itself a link names an entry somewhere else.
-        var manifest = File.Exists(manifestPath)
-            ? File.ResolveLinkTarget(manifestPath, returnFinalTarget: true)?.FullName ?? manifestPath
-            : manifestPath;
-        var manifestDirectory = Path.GetDirectoryName(manifest) ?? ".";
+        // Neither path is resolved here. The operating system follows the manifest's
+        // directory as typed when it looks for the sibling.
+        var manifestDirectory = Path.GetDirectoryName(manifestPath) ?? ".";
         return File.Exists(Path.Combine(manifestDirectory, Path.GetFileName(sibling)))
-            && StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(reportPath), Path.GetFileName(manifest));
+            && StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(reportPath), Path.GetFileName(manifestPath));
     }
 
     private static bool IsReportFormat(string path)
@@ -184,6 +190,10 @@ internal static class ReportFile
         return firstLine is not null && firstLine.StartsWith(FirstColumn + ",", StringComparison.Ordinal);
     }
 
-    /// <summary>A path beside the report that nothing else uses.</summary>
-    private static string SiblingPath(string reportPath) => reportPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+    /// <summary>
+    /// A path in the report's directory that nothing else uses. The name does not embed the
+    /// report's name, so a long report name cannot push it past the file name limit.
+    /// </summary>
+    private static string SiblingPath(string reportPath) =>
+        Path.Combine(Path.GetDirectoryName(reportPath) ?? ".", Guid.NewGuid().ToString("N") + ".tmp");
 }

@@ -535,9 +535,15 @@ and `content` phases write what they did to a report file in the same CSV format
   10: the file must be replaceable for a retry, so the check asks what the existing file
   is, not whether one exists.
 - **Whether the report path is the manifest is observed, not derived.** The check creates
-  a file beside the report path and looks for it in the manifest's directory. Two earlier
-  versions resolved symbolic links by hand. One took each link target as final and one
-  collapsed `..` as text. Each let a report path reach the manifest and replace the plan.
+  a file beside the report path and looks for it in the manifest's directory. Three earlier
+  versions resolved symbolic links by hand. One took each link target as final. One
+  collapsed `..` as text. One observed the report side and still resolved a linked
+  manifest path with a library call that collapses `..` the same way. Each let a report
+  path reach the manifest and replace the plan.
+- **A linked manifest path is refused in `renames` and `content`.** That removes the last
+  path the tool had to resolve. A report path that is a link was already refused. The
+  directories either path runs through are followed by the operating system, never by
+  the tool.
 - **The same question is asked again at the write.** The run creates source files, and
   one of them can land on the report path. `ReportFile.Write` refuses to replace it. The
   rows then go to standard output and the run exits 3, so neither the type nor the record
@@ -593,7 +599,9 @@ apply a plan nobody had reviewed. A caller that read results from the manifest p
 content run against a manifest an older version already rewrote behaves as before: its
 `failed` rows are not `split`, so re-run the plan once.
 
-**Known limits.** The report and manifest paths are compared without regard to case on
+**Known limits.** A manifest reached through a symbolic link must be passed by its real
+path to `renames` and `content`. The `plan` phase does not apply that rule. The report and
+manifest paths are compared without regard to case on
 every platform, so Linux refuses `plan.csv` beside `PLAN.CSV` although they are two files.
 `ReportFile.Prepare` creates a missing report directory and leaves it when the run then
 ends early. Another process could create a file at the report path between the check at

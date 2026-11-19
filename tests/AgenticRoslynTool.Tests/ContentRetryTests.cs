@@ -107,6 +107,24 @@ public sealed class ContentRetryTests
     }
 
     [Fact]
+    public void OneOfTwoOutputsMissing_IsNotCalledAlreadyApplied()
+    {
+        // Every planned output must exist, not just one of them.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", "public class Alpha { }\npublic class Beta { }\npublic class Gamma { }\n");
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+
+        Assert.Equal("split", Assert.Single(workspace.RunPlanThenContent(listPath, manifestPath)).Status);
+        File.Delete(Path.Combine(workspace.Root, "Gamma.cs"));
+
+        var row = Assert.Single(new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run());
+
+        Assert.NotEqual(AlreadyApplied, row.Reason);
+        Assert.Equal("nothing to split: input has 1 top-level type declaration(s)", row.Reason);
+    }
+
+    [Fact]
     public void MissingOutputAfterAnAppliedSplit_IsNotCalledAlreadyApplied()
     {
         // The claim in the reason is that every planned output exists. When one was deleted

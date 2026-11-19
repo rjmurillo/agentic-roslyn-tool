@@ -31,7 +31,8 @@ namespace AgenticRoslynTool;
 /// <para>
 /// Verification runs entirely before any file is written: <c>VerifyOutputs</c>
 /// executes before <c>WriteOutputs</c>. A file that fails verification is never
-/// written and is recorded as <c>failed</c> in the run report.
+/// written and is recorded as <c>failed</c>: in the manifest when the plan phase finds it,
+/// and in the run report when the content phase does.
 /// </para>
 /// </remarks>
 internal sealed class FileSplitter

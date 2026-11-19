@@ -155,15 +155,20 @@ Two CSV files with one format and two jobs.
   with the `originalPath` column. An empty file does not. A path that ends in a directory
   separator is refused as a directory. So `--report` cannot replace the input list or a source
   file. A second plan manifest is in that format and would be replaced.
+- **A manifest path that is a symbolic link is refused in `renames` and `content`.** The
+  run ends with exit code 3 before any work. Pass the path of the file the link names.
+  The `plan` phase still accepts a linked manifest path and writes through it.
 - **Whether the report path is the manifest is observed, not derived.** The check creates
   a file beside the report path and looks for it in the manifest's directory. It is there
-  exactly when the two are one directory, whatever links either path runs through. The
-  path is refused when the directory is the same and the file names match without regard
-  to case.
+  exactly when the two are one directory, whatever linked directories either path runs
+  through. The path is refused when the directory is the same and the file names match
+  without regard to case. Neither path is itself a link by then, so nothing is resolved by
+  hand.
 - **The check changes no existing file.** It writes and removes one new file beside the
-  report path, and never opens the report path itself. It creates the report's directory
+  report path, and never opens the report path for writing. It reads the first line of an
+  existing file there to see whether it is a report. It creates the report's directory
   when that is missing, and leaves it there if the run then ends early.
-- **The report is moved into place.** The rows go to a new file beside the report path,
+- **The report is moved into place.** The rows go to a new file in the report's directory,
   which then replaces it. A reader never sees half a report. A report path that is a hard
   link to the manifest gets a new file, and the manifest keeps its bytes.
 - **The check runs again at the write.** If the run created a file at the report path, for

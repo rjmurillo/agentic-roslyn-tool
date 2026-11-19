@@ -162,6 +162,7 @@ static void PrintUsage(TextWriter w)
     w.WriteLine("  --repo-root <path>               Repository root used for git operations. Defaults to the current directory.");
     w.WriteLine("  --manifest <path>                Path to the plan manifest CSV. Defaults to sa1402-split-manifest.csv beside a list");
     w.WriteLine("                                   input, or in --repo-root for a directory or stdin input. Only plan writes it.");
+    w.WriteLine("                                   renames and content refuse a manifest path that is a symbolic link.");
     w.WriteLine("  --report <path>                  Where renames and content record what they did. Defaults to the manifest path");
     w.WriteLine("                                   with .report.csv as its extension. Not accepted with the plan phase.");
     w.WriteLine("                                   Replaces an earlier report. Refuses any other existing file.");

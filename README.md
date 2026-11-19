@@ -117,7 +117,8 @@ error, so a pipe stays clean. The JSON report leads with counts:
 ```
 
 `report` is the path of the report file the run wrote. It is `null` in the `plan` phase,
-which writes the manifest and no report.
+which writes the manifest and no report. It is also `null` when the report file could not
+be written.
 
 Exit codes are distinct so a caller can branch without parsing anything:
 
@@ -187,6 +188,10 @@ The renames phase recomputes the plan from the current files. It neither reads n
 the manifest, and records what it did in the report file, `split-types.report.csv` here.
 Re-run the plan phase and review it again if the tree changed since your last plan.
 
+`git add -A` stages every new file, including the manifest and the report when they sit
+inside the repository. Keep both outside the tree, or unstage them, when you do not want
+them in the commit.
+
 Finally, split files and review the result:
 
 ```powershell
@@ -205,7 +210,8 @@ manifest. It records what it did in the report file, which is `split-types.repor
 here, or the path you pass with `--report`. Each run that completes replaces the previous
 report. The tool checks the report path before it changes anything. It exits 3 without
 touching a source file when the path cannot be written, is a symbolic link, or names an
-existing file that is not an earlier report. Any file in the manifest format counts as an
+existing file that is not an earlier report. It also exits 3 when `--manifest` is a
+symbolic link, so pass the path of the real file to `renames` and `content`. Any file in the manifest format counts as an
 earlier report, so do not point `--report` at a second plan you want to keep.
 
 Because the plan stays as you reviewed it, a content run can be repeated. When a row
@@ -228,8 +234,9 @@ How each check works, what it proves, and what it does not:
 [docs/verification.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/verification.md).
 
 Every check for a given file runs before anything is written for that file. A file that
-fails a check is left untouched on disk and recorded as `failed` in the run report, with the
-reason. If a write fails partway through a file set, the tool deletes the files it created
+fails a check is left untouched on disk and recorded as `failed`, with the reason. The row
+is in the manifest when the `plan` phase finds the failure, and in the run report when the
+`content` phase does. If a write fails partway through a file set, the tool deletes the files it created
 and restores the original from the bytes it read. The process exits non-zero when any file
 fails.
 
