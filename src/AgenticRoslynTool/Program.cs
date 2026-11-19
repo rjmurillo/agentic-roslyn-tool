@@ -83,6 +83,10 @@ try
 
     var rows = new FileSplitter(options).Run();
 
+    // A report that cannot be written is not allowed to take the record of the run with
+    // it. The path was usable a moment ago, so a failure here is a disk filling, a
+    // permission changing, or the run itself creating a source file at the report path.
+    // The rows go to standard output instead, and the run ends with exit code 3.
     string? reportFailure = null;
     if (reportPath is null)
     {
@@ -90,17 +94,7 @@ try
     }
     else
     {
-        try
-        {
-            ManifestWriter.Write(rows, reportPath);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // The path was writable a moment ago, so this is a disk filling or a permission
-            // changing mid-run. The rows still go to standard output and the summary still
-            // prints, so the record of a run that changed files is not lost with the file.
-            reportFailure = ex.Message;
-        }
+        reportFailure = ReportFile.Write(rows, reportPath);
     }
 
     var report = RunReport.Create(rows, options.Phase, options.ManifestPath, reportFailure is null ? reportPath : null);
@@ -109,7 +103,7 @@ try
     {
         Console.WriteLine(report.ToJson());
     }
-    else if (options.Phase == Phase.Plan)
+    else if (options.Phase == Phase.Plan || reportFailure is not null)
     {
         Console.WriteLine(ManifestWriter.ToCsv(rows));
     }

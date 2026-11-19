@@ -34,7 +34,7 @@ agentic-roslyn-tool split-types --input <dir|file.cs|csv|list|-> [options]
 | Side effects | `plan` writes only the manifest. `renames` runs `git mv` and writes the report. `content` writes source files and the report. Neither of the last two writes the manifest. |
 | Failure mode | Per file. An unexpected exception while reading, parsing, planning, or writing becomes a `failed` row and the run continues. So does a verification failure. Only a throw before the read path is resolved, or a missing content manifest, ends the run. |
 | Exit code | 0 no failures, 1 at least one row `failed`, 2 the command line was wrong, 3 the run could not complete. Skips are not failures. |
-| Streams | Standard output carries a parseable document or nothing: the manifest CSV in `plan`, the JSON report under `--json`, and nothing in `renames` and `content` without `--json`. The manifest path, the report path, the one-line summary, and every error go to standard error. |
+| Streams | Standard output carries a parseable document or nothing: the manifest CSV in `plan`, the JSON report under `--json`, and nothing in `renames` and `content` without `--json`, unless the report file could not be written, when the rows print as CSV. The manifest path, the report path, the one-line summary, and every error go to standard error. |
 | Performance | Syntax parse only, no semantic model and no MSBuild load. A 7,818 file run completed in a single pass, measured outside this repository. |
 | Data sensitivity | Reads and rewrites source files in place. No network calls. |
 | Ordering | `plan` must run before `content`. `renames`, when used, belongs between them and must be committed first. |
@@ -147,16 +147,27 @@ Two CSV files with one format and two jobs.
 - `--report` naming the manifest is rejected with exit code 2, compared without regard to
   case. So is `--report` with the `plan` phase, where it would do nothing.
 - **The report path is checked before the run changes anything.** `ReportFile.Prepare`
-  ends the run with exit code 3, and no source file touched, when the path is a symbolic
-  link to the manifest, is a directory, cannot be created, or names an existing file that
-  is not a report. An existing file counts as a report when it is empty or starts with the
-  `originalPath` column. So `--report` cannot replace the input list or a source file.
-  Hard links, and links in a parent directory, are not followed.
-- Each `renames` or `content` run replaces the report. It is not a history. The earlier
-  report is removed when the run starts, so a run that ends with exit code 3 leaves no
-  report behind. Read the exit code first.
-- If the report write itself fails after the run, the JSON document and the summary still
-  print, `report` is `null`, and the run exits 3 with `error: report not written to ...`.
+  ends the run with exit code 3, and no source file touched, when the path reaches the
+  manifest through a symbolic link in any component, is itself a symbolic link, is a
+  directory, sits in a directory that cannot take a new file, or names an existing file
+  that is not a report. An existing file counts as a report when it is empty or starts
+  with the `originalPath` column. So `--report` cannot replace the input list or a source
+  file. A second plan manifest is in that format and would be replaced.
+- **The check changes nothing.** It writes and removes one new file beside the report
+  path. It never opens the report path itself.
+- **The report is moved into place.** The rows go to a new file beside the report path,
+  which then replaces it. A reader never sees half a report. A report path that is a hard
+  link to the manifest gets a new file, and the manifest keeps its bytes.
+- **The check runs again at the write.** If the run created a file at the report path, for
+  example `--report src/Beta.cs` where `Beta.cs` is a planned output, the report is not
+  written and the source file is kept.
+- **A report that cannot be written does not take the record with it.** The rows go to
+  standard output: the JSON document under `--json`, with `report` set to `null`, and the
+  CSV otherwise. The summary prints, then `error: report not written to ...`, and the run
+  exits 3.
+- Each `renames` or `content` run that completes replaces the report. It is not a history.
+  A run that ends with exit code 3 before it starts work leaves an earlier report as it
+  was. Read the exit code first.
 - The report holds the same rows `--json` prints under `files`. In `renames` those rows
   are the recomputed plan, with `failed` on a rename that did not land. They count splits
   and new files the content phase has yet to create.
@@ -193,7 +204,7 @@ Promises:
   default report path here.
 - **A rename that fails is a `failed` row.** The run continues, writes the report, and
   exits 1. The row keeps the original path and `gitMove` true, because the rename is still
-  owed.
+  owed. The reason starts with `rename to <kept path> failed:`.
 
 - Only touches rows the plan marked `split` with `GitMove` true.
 - `FileSplitter.ApplyRenameOnly` re-reads the moved file and throws if `git mv` changed

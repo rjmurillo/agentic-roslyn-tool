@@ -185,6 +185,7 @@ public sealed class SeparateRunReportTests
         Assert.Equal("failed", failed.Status);
         Assert.Equal(misnamed, failed.KeptPath);
         Assert.True(failed.GitMove);
+        Assert.StartsWith($"rename to {Path.Combine(workspace.Root, "Gamma.cs")} failed: ", failed.Reason, StringComparison.Ordinal);
         Assert.Equal("split", Assert.Single(report, r => r.OriginalPath == fine).Status);
         Assert.True(File.Exists(misnamed));
 
@@ -297,8 +298,8 @@ public sealed class SeparateRunReportTests
     [Fact]
     public void ReportNamingAnExistingFileThatIsNotAReport_StopsTheRunBeforeAnyWrite()
     {
-        // The report path is caller supplied, so it could name the input list, a source
-        // file, or a file this run is about to create. None of them may be replaced.
+        // The report path is caller supplied, so it could name the input list or a source
+        // file. Neither may be replaced, and the run must not start.
         using var workspace = new TempWorkspace();
         var input = workspace.WriteFile("Alpha.cs", TwoTypes);
         var other = workspace.WriteFile("Solo.cs", "public class Solo { }\n");
@@ -348,10 +349,10 @@ public sealed class SeparateRunReportTests
     }
 
     [Fact]
-    public void AbortedRun_LeavesNoReportFromAnEarlierRun()
+    public void AbortedRun_ChangesNothingAtTheReportPath()
     {
-        // A caller reading the report path after an aborted run must not read an earlier
-        // run's rows as this run's.
+        // An aborted run did nothing, so it has nothing to report and nothing to remove.
+        // The earlier report stays, and the exit code says this run wrote none.
         using var workspace = new TempWorkspace();
         var input = workspace.WriteFile("Alpha.cs", TwoTypes);
         var listPath = workspace.WriteInputList(input);
@@ -359,13 +360,165 @@ public sealed class SeparateRunReportTests
         var reportPath = Path.Combine(workspace.Root, "plan.report.csv");
         Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
         Assert.Equal(0, Phase("content", workspace, listPath, manifestPath).ExitCode);
-        Assert.True(File.Exists(reportPath));
+        var reportBytes = File.ReadAllBytes(reportPath);
 
-        File.Delete(manifestPath);
+        File.Move(manifestPath, manifestPath + ".away");
         var aborted = Phase("content", workspace, listPath, manifestPath);
 
         Assert.Equal(3, aborted.ExitCode);
-        Assert.False(File.Exists(reportPath));
+        Assert.DoesNotContain("Report:", aborted.StandardError, StringComparison.Ordinal);
+        Assert.Equal(reportBytes, File.ReadAllBytes(reportPath));
+        Assert.Equal(["plan.csv.away", "plan.report.csv"], Directory.GetFiles(workspace.Root, "plan*").Select(Path.GetFileName).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void ReportAtAPathTheRunWritesASourceFileTo_KeepsTheSourceAndPrintsTheRows()
+    {
+        // Beta.cs does not exist when the run starts, so the first check passes. The run
+        // then creates it. The report must not replace it, and the record of the run must
+        // not be lost with the report.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var beta = Path.Combine(workspace.Root, "Beta.cs");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+
+        var content = Phase("content", workspace, listPath, manifestPath, "--report", beta, "--json");
+
+        Assert.Equal(3, content.ExitCode);
+        Assert.Equal("public class Beta { }\n", File.ReadAllText(beta));
+        Assert.Contains($"error: report not written to {beta}: Refusing to overwrite", content.StandardError, StringComparison.Ordinal);
+        Assert.DoesNotContain("Report:", content.StandardError, StringComparison.Ordinal);
+        using var json = JsonDocument.Parse(content.StandardOutput);
+        Assert.Equal(JsonValueKind.Null, json.RootElement.GetProperty("report").ValueKind);
+        Assert.Equal("split", Assert.Single(json.RootElement.GetProperty("files").EnumerateArray()).GetProperty("status").GetString());
+        Assert.Equal(["Alpha.cs", "Beta.cs", "inputs.txt", "plan.csv"], Directory.GetFiles(workspace.Root).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void ReportNotWritten_PrintsTheRowsAsCsvWithoutJson()
+    {
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var beta = Path.Combine(workspace.Root, "Beta.cs");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+
+        var content = Phase("content", workspace, listPath, manifestPath, "--report", beta);
+
+        Assert.Equal(3, content.ExitCode);
+        var printed = Path.Combine(workspace.Root, "printed.csv");
+        // Console.WriteLine ends the document with one more newline, as it does for the plan.
+        File.WriteAllText(printed, content.StandardOutput.TrimEnd() + "\n");
+        var row = Assert.Single(ManifestWriter.Read(printed));
+        Assert.Equal("split", row.Status);
+        Assert.Equal(beta, Assert.Single(row.NewFiles).Path);
+    }
+
+    [Fact]
+    public void ReportThatIsAHardLinkToThePlan_LeavesThePlanIntact()
+    {
+        // No path comparison can see a hard link. The plan survives because the report is
+        // moved into place and never written through the existing file.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        var planBytes = File.ReadAllBytes(manifestPath);
+        var link = Path.Combine(workspace.Root, "hard.csv");
+        if (!TryCreateHardLink(link, manifestPath))
+        {
+            // No ln on this machine, which means Windows. The move the test pins is the
+            // same call there.
+            return;
+        }
+
+        Squat(workspace, "Beta.cs");
+        var content = Phase("content", workspace, listPath, manifestPath, "--report", link);
+
+        Assert.Equal(1, content.ExitCode);
+        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+        Assert.Equal("split", Assert.Single(ManifestWriter.Read(manifestPath)).Status);
+        Assert.Equal("failed", Assert.Single(ManifestWriter.Read(link)).Status);
+    }
+
+    [Fact]
+    public void ReportReachingThePlanThroughALinkedDirectory_StopsTheRunBeforeAnyWrite()
+    {
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var plans = Path.Combine(workspace.Root, "plans");
+        Directory.CreateDirectory(plans);
+        var manifestPath = Path.Combine(plans, "plan.csv");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        var planBytes = File.ReadAllBytes(manifestPath);
+        var alias = Path.Combine(workspace.Root, "alias");
+        try
+        {
+            Directory.CreateSymbolicLink(alias, plans);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return;
+        }
+
+        var content = Phase("content", workspace, listPath, manifestPath, "--report", Path.Combine(alias, "plan.csv"));
+
+        Assert.Equal(3, content.ExitCode);
+        Assert.Contains("reaches the plan manifest", content.StandardError, StringComparison.Ordinal);
+        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+        Assert.Equal(TwoTypes, File.ReadAllText(input));
+    }
+
+    [Fact]
+    public void ReportThatIsALinkToAnEarlierReport_IsRefusedAndTheTargetIsKept()
+    {
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var reportPath = Path.Combine(workspace.Root, "plan.report.csv");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        Assert.Equal(0, Phase("content", workspace, listPath, manifestPath).ExitCode);
+        var reportBytes = File.ReadAllBytes(reportPath);
+        var link = Path.Combine(workspace.Root, "latest.csv");
+        try
+        {
+            File.CreateSymbolicLink(link, reportPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return;
+        }
+
+        var retry = Phase("content", workspace, listPath, manifestPath, "--report", link);
+
+        Assert.Equal(3, retry.ExitCode);
+        Assert.Contains("is a symbolic link", retry.StandardError, StringComparison.Ordinal);
+        Assert.Equal(reportBytes, File.ReadAllBytes(reportPath));
+        Assert.NotNull(new FileInfo(link).LinkTarget);
+    }
+
+    [Fact]
+    public void SecondRun_ReplacesTheEarlierReportAndLeavesNoStagingFile()
+    {
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var reportPath = Path.Combine(workspace.Root, "plan.report.csv");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        Assert.Equal(0, Phase("content", workspace, listPath, manifestPath).ExitCode);
+        Assert.Equal("split", Assert.Single(ManifestWriter.Read(reportPath)).Status);
+
+        Assert.Equal(0, Phase("content", workspace, listPath, manifestPath).ExitCode);
+
+        Assert.Equal("skipped", Assert.Single(ManifestWriter.Read(reportPath)).Status);
+        Assert.Equal(["Alpha.cs", "Beta.cs", "inputs.txt", "plan.csv", "plan.report.csv"], Directory.GetFiles(workspace.Root).Select(Path.GetFileName).Order(StringComparer.Ordinal));
     }
 
     [Theory]
@@ -421,6 +574,23 @@ public sealed class SeparateRunReportTests
     {
         string[] args = ["split-types", "--phase", phase, "--input", listPath, "--repo-root", workspace.Root, "--manifest", manifestPath, .. extra];
         return CliRunner.Run(args);
+    }
+
+    private static bool TryCreateHardLink(string link, string target)
+    {
+        try
+        {
+            var start = new System.Diagnostics.ProcessStartInfo("ln") { RedirectStandardError = true };
+            start.ArgumentList.Add(target);
+            start.ArgumentList.Add(link);
+            using var process = System.Diagnostics.Process.Start(start)!;
+            process.WaitForExit();
+            return process.ExitCode == 0 && File.Exists(link);
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return false;
+        }
     }
 
     // A directory squatting on a planned output makes the content write throw, and leaves

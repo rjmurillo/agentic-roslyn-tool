@@ -119,7 +119,7 @@ internal sealed class FileSplitter
         catch (Exception ex)
         {
             // The file is still at its original path, and the rename is still owed.
-            return FileResult.Failed(planned.OriginalPath, planned.OriginalPath, ex.Message) with { GitMove = true };
+            return FileResult.Failed(planned.OriginalPath, planned.OriginalPath, $"rename to {planned.KeptPath} failed: {ex.Message}") with { GitMove = true };
         }
     }
 
@@ -150,9 +150,9 @@ internal sealed class FileSplitter
     /// before the report is written, leaving changed files and no record of which. Per-file
     /// failures inside the loop are handled the same way for the same reason: <see cref="Process"/>
     /// turns any failure on one input, expected or not, into a row rather than an abort, so the
-    /// report describes what the run actually did. That holds as far as the report write
-    /// itself; a run whose <c>ManifestWriter.Write</c> fails still loses the record, and nothing
-    /// inside this method can prevent that.
+    /// report describes what the run actually did. When the report file itself cannot be
+    /// written, <c>Program</c> prints the rows to standard output instead, so the record
+    /// survives that too.
     /// </remarks>
     private IReadOnlyList<FileResult> RunContent()
     {

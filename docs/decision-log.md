@@ -527,11 +527,20 @@ and `content` phases write what they did to a report file in the same CSV format
   with the `plan` phase, where the flag would be a silent no-op.
 - **The report path is proven before the run.** The report is written after every source
   file is rewritten. A path found unusable at that point costs the record of the run. So
-  `ReportFile.Prepare` runs first and ends the run with exit code 3 when the path is a
-  symbolic link to the manifest, is a directory, cannot be created, or names an existing
-  file that is not a report. The last rule is what keeps `--report` off the input list
-  and off source files. It is the report's answer to rule 10: the file must be replaceable
-  for a retry, so the check asks what the existing file is, not whether one exists.
+  `ReportFile.Prepare` runs first and ends the run with exit code 3 when the path reaches
+  the manifest through a symbolic link, is itself a link or a directory, sits in a
+  directory that cannot take a new file, or names an existing file that is not a report.
+  The last rule keeps `--report` off the input list and off source files that exist when
+  the run starts. It is the report's answer to rule 10: the file must be replaceable for a
+  retry, so the check asks what the existing file is, not whether one exists.
+- **The same question is asked again at the write.** The run creates source files, and
+  one of them can land on the report path. `ReportFile.Write` refuses to replace it. The
+  rows then go to standard output and the run exits 3, so neither the type nor the record
+  is lost.
+- **No existing file is opened for writing.** The probe and the report both go to a new
+  file beside the report path, and the report is moved into place. A hard link to the
+  manifest cannot be seen by any path comparison. The move makes that harmless, because
+  it replaces the directory entry and leaves the manifest's bytes alone.
 - **Standard output is unchanged.** The report is a file. Its path goes to standard error
   on a `Report:` line beside the `Manifest:` line.
 - **`--json` gains one field.** `report` carries the report path, and is `null` in `plan`.
@@ -566,30 +575,35 @@ tree can. Nothing in the tool reads a report.
 output proves nothing about who wrote it. The already applied check asks a narrower
 question, and a file that fails it still reaches every existence check with no exemption.
 
-**Consequences.** Two files instead of one, and the report is replaced on every run, so it
-describes the last run that completed. A run that ends with exit code 3 removes the
-earlier report and writes none. `renames` followed by `content` with no `plan` run now exits
+**Consequences.** Two files instead of one, and the report is replaced by every run that
+completes, so it describes the last such run. A run that ends with exit code 3 before
+it starts work writes no report and leaves an earlier one as it was. Removing the earlier
+report at the start was tried and reverted: it deleted a file on a run that then aborted
+on a mistyped input path. `renames` followed by `content` with no `plan` run now exits
 3, because the renames phase no longer leaves a manifest behind. That sequence used to
 apply a plan nobody had reviewed. A caller that read results from the manifest path after
 `content` now reads the unchanged plan, and must read the report or `--json` instead. A
 content run against a manifest an older version already rewrote behaves as before: its
 `failed` rows are not `split`, so re-run the plan once.
 
-**Known limits.** The link check follows a symbolic link at the report path only. A hard
-link to the manifest, or a link in a parent directory, is not detected. The already
+**Known limits.** The manifest and the report share one format, so the tool cannot tell
+them apart. A second plan manifest passed as `--report` is replaced when the run
+completes. The already
 applied check does not compare the types that remain with the plan, so a source edited
 after planning can read as applied when its planned outputs exist. A process killed
 between the files of one split can leave a planned output missing while the kept file no
 longer declares its type. A retry reports that file as `nothing to split`. That window
 predates this decision, and the retry contract makes it worth closing in its own change.
-The report write is not atomic.
 
 **Reversal warning.** Write a later phase's rows back to the manifest and a failed row
 erases its own plan again. The retry then reports the file as not planned, at exit code 0.
 Remove the already applied check and a retry still exits 0, but every applied row reads
 `nothing to split`, which a caller cannot tell from a file that never needed splitting.
 Widen that check into an exemption from the existence checks and an edited manifest can
-aim a write at an existing file, which rule 10 forbids.
+aim a write at an existing file, which rule 10 forbids. Open the report path directly,
+to probe it or to write it, and a report path that is a hard link to the manifest empties
+the plan. Drop the check at the write and a report can replace a source file the run just
+created.
 
 ## Credit
 

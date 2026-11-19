@@ -200,10 +200,11 @@ git diff --check
 
 The content phase exits 3 if no plan manifest exists at `--manifest`. It never writes the
 manifest. It records what it did in the report file, which is `split-types.report.csv`
-here, or the path you pass with `--report`. Each run replaces the previous report. The
-tool checks the report path before it changes anything. It exits 3 without touching a
-source file when the path cannot be written, or names an existing file that is not an
-earlier report.
+here, or the path you pass with `--report`. Each run that completes replaces the previous
+report. The tool checks the report path before it changes anything. It exits 3 without
+touching a source file when the path cannot be written, is a symbolic link, or names an
+existing file that is not an earlier report. Any file in the manifest format counts as an
+earlier report, so do not point `--report` at a second plan you want to keep.
 
 Because the plan stays as you reviewed it, a content run can be repeated. When a row
 fails, fix the cause and run the same command again. The retry applies the rows that

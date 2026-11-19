@@ -22,7 +22,7 @@ namespace AgenticRoslynTool;
 /// <param name="ReportPath">
 /// Absolute path the renames and content phases write their run report to. Null means the
 /// default beside the manifest, see <see cref="DefaultReportPath"/>. <see cref="Parse"/> always
-/// fills it and rejects the manifest path. <see cref="ReportFile.Prepare"/> checks it against
+/// fills it and rejects the manifest path. <see cref="ReportFile.Prepare"/> tests it against
 /// the disk before a run, whoever built the options.
 /// </param>
 internal sealed record Options(string InputPath, string ManifestPath, string RepoRoot, Phase Phase, string? RequiredHeader, IReadOnlyList<string>? Excludes = null, bool Json = false, string? ReportPath = null)
