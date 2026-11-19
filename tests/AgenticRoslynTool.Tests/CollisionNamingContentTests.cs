@@ -166,4 +166,27 @@ public sealed class CollisionNamingContentTests
         Assert.Equal("split", content.Single(r => r.OriginalPath != aPath).Status);
         Assert.True(File.Exists(Path.Combine(ws.Root, "Shared.B.cs")));
     }
+
+    [Theory]
+    [InlineData(false, "skipped")]
+    [InlineData(true, "split")]
+    public void ContentPhase_ReadsThePlanNoteToTellAPlanFromAHandEdit(bool stripNote, string expectedStatus)
+    {
+        // Pins both edges of the note dependency that decision 21 records. A default run
+        // refuses a row whose path and note both carry the type-first name. With the note
+        // gone the row reads as a hand edit and is applied.
+        using var ws = new TempWorkspace();
+        var (aPath, _, listPath) = CollisionNamingFixture.WriteSharedPair(ws, sharedTypes: "public class Shared { }\n");
+        var manifestPath = Path.Combine(ws.Root, "m.csv");
+
+        var plan = CollisionNamingFixture.RunPhase(ws, listPath, manifestPath, Phase.Plan, CollisionNaming.TypeFirst);
+        var edited = plan.Select(r => stripNote ? r with { Note = null } : r).ToArray();
+        ManifestWriter.Write(edited, manifestPath);
+
+        var content = CollisionNamingFixture.RunPhase(ws, listPath, manifestPath, Phase.Content, CollisionNaming.FileFirst);
+
+        Assert.All(content, r => Assert.Equal(expectedStatus, r.Status));
+        Assert.Equal(stripNote, File.Exists(Path.Combine(ws.Root, "Shared.A.cs")));
+        Assert.Equal(stripNote, !File.ReadAllText(aPath).Contains("class Shared", StringComparison.Ordinal));
+    }
 }

@@ -562,7 +562,8 @@ or ends in `.g`, `.g.i`, `.designer`, or `.generated`. The qualified name would 
 suffix that Roslyn's
 `GeneratedCodeUtilities.IsGeneratedCodeFile` reads as generated code. Analyzers skip such
 a file and nullable annotations switch off in it. File-first has the mirror case when the
-type is named `G`. It is left alone so default plans stay identical.
+type is named `G`, `Designer`, or `Generated`. It is left alone so default plans stay
+identical.
 
 **Reversal warning.** Remove the content check and the flag stops meaning anything in the
 content phase. That phase takes paths from the manifest and never reruns the collision

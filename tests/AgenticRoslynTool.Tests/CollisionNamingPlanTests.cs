@@ -72,8 +72,32 @@ public sealed class CollisionNamingPlanTests
         Assert.Equal("split", typeFirst[1].Status);
         Assert.Equal(Path.Combine(root, "Shared.B.cs"), Assert.Single(typeFirst[1].NewFiles).Path);
 
+        // The partner's note must not claim a resolution the plan refused.
+        Assert.DoesNotContain(sourceName, typeFirst[1].Note ?? string.Empty, StringComparison.Ordinal);
+
         // The default form puts the source name first, so it is not affected and not changed.
         var fileFirst = SplitPlanner.ResolvePlannedOutputCollisions(results, CollisionNaming.FileFirst);
         Assert.All(fileFirst, r => Assert.Equal("split", r.Status));
+    }
+
+    [Fact]
+    public void TypeFirst_NamesEveryRefusedOutputOfOneInput()
+    {
+        // One input can have two outputs that both collide. It is skipped once, and the
+        // note lists both names in a fixed order.
+        var root = Path.Combine(Path.GetTempPath(), "art-collision-naming");
+        var generated = Path.Combine(root, "G.cs");
+        var plain = Path.Combine(root, "B.cs");
+        var results = new[]
+        {
+            FileResult.Split(generated, generated, gitMove: false, note: null, new[] { new NewFileResult(Path.Combine(root, "Shared.cs"), "Shared"), new NewFileResult(Path.Combine(root, "Other.cs"), "Other") }),
+            FileResult.Split(plain, plain, gitMove: false, note: null, new[] { new NewFileResult(Path.Combine(root, "Shared.cs"), "Shared"), new NewFileResult(Path.Combine(root, "Other.cs"), "Other") }),
+        };
+
+        var resolved = SplitPlanner.ResolvePlannedOutputCollisions(results, CollisionNaming.TypeFirst);
+
+        Assert.Equal("skipped", resolved[0].Status);
+        Assert.Equal($"refused output name: {Path.Combine(root, "Other.G.cs")}; {Path.Combine(root, "Shared.G.cs")}", resolved[0].Note);
+        Assert.Equal("split", resolved[1].Status);
     }
 }

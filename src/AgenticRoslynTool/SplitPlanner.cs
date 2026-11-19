@@ -81,6 +81,7 @@ internal static class SplitPlanner
             {
                 entry.OriginalPath,
                 Note = "resolved output path collision: " + string.Join("; ", group
+                    .Where(e => !refusedNames.ContainsKey(e.OriginalPath))
                     .OrderBy(e => e.OriginalPath, StringComparer.OrdinalIgnoreCase)
                     .Select(e => CollisionNames.FormatResolution(e.OriginalPath, resolvedPaths[(e.OriginalPath, e.Type, e.Path)]))),
             }))
@@ -252,61 +253,72 @@ internal static class SplitPlanner
         var files = paths.Select(kvp => new PlannedFile(kvp.Key, kvp.Value, ReferenceEquals(kvp.Value, keep))).ToArray();
         if (planned is not null)
         {
-            var plannedByType = planned.NewFiles.ToDictionary(f => f.Type, f => f.Path, StringComparer.Ordinal);
-            var computedPaths = files.Where(f => !f.IsKept).ToDictionary(f => f.Type.Key, f => f.Path, StringComparer.Ordinal);
-            files = files.Select(file =>
+            var (substituted, refusal, refusalNote) = ApplyManifestPaths(originalPath, keptPath, gitMove, files, planned, collisionNaming);
+            if (refusal is not null)
             {
-                if (file.IsKept)
-                {
-                    return file;
-                }
-
-                return plannedByType.TryGetValue(file.Type.Key, out var plannedPath) ? file with { Path = plannedPath } : file;
-            }).ToArray();
-
-            // The path written is the substituted one, so it needs its own existence check.
-            // No originalPath or readPath exemption here: a legitimate planned path never
-            // equals either, so exempting them only lets an edited manifest aim a write at
-            // the file being read.
-            var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { keptPath };
-            foreach (var file in files.Where(f => !f.IsKept))
-            {
-                if (File.Exists(file.Path))
-                {
-                    return new SplitPlan(keep, keptPath, gitMove, note, $"target path already exists: {file.Path}", Array.Empty<PlannedFile>());
-                }
-
-                if (!claimed.Add(file.Path))
-                {
-                    return new SplitPlan(keep, keptPath, gitMove, note, $"target path collision within split: {file.Path}", Array.Empty<PlannedFile>());
-                }
+                return new SplitPlan(keep, keptPath, gitMove, note, refusal, Array.Empty<PlannedFile>(), SkipNote: refusalNote);
             }
 
-            // The collision pass does not run in this phase, so the manifest is the only place
-            // a collision name can come from. One the plan phase resolved under the other
-            // --collision-naming value is a plan this run was not asked to apply. This runs after the existence
-            // and uniqueness checks so those keep their own, more specific reasons.
-            foreach (var file in files.Where(f => !f.IsKept))
-            {
-                var mismatch = CollisionNames.DescribeOtherNamingForm(originalPath, computedPaths[file.Type.Key], file.Path, planned.Note, collisionNaming);
-                if (mismatch is not null)
-                {
-                    return new SplitPlan(keep, keptPath, gitMove, note, PlanMismatchReason, Array.Empty<PlannedFile>(), SkipNote: mismatch);
-                }
-            }
-
-            var plannedNewFiles = planned.NewFiles.Select(f => f.Path).Order(StringComparer.OrdinalIgnoreCase).ToArray();
-            var actualNewFiles = files.Where(f => !f.IsKept).Select(f => f.Path).Order(StringComparer.OrdinalIgnoreCase).ToArray();
-            if (!StringComparer.OrdinalIgnoreCase.Equals(planned.KeptPath, keptPath) || planned.GitMove != gitMove || !plannedNewFiles.SequenceEqual(actualNewFiles, StringComparer.OrdinalIgnoreCase))
-            {
-                return new SplitPlan(keep, keptPath, gitMove, note, PlanMismatchReason, Array.Empty<PlannedFile>());
-            }
+            files = substituted;
         }
 
         note = CombineNotes(note, directiveNote);
         return new SplitPlan(keep, keptPath, gitMove, note, null, files);
     }
 
+
+    /// <summary>
+    /// Content phase only. Swaps each moved type's computed path for the path the manifest
+    /// planned, then checks the result against the disk and against the manifest row.
+    /// </summary>
+    /// <returns>The substituted files, or a refusal reason with an optional note for the skipped row.</returns>
+    private static (PlannedFile[] Files, string? Refusal, string? RefusalNote) ApplyManifestPaths(string originalPath, string keptPath, bool gitMove, PlannedFile[] computed, FileResult planned, CollisionNaming collisionNaming)
+    {
+        var plannedByType = planned.NewFiles.ToDictionary(f => f.Type, f => f.Path, StringComparer.Ordinal);
+        var computedPaths = computed.Where(f => !f.IsKept).ToDictionary(f => f.Type.Key, f => f.Path, StringComparer.Ordinal);
+        var files = computed
+            .Select(file => !file.IsKept && plannedByType.TryGetValue(file.Type.Key, out var plannedPath) ? file with { Path = plannedPath } : file)
+            .ToArray();
+        var moved = files.Where(f => !f.IsKept).ToArray();
+
+        // The path written is the substituted one, so it needs its own existence check.
+        // No originalPath or readPath exemption here: a legitimate planned path never
+        // equals either, so exempting them only lets an edited manifest aim a write at
+        // the file being read.
+        var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { keptPath };
+        foreach (var file in moved)
+        {
+            if (File.Exists(file.Path))
+            {
+                return (files, $"target path already exists: {file.Path}", null);
+            }
+
+            if (!claimed.Add(file.Path))
+            {
+                return (files, $"target path collision within split: {file.Path}", null);
+            }
+        }
+
+        // The collision pass does not run in this phase, so the manifest is the only place
+        // a collision name can come from. One the plan phase resolved under the other
+        // --collision-naming value is a plan this run was not asked to apply. This runs
+        // after the checks above so those keep their own, more specific reasons.
+        foreach (var file in moved)
+        {
+            var mismatch = CollisionNames.DescribeOtherNamingForm(originalPath, computedPaths[file.Type.Key], file.Path, planned.Note, collisionNaming);
+            if (mismatch is not null)
+            {
+                return (files, PlanMismatchReason, mismatch);
+            }
+        }
+
+        var plannedNewFiles = planned.NewFiles.Select(f => f.Path).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+        var actualNewFiles = moved.Select(f => f.Path).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+        var matches = StringComparer.OrdinalIgnoreCase.Equals(planned.KeptPath, keptPath)
+            && planned.GitMove == gitMove
+            && plannedNewFiles.SequenceEqual(actualNewFiles, StringComparer.OrdinalIgnoreCase);
+        return matches ? (files, null, null) : (files, PlanMismatchReason, null);
+    }
 
     internal static string? CombineNotes(string? first, string? second)
     {
