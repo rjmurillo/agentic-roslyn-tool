@@ -537,17 +537,21 @@ below follow from that rule.
 - **A mismatch is a `skipped` row, not `failed`.** It matches the structural mismatch,
   which was already a skip, and decision 13: refusing is the correct outcome. The reason
   starts with `stale plan:` so a caller can find these rows without parsing hashes. In
-  the content phase the check runs straight after the read, before any other guard, and
-  nothing is written.
-- **Renames is bound to the plan.** The renames phase recomputes the plan, and it used to
-  apply whatever it computed. When a manifest exists it now renames only a file the
-  manifest marks `split` whose bytes match the recorded hash. A file the manifest marks
-  `skipped` or `failed`, and a file the manifest has no row for, are refused with a
-  `stale plan:` reason. That covers a file the plan skipped that later gains a type, and
-  a file content refused as stale and wrote back as `skipped`. A `git mv` does not change
-  bytes, so a renamed file still matches in the content phase.
+  the content phase the check runs straight after the read, before parsing and every
+  guard that follows it, and nothing is written.
+- **Renames is held to the plan.** The renames phase recomputes the plan, and it used to
+  apply whatever it computed. When a manifest exists it now refuses, with a `stale plan:`
+  reason and no rename, a file whose bytes differ from the recorded hash, a file it would
+  split that the manifest marks `skipped` or `failed`, and a file it would split that the
+  manifest has no row for. The byte check applies to every file renames reads, not only
+  the ones it would split, so a changed file is reported as changed. That covers a file
+  the plan skipped that later gains a type, and a file content refused as stale and wrote
+  back as `skipped`. A `git mv` does not change bytes, so a renamed file still matches in
+  the content phase. Renames is held to the hash and the status, not the shape: with
+  matching bytes it still applies the paths it recomputed.
 - **A manifest with no `contentHash` column ends the run.** Content and renames both exit
-  3 with a message that says to re-run the plan phase, before any file is read or moved.
+  3 with a message that says to re-run the plan phase, before any source file is read or
+  moved.
   See Rejected.
 - **An empty or malformed value refuses that one file.** It is a `skipped` row with the
   same prefix. The comparison is ordinal against one canonical form, so uppercase digits,

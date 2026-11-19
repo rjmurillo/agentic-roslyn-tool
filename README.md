@@ -177,11 +177,11 @@ git commit -m "Rename C# files to match primary types"
 Keep renames in their own commit. Git can then record renames instead of delete-and-add pairs, preserving file history.
 
 The renames phase recomputes the plan from the current files and rewrites the manifest
-with what it did, but it is bound to the reviewed plan. It renames only a file the
-manifest marks `split` whose bytes still match the recorded `contentHash`. A file that
-changed, a file the plan did not mark `split`, and a file added to the input after the
-plan are each skipped with a `stale plan:` reason and not renamed. Re-run the plan phase
-and review it again if the tree changed since your last plan.
+with what it did, but it is held to the reviewed plan. Three cases are skipped with a
+`stale plan:` reason and not renamed: a file whose bytes no longer match the recorded
+`contentHash`, a file it would split that the plan did not mark `split`, and a file it
+would split that was added to the input after the plan. Re-run the plan phase and review
+it again if the tree changed since your last plan.
 
 Finally, split files and review the result:
 
@@ -244,7 +244,9 @@ body, a trailing space, a new line ending, a byte order mark, refuses that file 
 `skipped` row whose reason starts with `stale plan:`. Nothing is written for it, and the
 other files in the run are unaffected. A `git mv` does not change bytes, so a renamed file
 still matches. The refusal holds until you re-run the plan phase and review the new plan.
-Running renames or content again refuses the file again.
+A later run does not apply the file. The refusal row replaces the plan row and
+keeps the planned hash, so renames reports `stale plan:` again and content reports
+`not present as split in plan manifest`.
 
 One case reads oddly. A second content run over a file the first run already split
 reports it as `stale plan:`, because the first run rewrote the kept file. The file is left

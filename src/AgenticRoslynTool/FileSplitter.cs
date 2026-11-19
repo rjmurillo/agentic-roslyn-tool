@@ -64,7 +64,7 @@ internal sealed class FileSplitter
     /// Runs the phase selected by <see cref="Options.Phase"/>.
     /// </summary>
     /// <returns>The manifest and report views of the run.</returns>
-    /// <exception cref="InvalidOperationException">Thrown if the phase value is unrecognized, or, in the content phase, if the plan manifest is missing.</exception>
+    /// <exception cref="InvalidOperationException">Thrown if the phase value is unrecognized, if the content phase finds no plan manifest, or if the renames or content phase finds a manifest with no <c>contentHash</c> column.</exception>
     public RunOutcome Run()
     {
         return _options.Phase switch
@@ -153,12 +153,19 @@ internal sealed class FileSplitter
     /// Binds one freshly computed renames row to the manifest already on disk.
     /// </summary>
     /// <remarks>
-    /// Two rules, and both are needed. The row always takes its hash from the manifest row,
-    /// never from the bytes just read, so this phase cannot replace or invent a recorded
-    /// hash whatever the row's status turns out to be. And a row that would act, a
-    /// <c>split</c>, is refused unless the manifest marks that file <c>split</c> and the
-    /// bytes still match. A refusal keeps the recorded hash, so it stays a refusal on the
-    /// next run. Only the plan phase starts a new plan.
+    /// Three rules, and each closes a path the others leave open.
+    /// <list type="number">
+    /// <item>The row always takes its hash from the manifest row, never from the bytes just
+    /// read, so this phase cannot replace or invent a recorded hash whatever the row's
+    /// status turns out to be.</item>
+    /// <item>A file this run read whose bytes differ from the recorded hash is refused as
+    /// stale whatever the recomputed row says, so a changed file is reported as changed and
+    /// not under some unrelated skip reason.</item>
+    /// <item>A row that would act, a <c>split</c>, is refused unless the manifest marks that
+    /// file <c>split</c>.</item>
+    /// </list>
+    /// A refusal keeps the recorded hash, so it stays a refusal on the next run. Only the
+    /// plan phase starts a new plan.
     /// </remarks>
     private static FileResult HoldToPlan(FileResult row, Dictionary<string, FileResult> priorPlan)
     {
@@ -172,15 +179,19 @@ internal sealed class FileSplitter
                 : row with { ContentHash = null };
         }
 
-        if (!wouldAct)
+        // A null hash means this run never read the file, so there are no bytes to compare.
+        if (row.ContentHash is not null)
         {
-            return row with { ContentHash = prior.ContentHash };
+            var changed = ContentHash.DescribeMismatch(prior.ContentHash, row.ContentHash);
+            if (changed is not null)
+            {
+                return FileResult.StalePlan(row.OriginalPath, row.OriginalPath, changed, prior.ContentHash);
+            }
         }
 
-        var stale = prior.Status == "split" ? ContentHash.DescribeMismatch(prior.ContentHash, row.ContentHash!) : NotPlannedAsSplitReason;
-        return stale is null
-            ? row with { ContentHash = prior.ContentHash }
-            : FileResult.StalePlan(row.OriginalPath, row.OriginalPath, stale, prior.ContentHash);
+        return wouldAct && prior.Status != "split"
+            ? FileResult.StalePlan(row.OriginalPath, row.OriginalPath, NotPlannedAsSplitReason, prior.ContentHash)
+            : row with { ContentHash = prior.ContentHash };
     }
 
     /// <summary>
@@ -190,7 +201,7 @@ internal sealed class FileSplitter
     /// <see cref="SplitPlanner.IndexByInputPath"/>). Files not present as <c>split</c> in
     /// the manifest are skipped with a diagnostic reason.
     /// </summary>
-    /// <exception cref="InvalidOperationException">Thrown when the manifest file does not exist.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the manifest file does not exist, or has no <c>contentHash</c> column.</exception>
     /// <remarks>
     /// The input list is materialized before the loop. Enumeration itself can fail, on an
     /// unreadable list file or a malformed path, and the content phase rewrites source as it
@@ -219,6 +230,9 @@ internal sealed class FileSplitter
         var manifestPlan = ManifestWriter.Read(_options.ManifestPath, requireContentHash: true);
         var plannedFiles = SplitPlanner.IndexByInputPath(manifestPlan.Where(r => r.Status == "split"));
 
+        // Read groups by original path with this comparer, so the keys are already unique.
+        var recordedRows = manifestPlan.ToDictionary(r => r.OriginalPath, PathComparison.Comparer);
+
         var results = new List<FileResult>();
         var applied = new HashSet<string>(PathComparison.Comparer);
         foreach (var path in inputs)
@@ -226,7 +240,10 @@ internal sealed class FileSplitter
             var inputPath = Path.GetFullPath(path);
             if (!plannedFiles.TryGetValue(inputPath, out var planned))
             {
-                results.Add(FileResult.Skip(inputPath, inputPath, NotPlannedReason));
+                // The plan may still hold a row for this file, skipped or failed. The report
+                // row repeats that row's hash so the two documents agree on it.
+                recordedRows.TryGetValue(inputPath, out var recorded);
+                results.Add(FileResult.Skip(inputPath, inputPath, NotPlannedReason) with { ContentHash = recorded?.ContentHash });
                 continue;
             }
 

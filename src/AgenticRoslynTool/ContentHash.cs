@@ -17,8 +17,9 @@ namespace AgenticRoslynTool;
 internal static class ContentHash
 {
     /// <summary>
-    /// Opens every refusal this type produces. A caller can match on it to tell a stale plan
-    /// from any other skip.
+    /// Opens every stale plan refusal: the ones <see cref="DescribeMismatch"/> produces, and
+    /// the two the renames phase adds for a file the manifest does not plan as a split. A
+    /// caller can match on it to tell a stale plan from any other skip.
     /// </summary>
     internal const string StalePlanPrefix = "stale plan: ";
 

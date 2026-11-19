@@ -14,6 +14,6 @@ Use `agentic-roslyn-tool split-types` to split top-level types into separate fil
 - Run `--phase content` with the same input and manifest, then build and test.
 - Do not edit a planned file between phases. Each manifest row carries a `contentHash` of the file's bytes. A file that changed is `skipped` with a reason starting `stale plan:`. Re-run the plan to recover.
 - Exit 3 naming a missing `contentHash` column, from renames or content, means an older version wrote the manifest. Re-run the plan.
-- A `stale plan:` row stays refused until you re-run the plan. Renames also refuses a file added to the input after the plan.
+- A `stale plan:` row stays refused until you re-run the plan. Renames also refuses to split a file added to the input after the plan.
 
 See the [recommended workflow](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/README.md#recommended-workflow) for complete commands.

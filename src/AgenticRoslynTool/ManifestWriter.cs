@@ -84,8 +84,9 @@ internal static class ManifestWriter
                     string.IsNullOrEmpty(first.Note) ? null : first.Note,
                     g.Where(r => !string.IsNullOrEmpty(r.NewFilePath)).Select(r => new NewFileResult(r.NewFilePath, r.Type)).ToArray())
                 {
-                    // Kept as written, valid or not. Judging the value is the content
-                    // phase's job, and a malformed one has to reach it to be refused.
+                    // Kept as written, valid or not. Judging the value is the job of the
+                    // phase that compares it, and a malformed one has to reach that phase
+                    // to be refused.
                     ContentHash = string.IsNullOrEmpty(first.ContentHash) ? null : first.ContentHash,
                 };
             })

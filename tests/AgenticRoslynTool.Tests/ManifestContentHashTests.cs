@@ -257,7 +257,7 @@ public sealed class ManifestContentHashTests
         // No rename is planned for Foo.cs, so this phase starts no git process.
         var renamed = Assert.Single(RunAndWriteManifest(workspace, manifestPath, Phase.Renames, source).ReportRows);
         Assert.Equal("skipped", renamed.Status);
-        Assert.Equal("stale plan: the plan manifest does not mark this file as split; re-run --phase plan", renamed.Reason);
+        Assert.StartsWith("stale plan: input changed after the plan was written", renamed.Reason, StringComparison.Ordinal);
         Assert.Equal(planned.ContentHash, renamed.ContentHash);
 
         var after = RunAndWriteManifest(workspace, manifestPath, Phase.Content, source);
@@ -286,7 +286,7 @@ public sealed class ManifestContentHashTests
 
         var renamed = Assert.Single(RunAndWriteManifest(workspace, manifestPath, Phase.Renames, source).ReportRows);
         Assert.Equal("skipped", renamed.Status);
-        Assert.Equal("stale plan: the plan manifest does not mark this file as split; re-run --phase plan", renamed.Reason);
+        Assert.StartsWith("stale plan: input changed after the plan was written", renamed.Reason, StringComparison.Ordinal);
         Assert.Equal(plannedHash, renamed.ContentHash);
 
         var row = Assert.Single(Content(workspace, manifestPath, source).ReportRows);
@@ -364,11 +364,11 @@ public sealed class ManifestContentHashTests
     }
 
     [Fact]
-    public void RenamesRowThatIsNotASplit_KeepsThePlannedHash_SoALaterRunCannotMatchTheEdit()
+    public void EditedFileThatRenamesWouldSkipAnyway_IsReportedAsStale_AndStaysRefused()
     {
-        // An edited file that renames skips for an unrelated reason must not have its new
-        // hash recorded. Otherwise the reason clears, the next renames run finds a match,
-        // and the content phase applies the edit.
+        // An edited file that renames would skip for an unrelated reason must not have its
+        // new hash recorded, and must be reported as changed. Otherwise the unrelated
+        // reason clears, the next renames run finds a match, and content applies the edit.
         using var workspace = new TempWorkspace();
         var source = workspace.WriteFile("Foo.cs", TwoTypes);
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
@@ -379,7 +379,7 @@ public sealed class ManifestContentHashTests
 
         var blocked = Assert.Single(RunAndWriteManifest(workspace, manifestPath, Phase.Renames, source).ManifestRows);
         Assert.Equal("skipped", blocked.Status);
-        Assert.StartsWith("target path already exists", blocked.Reason, StringComparison.Ordinal);
+        Assert.StartsWith("stale plan: input changed after the plan was written", blocked.Reason, StringComparison.Ordinal);
         Assert.Equal(planned.ContentHash, blocked.ContentHash);
 
         File.Delete(blocker);
@@ -391,6 +391,104 @@ public sealed class ManifestContentHashTests
 
         Assert.Equal("skipped", Assert.Single(Content(workspace, manifestPath, source).ReportRows).Status);
         Assert.False(File.Exists(blocker));
+    }
+
+    [Fact]
+    public void EditedFileThatNoLongerSplits_IsReportedAsStale_NotAsNothingToSplit()
+    {
+        using var workspace = new TempWorkspace();
+        var source = workspace.WriteFile("Foo.cs", TwoTypes);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+        var planned = Assert.Single(Plan(workspace, manifestPath, source));
+
+        File.WriteAllText(source, "namespace N;\n\npublic class Foo\n{\n}\n");
+
+        var row = Assert.Single(RunAndWriteManifest(workspace, manifestPath, Phase.Renames, source).ManifestRows);
+
+        Assert.Equal("skipped", row.Status);
+        Assert.StartsWith("stale plan: input changed after the plan was written", row.Reason, StringComparison.Ordinal);
+        Assert.Equal(planned.ContentHash, row.ContentHash);
+    }
+
+    [Fact]
+    public void UnchangedFileThatRenamesSkips_KeepsItsReasonAndHash_AndIsNotSplitLater()
+    {
+        // Same bytes, so nothing is stale. The row keeps the reason renames computed and the
+        // planned hash. Once the manifest says skipped, only a new plan makes it a split.
+        using var workspace = new TempWorkspace();
+        var source = workspace.WriteFile("Foo.cs", TwoTypes);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+        var planned = Assert.Single(Plan(workspace, manifestPath, source));
+        var blocker = workspace.WriteFile("Bar.cs", "namespace N;\n");
+
+        var blocked = Assert.Single(RunAndWriteManifest(workspace, manifestPath, Phase.Renames, source).ManifestRows);
+        Assert.Equal("skipped", blocked.Status);
+        Assert.StartsWith("target path already exists", blocked.Reason, StringComparison.Ordinal);
+        Assert.Equal(planned.ContentHash, blocked.ContentHash);
+
+        File.Delete(blocker);
+
+        var again = Assert.Single(RunAndWriteManifest(workspace, manifestPath, Phase.Renames, source).ManifestRows);
+        Assert.Equal("skipped", again.Status);
+        Assert.Equal("stale plan: the plan manifest does not mark this file as split; re-run --phase plan", again.Reason);
+        Assert.Equal(planned.ContentHash, again.ContentHash);
+    }
+
+    [Fact]
+    public void RenamesRowForAnUnplannedFileItWouldNotSplit_RecordsNoHash()
+    {
+        // Renames must not record a hash it computed, even on a row that does nothing.
+        using var workspace = new TempWorkspace();
+        var planned = workspace.WriteFile("Foo.cs", TwoTypes);
+        var added = workspace.WriteFile("Single.cs", "namespace N;\n\npublic class Single\n{\n}\n");
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+        Plan(workspace, manifestPath, planned);
+
+        var rows = RunAndWriteManifest(workspace, manifestPath, Phase.Renames, planned, added).ManifestRows;
+
+        var row = Assert.Single(rows, r => r.OriginalPath == added);
+        Assert.StartsWith("nothing to split", row.Reason, StringComparison.Ordinal);
+        Assert.Null(row.ContentHash);
+    }
+
+    [Fact]
+    public void QualifiedCollisionSkip_KeepsTheHash()
+    {
+        // Three inputs in two directories cannot produce this, so the rows are built by
+        // hand: two sources whose qualified names still collide become skips.
+        var hashA = ContentHash.Compute([1]);
+        var hashB = ContentHash.Compute([2]);
+        FileResult[] rows =
+        [
+            FileResult.Split("/r/A.cs", "/r/A.cs", false, null, [new NewFileResult("/r/Shared.cs", "Shared")]) with { ContentHash = hashA },
+            FileResult.Split("/r/sub/../A.cs", "/r/sub/../A.cs", false, null, [new NewFileResult("/r/Shared.cs", "Shared")]) with { ContentHash = hashB },
+        ];
+
+        var resolved = SplitPlanner.ResolvePlannedOutputCollisions(rows);
+
+        Assert.All(resolved, r => Assert.Equal("qualified output path collision requires manual handling", r.Reason));
+        Assert.Equal([hashA, hashB], resolved.Select(r => r.ContentHash));
+    }
+
+    [Fact]
+    public void ContentReportRows_RepeatTheManifestHash_ForInputsThatAreNotApplied()
+    {
+        using var workspace = new TempWorkspace();
+        var split = workspace.WriteFile("Foo.cs", TwoTypes);
+        var single = workspace.WriteFile("Single.cs", "namespace N;\n\npublic class Single\n{\n}\n");
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+        var planned = Plan(workspace, manifestPath, split, single);
+
+        // Only the single-type file is supplied. It is not planned as a split, and the
+        // planned split is not supplied. Both report rows carry the recorded hash.
+        var report = Content(workspace, manifestPath, single).ReportRows;
+
+        var notPlanned = Assert.Single(report, r => r.OriginalPath == single);
+        Assert.Equal("not present as split in plan manifest", notPlanned.Reason);
+        Assert.Equal(planned.Single(r => r.OriginalPath == single).ContentHash, notPlanned.ContentHash);
+        var notSupplied = Assert.Single(report, r => r.OriginalPath == split);
+        Assert.Equal("planned as split but not supplied to the content phase input", notSupplied.Reason);
+        Assert.Equal(planned.Single(r => r.OriginalPath == split).ContentHash, notSupplied.ContentHash);
     }
 
     [Fact]

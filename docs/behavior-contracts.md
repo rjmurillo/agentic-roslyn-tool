@@ -170,13 +170,15 @@ Runs `git mv` for files whose name does not match their primary type.
 Promises:
 
 - Only renames a file the plan marked `split` with `GitMove` true.
-- **Is bound to the manifest on disk.** This phase recomputes the plan and its rows
-  replace the manifest, so each computed row is held to the manifest row for that file
-  first. A file this run would split is refused, with a `skipped` row and no `git mv`,
-  unless the manifest marks it `split` and its bytes still hash to the recorded
-  `contentHash`. The three refusals are a changed file, a file the manifest marks
-  `skipped` or `failed`, and a file the manifest has no row for. Each reason starts with
-  `stale plan:`. Only the plan phase starts a new plan.
+- **Is held to the manifest on disk.** This phase recomputes the plan and its rows replace
+  the manifest, so each computed row is checked against the manifest row for that file
+  first. Three refusals follow, each a `skipped` row with a `stale plan:` reason and no
+  `git mv`. A file this run read whose bytes differ from the recorded `contentHash` is
+  refused whatever the recomputed row says. A file this run would split that the
+  manifest marks `skipped` or `failed` is refused. A file this run would split that the
+  manifest has no row for is refused. Only the plan phase starts a new plan.
+- The check covers the hash and the status, not the shape. With matching bytes, this
+  phase still applies the paths it recomputed, as it did before the hash existed.
 - **Never records a hash of its own when a manifest exists.** Every row it writes copies
   `contentHash` from the manifest row it replaces, whatever the row's status. A file the
   manifest has no row for gets an empty hash. Without this, an edited file that this
@@ -216,10 +218,10 @@ Promises:
   one ends the whole run, not just the file.
 - Throws when the plan manifest has no `contentHash` column, which means an older version
   wrote it. The message says to re-run the plan phase. This also ends the whole run, with
-  exit code 3, before any file is read. There is no fallback to the structural check
+  exit code 3, before any source file is read. There is no fallback to the structural check
   alone.
 - **Refuses a file whose bytes differ from the planned `contentHash`.** The comparison
-  runs straight after the file is read, ahead of every other guard. The row is `skipped`,
+  runs straight after the file is read, ahead of parsing and every guard that follows it. The row is `skipped`,
   the reason starts with `stale plan:` and names both hashes, and nothing is written for
   that file. Other files in the run are unaffected. The hash covers raw bytes, so a
   changed body, whitespace, newline style, encoding, or byte order mark all count. A
@@ -229,7 +231,8 @@ Promises:
   run.
 - **Never changes a recorded hash.** Every row it writes for a planned file copies the
   planned `contentHash`, including a row for a file it never read: an excluded path, a
-  missing file, an inconsistent rename state.
+  missing file, an inconsistent rename state. The report row for an input the plan did
+  not mark `split` repeats the hash of that input's manifest row, when it has one.
 - A second run over a file an earlier run already split reports that file as
   `stale plan:`. The earlier run rewrote the kept file, so its bytes differ from the plan.
   The file is left alone.
@@ -259,15 +262,18 @@ Reason text shown in italics is a template; the run substitutes real values.
 | Content phase, row has a malformed hash | skipped | `stale plan: the manifest row carries a malformed contentHash '<value>'; re-run --phase plan` |
 | Renames phase, would split a file the manifest does not mark `split` | skipped | `stale plan: the plan manifest does not mark this file as split; re-run --phase plan` |
 | Renames phase, would split a file the manifest has no row for | skipped | `stale plan: the plan manifest has no row for this file; re-run --phase plan` |
-
-The three hash reasons apply in the renames phase as well.
 | Parse produced an error diagnostic | failed | `input has syntax errors: <diagnostics>` |
 | File has top level statements | skipped | `contains top-level statements; manual split required` |
 | One type or fewer | skipped | `nothing to split: input has <n> top-level type declaration(s)` |
 | Any `file` scoped type | skipped | `contains file-local type; manual split required` |
 | Anything else that throws while handling one input | failed | the exception message |
 
-The last row is the catch all, and it is deliberate. The content phase rewrites files as it
+The `stale plan:` rows are the exception to "before parsing" in one phase. The content
+phase applies its three straight after the read. The renames phase computes its plan row
+first and then applies all five, and the three hash reasons apply there as well. The
+catch all row above them is still last in order.
+
+The "anything else" row is the catch all, and it is deliberate. The content phase rewrites files as it
 goes and writes the manifest once, at the end, so an exception that escapes one input strands
 every file already rewritten in that run with no record of them. Every failure on one input
 therefore becomes a row. Two states reach that catch without being a read, decode, or write
