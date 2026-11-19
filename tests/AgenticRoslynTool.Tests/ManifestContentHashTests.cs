@@ -517,6 +517,24 @@ public sealed class ManifestContentHashTests
     }
 
     [Fact]
+    public void RenamesRefusesAMalformedRecordedHash_EvenOnAFileItWouldNotSplit()
+    {
+        // A recorded hash that cannot be compared proves nothing about the file, so the row
+        // says so, whatever renames would have done with the file.
+        using var workspace = new TempWorkspace();
+        var single = workspace.WriteFile("Single.cs", "namespace N;\n\npublic class Single\n{\n}\n");
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+        var planned = Plan(workspace, manifestPath, single);
+        ManifestWriter.Write(planned.Select(r => r with { ContentHash = "sha256:XYZ" }).ToArray(), manifestPath);
+
+        var row = Assert.Single(RunAndWriteManifest(workspace, manifestPath, Phase.Renames, single).ManifestRows);
+
+        Assert.Equal("skipped", row.Status);
+        Assert.StartsWith("stale plan: the manifest row carries a malformed contentHash", row.Reason, StringComparison.Ordinal);
+        Assert.Equal("sha256:XYZ", row.ContentHash);
+    }
+
+    [Fact]
     public void ContentReportRow_ForARefusedFileSuppliedByItsKeptPath_RepeatsTheManifestHash()
     {
         // After a rename, a directory scan supplies the kept path. Once the row is no longer

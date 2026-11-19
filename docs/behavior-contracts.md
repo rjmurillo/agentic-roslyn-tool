@@ -272,9 +272,10 @@ Reason text shown in italics is a template; the run substitutes real values.
 
 The `stale plan:` rows are the exception to "before parsing" in one phase. The content
 phase applies its three straight after the read. The renames phase computes its plan row
-first and then applies all five. There, the missing hash and malformed hash reasons apply
-only to a row that would split, because a file nobody planned has nothing to be stale
-against. The
+first and then applies all five. There, the missing hash reason applies only to a row
+that would split, because a file nobody planned has nothing to be stale against. A
+recorded hash that is malformed, or that differs from the bytes, refuses any file the run
+read. The
 catch all row above them is still last in order.
 
 The "anything else" row is the catch all, and it is deliberate. The content phase rewrites files as it
