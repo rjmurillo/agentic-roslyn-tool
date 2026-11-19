@@ -89,7 +89,9 @@ public sealed class CollisionNamingTests
         // The content phase never reruns the collision pass. Without its own check it
         // would write whatever names the manifest carries, whatever this run was told.
         using var ws = new TempWorkspace();
-        var (aPath, bPath, listPath) = WriteSharedPair(ws, sharedTypes: "public class Shared { }\n");
+        var (aPath, bPath, _) = WriteSharedPair(ws, sharedTypes: "public class Shared { }\n");
+        var cPath = ws.WriteFile("C.cs", TestHeader.Copyright + "\nnamespace Sample.Three;\n\npublic class C { }\n\npublic class Lone { }\n");
+        var listPath = ws.WriteInputList(aPath, bPath, cPath);
         var aBefore = File.ReadAllBytes(aPath);
         var bBefore = File.ReadAllBytes(bPath);
         var manifestPath = Path.Combine(ws.Root, "m.csv");
@@ -97,12 +99,19 @@ public sealed class CollisionNamingTests
         ManifestWriter.Write(RunPhase(ws, listPath, manifestPath, Phase.Plan, planned), manifestPath);
         var content = RunPhase(ws, listPath, manifestPath, Phase.Content, applied);
 
-        Assert.Equal(2, content.Count);
-        Assert.All(content, r => Assert.Equal("skipped", r.Status));
-        Assert.All(content, r => Assert.Equal(MismatchReason, r.Reason));
-        Assert.Equal(new[] { "A.cs", "B.cs" }, CsFiles(ws));
+        var collided = content.Where(r => r.OriginalPath != cPath).ToArray();
+        Assert.Equal(2, collided.Length);
+        Assert.All(collided, r => Assert.Equal("skipped", r.Status));
+        Assert.All(collided, r => Assert.Equal(MismatchReason, r.Reason));
+
+        // The reason is shared with ordinary plan drift, so the note has to name the cause.
+        Assert.All(collided, r => Assert.Contains($"--collision-naming {plannedValue} form and this run used {appliedValue}", r.Note ?? string.Empty, StringComparison.Ordinal));
         Assert.Equal(aBefore, File.ReadAllBytes(aPath));
         Assert.Equal(bBefore, File.ReadAllBytes(bPath));
+
+        // The check is per row. A row with no collision has one name under both values.
+        Assert.Equal("split", content.Single(r => r.OriginalPath == cPath).Status);
+        Assert.Equal(new[] { "A.cs", "B.cs", "C.cs", "Lone.cs" }, CsFiles(ws));
     }
 
     [Fact]
@@ -153,10 +162,11 @@ public sealed class CollisionNamingTests
     }
 
     [Fact]
-    public void TypeFirst_SkipsBothInputsWhenTheQualifiedNamesCollide()
+    public void QualifiedNameCollision_StillSkipsBothInputsUnderTypeFirst()
     {
         // Two inputs with one base name, in different folders, both aiming at one output.
-        // Either naming qualifies them to the same path, so neither may be written.
+        // Either naming qualifies them to the same path, so neither may be written. This
+        // pins that the existing refusal survives the new form, not the form itself.
         var root = Path.Combine(Path.GetTempPath(), "art-collision-naming");
         var target = Path.Combine(root, "Shared.cs");
         var results = new[]
@@ -172,7 +182,7 @@ public sealed class CollisionNamingTests
     }
 
     [Fact]
-    public void TypeFirst_TreatsQualifiedNamesThatDifferOnlyByCaseAsColliding()
+    public void QualifiedNameCollision_IgnoresCaseUnderTypeFirst()
     {
         // Shared.Foo.cs and Shared.foo.cs are one file on Windows and macOS. The collision
         // key ignores case everywhere, so a plan made on Linux is safe to apply anywhere.
@@ -188,6 +198,35 @@ public sealed class CollisionNamingTests
 
         Assert.All(resolved, r => Assert.Equal("skipped", r.Status));
         Assert.All(resolved, r => Assert.Equal("qualified output path collision requires manual handling", r.Reason));
+    }
+
+    [Theory]
+    [InlineData("G.cs")]
+    [InlineData("Designer.cs")]
+    [InlineData("generated.cs")]
+    [InlineData("Form.g.i.cs")]
+    public void TypeFirst_RefusesANameRoslynReadsAsGeneratedCode(string sourceName)
+    {
+        // Shared.G.cs and Shared.Designer.cs are generated code to Roslyn. Analyzers skip
+        // them and nullable annotations switch off, so writing one changes behavior.
+        var root = Path.Combine(Path.GetTempPath(), "art-collision-naming");
+        var target = Path.Combine(root, "Shared.cs");
+        var results = new[]
+        {
+            Split(Path.Combine(root, sourceName), target),
+            Split(Path.Combine(root, "B.cs"), target),
+        };
+
+        var typeFirst = SplitPlanner.ResolvePlannedOutputCollisions(results, CollisionNaming.TypeFirst);
+
+        Assert.Equal("skipped", typeFirst[0].Status);
+        Assert.Equal(SplitPlanner.GeneratedNameReason, typeFirst[0].Reason);
+        Assert.Equal("split", typeFirst[1].Status);
+        Assert.Equal(Path.Combine(root, "Shared.B.cs"), Assert.Single(typeFirst[1].NewFiles).Path);
+
+        // The default form puts the source name first, so it is not affected and not changed.
+        var fileFirst = SplitPlanner.ResolvePlannedOutputCollisions(results, CollisionNaming.FileFirst);
+        Assert.All(fileFirst, r => Assert.Equal("split", r.Status));
     }
 
     private static (string APath, string BPath, string ListPath) WriteSharedPair(TempWorkspace ws, string sharedTypes)

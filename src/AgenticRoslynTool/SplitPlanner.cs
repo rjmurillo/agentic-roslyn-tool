@@ -15,6 +15,17 @@ namespace AgenticRoslynTool;
 /// </remarks>
 internal static class SplitPlanner
 {
+    private const string PlanMismatchReason = "content phase plan does not match manifest";
+
+    /// <summary>The skip reason for a type-first name that compilers and analyzers read as generated code.</summary>
+    internal const string GeneratedNameReason = "qualified output name would be read as generated code; manual handling required";
+
+    /// <summary>
+    /// File name endings, before the extension, that Roslyn treats as generated code. Taken
+    /// from <c>GeneratedCodeUtilities.IsGeneratedCodeFile</c> in dotnet/roslyn.
+    /// </summary>
+    private static readonly string[] GeneratedCodeSuffixes = [".designer", ".generated", ".g", ".g.i"];
+
     /// <summary>
     /// Cross-file collision pass. If two different source files would each emit an
     /// output file with the same simple name (for example both emitting <c>Foo.cs</c>),
@@ -63,6 +74,17 @@ internal static class SplitPlanner
             .Where(g => g.Count() > 1)
             .SelectMany(g => g.Select(e => e.OriginalPath))
             .ToHashSet(PathComparison.Comparer);
+
+        // Type-first ends the name with the source file's base name. A source called G.cs
+        // or Designer.cs would yield Shared.G.cs, which Roslyn reads as generated code:
+        // analyzers skip it and nullable annotations switch off. That is a behavior change,
+        // so the input is handed back. File-first is left alone to keep its plans identical.
+        var generatedNames = collisionNaming != CollisionNaming.TypeFirst
+            ? new HashSet<string>(PathComparison.Comparer)
+            : resolvedPaths
+                .Where(kvp => HasGeneratedCodeName(kvp.Value))
+                .Select(kvp => kvp.Key.OriginalPath)
+                .ToHashSet(PathComparison.Comparer);
         var notesBySource = collisionGroups
             .SelectMany(group => group.Select(entry => new
             {
@@ -79,6 +101,11 @@ internal static class SplitPlanner
             if (qualifiedCollisions.Contains(result.OriginalPath))
             {
                 return FileResult.Skip(result.OriginalPath, result.KeptPath, "qualified output path collision requires manual handling");
+            }
+
+            if (generatedNames.Contains(result.OriginalPath))
+            {
+                return FileResult.Skip(result.OriginalPath, result.KeptPath, GeneratedNameReason);
             }
 
             var newFiles = result.NewFiles.Select(file =>
@@ -105,7 +132,7 @@ internal static class SplitPlanner
     /// <param name="originalPath">The input file the output is carved from.</param>
     /// <param name="targetPath">The simple-name output path that collided.</param>
     /// <param name="collisionNaming">Which of the two name parts comes first.</param>
-    internal static string GetQualifiedPath(string originalPath, string targetPath, CollisionNaming collisionNaming = CollisionNaming.FileFirst)
+    internal static string GetQualifiedPath(string originalPath, string targetPath, CollisionNaming collisionNaming)
     {
         var directory = Path.GetDirectoryName(targetPath) ?? ".";
         var sourceBaseName = Path.GetFileNameWithoutExtension(originalPath);
@@ -118,24 +145,39 @@ internal static class SplitPlanner
         return Path.Combine(directory, sourceBaseName + "." + targetFileName);
     }
 
+    private static bool HasGeneratedCodeName(string path)
+    {
+        var name = Path.GetFileNameWithoutExtension(path);
+        return GeneratedCodeSuffixes.Any(suffix => name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
+    }
+
     /// <summary>
-    /// True when a manifest path is the qualified form of the collision naming this run was
-    /// not given, and is not a path this run could have planned itself.
+    /// Describes a manifest path that is the qualified form of the collision naming this run
+    /// was not given, or returns null when the path is not that form.
     /// </summary>
     /// <remarks>
     /// The content phase takes output paths from the manifest and never reruns the collision
     /// pass, so nothing else notices that a plan was made under the other
     /// <c>--collision-naming</c> value. The test is this narrow on purpose. Requiring every
     /// manifest path to be one the run would compute would refuse any hand-edited path, which
-    /// the content phase has always accepted when the path is free.
+    /// the content phase has always accepted when the path is free. The two forms of one
+    /// output are never equal: a moved type never shares the source file's base name, because
+    /// the type that does is the one kept in place.
     /// </remarks>
-    private static bool IsOtherCollisionNamingForm(string originalPath, string computedPath, string plannedPath, CollisionNaming collisionNaming)
+    private static string? DescribeOtherCollisionNamingForm(string originalPath, string computedPath, string plannedPath, CollisionNaming collisionNaming)
     {
         var other = collisionNaming == CollisionNaming.FileFirst ? CollisionNaming.TypeFirst : CollisionNaming.FileFirst;
-        var comparer = StringComparer.OrdinalIgnoreCase;
-        return comparer.Equals(plannedPath, GetQualifiedPath(originalPath, computedPath, other))
-            && !comparer.Equals(plannedPath, computedPath)
-            && !comparer.Equals(plannedPath, GetQualifiedPath(originalPath, computedPath, collisionNaming));
+        if (!StringComparer.OrdinalIgnoreCase.Equals(plannedPath, GetQualifiedPath(originalPath, computedPath, other)))
+        {
+            return null;
+        }
+
+        return $"manifest path {plannedPath} is the --collision-naming {FlagValue(other)} form and this run used {FlagValue(collisionNaming)}; run the plan phase again and pass one value to every phase";
+    }
+
+    private static string FlagValue(CollisionNaming collisionNaming)
+    {
+        return collisionNaming == CollisionNaming.TypeFirst ? "type-first" : "file-first";
     }
 
     /// <summary>
@@ -219,7 +261,7 @@ internal static class SplitPlanner
     /// not ask this run for.
     /// </remarks>
     /// <returns>A <see cref="SplitPlan"/>; a non-null <see cref="SplitPlan.SkipReason"/> means the split was refused.</returns>
-    internal static SplitPlan BuildPlan(string originalPath, string readPath, IReadOnlyList<TopLevelType> types, FileResult? planned, string? directiveNote, CollisionNaming collisionNaming = CollisionNaming.FileFirst)
+    internal static SplitPlan BuildPlan(string originalPath, string readPath, IReadOnlyList<TopLevelType> types, FileResult? planned, string? directiveNote, CollisionNaming collisionNaming)
     {
         var directory = Path.GetDirectoryName(readPath) ?? ".";
         var baseName = Path.GetFileNameWithoutExtension(originalPath);
@@ -277,7 +319,7 @@ internal static class SplitPlanner
         if (planned is not null)
         {
             var plannedByType = planned.NewFiles.ToDictionary(f => f.Type, f => f.Path, StringComparer.Ordinal);
-            var computedFiles = files;
+            var computedPaths = files.Where(f => !f.IsKept).ToDictionary(f => f.Type.Key, f => f.Path, StringComparer.Ordinal);
             files = files.Select(file =>
             {
                 if (file.IsKept)
@@ -310,11 +352,12 @@ internal static class SplitPlanner
             // a collision name can come from. One built under the other --collision-naming
             // value is a plan this run was not asked to apply. This runs after the existence
             // and uniqueness checks so those keep their own, more specific reasons.
-            for (var i = 0; i < files.Length; i++)
+            foreach (var file in files.Where(f => !f.IsKept))
             {
-                if (!files[i].IsKept && IsOtherCollisionNamingForm(originalPath, computedFiles[i].Path, files[i].Path, collisionNaming))
+                var mismatch = DescribeOtherCollisionNamingForm(originalPath, computedPaths[file.Type.Key], file.Path, collisionNaming);
+                if (mismatch is not null)
                 {
-                    return new SplitPlan(keep, keptPath, gitMove, note, "content phase plan does not match manifest", Array.Empty<PlannedFile>());
+                    return new SplitPlan(keep, keptPath, gitMove, note, PlanMismatchReason, Array.Empty<PlannedFile>(), SkipNote: mismatch);
                 }
             }
 
@@ -322,7 +365,7 @@ internal static class SplitPlanner
             var actualNewFiles = files.Where(f => !f.IsKept).Select(f => f.Path).Order(StringComparer.OrdinalIgnoreCase).ToArray();
             if (!StringComparer.OrdinalIgnoreCase.Equals(planned.KeptPath, keptPath) || planned.GitMove != gitMove || !plannedNewFiles.SequenceEqual(actualNewFiles, StringComparer.OrdinalIgnoreCase))
             {
-                return new SplitPlan(keep, keptPath, gitMove, note, "content phase plan does not match manifest", Array.Empty<PlannedFile>());
+                return new SplitPlan(keep, keptPath, gitMove, note, PlanMismatchReason, Array.Empty<PlannedFile>());
             }
         }
 

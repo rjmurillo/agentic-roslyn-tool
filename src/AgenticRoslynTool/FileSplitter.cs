@@ -347,7 +347,8 @@ internal sealed class FileSplitter
         var plan = SplitPlanner.BuildPlan(originalPath, readPath, types, planned, directiveNote: directiveSafety.Note, collisionNaming: _options.CollisionNaming);
         if (plan.SkipReason is not null)
         {
-            return FileResult.Skip(originalPath, plan.KeptPath, plan.SkipReason);
+            var skipped = FileResult.Skip(originalPath, plan.KeptPath, plan.SkipReason);
+            return plan.SkipNote is null ? skipped : skipped with { Note = plan.SkipNote };
         }
 
         if (DirectiveAnalyzer.ProducesEmptyDirectiveShell(root, types, plan))

@@ -165,7 +165,8 @@ Promises:
 
 Recomputes the plan and reads no manifest. So it cannot notice a `--collision-naming`
 value that differs from the plan run. Renames touch only kept files, never a qualified
-output, so the value does not change what this phase moves.
+output. The value can still change which inputs are skipped, and a skipped input is not
+renamed. So pass the same value here as in the plan run.
 
 Requires a real git repository. The test suite avoids this phase by keeping every fixture
 file name equal to its primary type name, so no `git` process ever starts.
@@ -188,11 +189,17 @@ Promises:
   one ends the whole run, not just the file.
 - Refuses a file when the recomputed plan disagrees with the manifest it was handed. The
   comparison is structural: it covers the kept path, the git move flag, and the set of
-  output paths. It also refuses a row whose output path is the qualified collision name of
-  the `--collision-naming` value this run was not given. The content phase never reruns
-  the collision pass, so this is the only thing that keeps the flag in step with the plan. The manifest carries no content hash, so an edit that leaves type names
+  output paths. The manifest carries no content hash, so an edit that leaves type names
   and paths alone passes this check. Treat it as drift detection on the plan shape, not as
   proof the source is unchanged.
+- Refuses a row whose output path is the qualified collision name of the
+  `--collision-naming` value this run was not given. The reason is the same
+  `content phase plan does not match manifest`, and the row's note names the path and both
+  values. The content phase never reruns the collision pass, so this check is the only
+  thing that keeps the flag in step with the plan. It runs with or without the flag, so a
+  default run refuses a manifest path hand-edited to `TypeName.FileName.cs`. The skipped
+  row replaces the `split` row when the manifest is written back, so recovery is to run
+  the plan phase again.
 - Writes its own manifest to the same default path, which **overwrites the plan
   manifest**. Pass an explicit `--manifest` when you want to keep both.
 
@@ -359,6 +366,8 @@ The things that would surprise a reader who only skimmed the signatures.
    up and skips every input involved with
    `qualified output path collision requires manual handling`. The plan does not probe the
    disk for a qualified name. The content phase does, and refuses with
-   `target path already exists`.
+   `target path already exists`. Under `type-first`, an input whose qualified name would
+   end in `.g`, `.g.i`, `.designer`, or `.generated` is skipped with
+   `qualified output name would be read as generated code; manual handling required`.
 6. **The tool trusts the plan manifest as a review artifact**, and refuses to proceed when
    reality has drifted from it. That refusal is a feature.

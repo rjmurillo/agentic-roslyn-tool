@@ -515,7 +515,8 @@ qualifies both as `<OriginalFileName>.<TypeName>.cs`, such as `A.Shared.cs`. SA1
 a file name up to its first dot, so it reads `A` and reports the file. The naming guide
 told readers to rename by hand to `Shared.A.cs`. That is mechanical work the tool can do.
 The StyleCop source confirms the rule: `FileNameHelpers.GetFileNameAndSuffix` cuts the
-name at the first dot, read at commit `4502632`. A real build confirmed the result.
+name at the first dot, read at commit `4502632`. A build with StyleCop.Analyzers
+`1.2.0-beta.556` on .NET SDK 10.0.404 confirmed the result.
 
 **Decision.** `--collision-naming file-first|type-first` selects the qualified form.
 `file-first` is the default and is today's behavior. `type-first` emits
@@ -528,24 +529,39 @@ refuses a row whose manifest path is the other value's qualified form, with
 new paths, and a manifest reviewed before the upgrade would stop matching. Reading
 `stylecop.json` or `.editorconfig` to choose was also rejected. That is the defect in
 decisions 9 and 14: the tool guessing at one repository's setup. Recording the value in
-the manifest was rejected too. It adds a column to the manifest CSV, which is a larger
-contract change than one flag.
+the manifest was rejected too. A column would give exact detection and one refusal before
+any row is touched. It also changes the manifest CSV for every caller, to serve one flag.
+Revisit it if a second flag ever changes planned paths.
 
 **Consequences.** The value must be passed to every phase. The renames phase reads no
-manifest, so it cannot check the value, and it does not need to: it moves kept files only.
-The content check is per row. A row with no collision has the same paths under both
+manifest, so it cannot check the value. It moves kept files only, but the value can change
+which inputs the collision pass skips, so it should match there too. The content check
+infers the plan's value from the shape of a path. It is per row. A row with no collision has the same paths under both
 values and still applies. One default behavior changed, on purpose. A default content run
 now refuses a manifest path of the exact form `<TypeName>.<OriginalFileName>.cs` for a
 type that file would emit. Before, it wrote that path. Any other hand-edited free path is
 still accepted. Under the `metadata` convention `Shared{T}.A.cs` still raises SA1649,
 for the same reason `Shared{T}.cs` does.
 
+A forgotten flag is the likely mistake, and it is not free. The mismatched rows are
+skipped, so the run exits 0, and the note on each row names the cause. The content phase
+then writes those rows back as `skipped`, which uses up the reviewed plan for them. The
+fix is to run the plan phase again. This is the known cost of the manifest being both
+plan and report.
+
+Type-first refuses a source whose base name is `G`, `Designer`, or `Generated`, or ends
+in `.g` or `.g.i`. The qualified name would end in a suffix that Roslyn's
+`GeneratedCodeUtilities.IsGeneratedCodeFile` reads as generated code. Analyzers skip such
+a file and nullable annotations switch off in it. File-first has the mirror case when the
+type is named `G`. It is left alone so default plans stay identical.
+
 **Reversal warning.** Remove the content check and the flag stops meaning anything in the
 content phase. That phase takes paths from the manifest and never reruns the collision
 pass, so it would write whichever form the manifest holds and report `split`. Widen the
 check to "every manifest path must be one this run computes" and every hand-edited path is
 refused, which breaks reviewed plans that work today. Flip the default and every existing
-plan with a collision goes stale at once.
+plan with a collision goes stale at once. The flag name and its two values are now
+command line contract. Rename or remove one and every script that passes it exits 2.
 
 ## Unrecorded decisions
 
