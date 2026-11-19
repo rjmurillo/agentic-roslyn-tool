@@ -46,6 +46,12 @@ internal sealed class FileSplitter
     /// </summary>
     private const string NotPlannedReason = "not present as split in plan manifest";
 
+    /// <summary>Reason recorded when the renames phase would split a file the manifest on disk has no row for.</summary>
+    private const string NoPlanRowReason = ContentHash.StalePlanPrefix + "the plan manifest has no row for this file; re-run --phase plan";
+
+    /// <summary>Reason recorded when the renames phase would split a file the manifest on disk records as skipped or failed.</summary>
+    private const string NotPlannedAsSplitReason = ContentHash.StalePlanPrefix + "the plan manifest does not mark this file as split; re-run --phase plan";
+
     /// <summary>Constructs a splitter bound to a set of parsed options.</summary>
     /// <param name="options">The options that select the input list, manifest path, repository root, phase, and optional required header.</param>
     public FileSplitter(Options options)
@@ -83,77 +89,98 @@ internal sealed class FileSplitter
     /// performed in this phase, so the resulting commit contains only renames.
     /// </summary>
     /// <remarks>
-    /// This phase recomputes the plan, and <c>Program</c> writes the result over the manifest.
-    /// Left unchecked, that would launder an edit made between plan and renames: the new row
-    /// would carry the hash of the edited bytes, and the content phase would find a match. So
-    /// when a manifest already exists, a file this run would split must still hash to the
-    /// value that manifest recorded for it, or it is refused here and never renamed.
     /// <para>
-    /// Every prior row with a hash counts, not only the <c>split</c> ones. A file the plan
-    /// skipped can gain a type afterwards, and a file the content phase refused as stale is
-    /// written back as <c>skipped</c>. Checking split rows alone would let this phase plan
-    /// either one afresh. Only the plan phase starts a new plan.
+    /// This phase recomputes the plan, and <c>Program</c> writes the result over the manifest.
+    /// Left unchecked, that would launder an edit made after the plan: the new row would
+    /// carry the hash of the edited bytes, and the content phase would find a match. So when
+    /// a manifest exists, this phase is bound to it. It renames only a file the manifest
+    /// marks <c>split</c> whose bytes still match the recorded hash, and it never records a
+    /// hash of its own. See <see cref="HoldToPlan"/>.
     /// </para>
     /// <para>
-    /// A file the manifest has no row for, a row with no hash, and a run with no manifest at
-    /// all have nothing to be held to, and proceed as a fresh plan.
+    /// With no manifest on disk nothing was planned, so there is nothing to be held to, and
+    /// the phase plans and hashes afresh as the plan phase would.
     /// </para>
     /// </remarks>
+    /// <exception cref="InvalidOperationException">Thrown when a manifest exists and has no <c>contentHash</c> column.</exception>
     private IReadOnlyList<FileResult> RunRenames()
     {
         var priorPlan = File.Exists(_options.ManifestPath)
-            ? SplitPlanner.IndexByInputPath(ManifestWriter.Read(_options.ManifestPath).Where(r => r.ContentHash is not null))
+            ? SplitPlanner.IndexByInputPath(ManifestWriter.Read(_options.ManifestPath, requireContentHash: true))
             : null;
-        var results = BuildResolvedPlan(row => RefuseIfStale(row, priorPlan));
-        foreach (var result in results.Where(r => r.Status == "split" && r.GitMove))
+
+        // Collisions are resolved first, over every row, and the rows are bound to the plan
+        // after. A file refused here still took part in naming, so the inputs that are
+        // applied keep the qualified paths the reviewed plan gave them.
+        var results = BuildResolvedPlan().Select(row => priorPlan is null ? row : HoldToPlan(row, priorPlan)).ToArray();
+        for (var i = 0; i < results.Length; i++)
         {
-            _writer.ApplyRenameOnly(result.OriginalPath, File.ReadAllBytes(result.OriginalPath), result.KeptPath);
+            var result = results[i];
+            if (result.Status != "split" || !result.GitMove)
+            {
+                continue;
+            }
+
+            // The bytes moved are read here, after the plan pass that hashed the file. An
+            // edit landing in between must not be renamed under a hash it does not match.
+            var bytes = File.ReadAllBytes(result.OriginalPath);
+            var changed = ContentHash.DescribeMismatch(result.ContentHash, ContentHash.Compute(bytes));
+            if (changed is not null)
+            {
+                results[i] = FileResult.StalePlan(result.OriginalPath, result.OriginalPath, changed, result.ContentHash);
+                continue;
+            }
+
+            _writer.ApplyRenameOnly(result.OriginalPath, bytes, result.KeptPath);
         }
 
         return results;
     }
 
     /// <summary>Runs the plan for every input path and resolves any cross-file output-name collisions into their qualified form.</summary>
-    /// <param name="review">
-    /// Applied to each row before collisions are resolved, so a row it turns into a skip
-    /// claims no output path and cannot force a qualified name onto another input.
-    /// </param>
-    private IReadOnlyList<FileResult> BuildResolvedPlan(Func<FileResult, FileResult>? review = null)
+    private IReadOnlyList<FileResult> BuildResolvedPlan()
     {
         var results = new List<FileResult>();
         foreach (var path in InputSource.ReadRunnableInputs(_options.InputPath).ToArray())
         {
-            var row = Process(path, Phase.Plan, null);
-            results.Add(review is null ? row : review(row));
+            results.Add(Process(path, Phase.Plan, null));
         }
 
         return SplitPlanner.ResolvePlannedOutputCollisions(results);
     }
 
     /// <summary>
-    /// Turns a freshly planned <c>split</c> row into a skip when an existing manifest recorded
-    /// different bytes for the same file. See the remarks on <see cref="RunRenames"/>.
+    /// Binds one freshly computed renames row to the manifest already on disk.
     /// </summary>
     /// <remarks>
-    /// The refusal keeps the recorded hash, not the hash of the bytes found. The row replaces
-    /// the manifest row, and a row carrying the new hash would match on the next run, which
-    /// would turn one refusal into permission.
+    /// Two rules, and both are needed. The row always takes its hash from the manifest row,
+    /// never from the bytes just read, so this phase cannot replace or invent a recorded
+    /// hash whatever the row's status turns out to be. And a row that would act, a
+    /// <c>split</c>, is refused unless the manifest marks that file <c>split</c> and the
+    /// bytes still match. A refusal keeps the recorded hash, so it stays a refusal on the
+    /// next run. Only the plan phase starts a new plan.
     /// </remarks>
-    private static FileResult RefuseIfStale(FileResult row, Dictionary<string, FileResult>? priorPlan)
+    private static FileResult HoldToPlan(FileResult row, Dictionary<string, FileResult> priorPlan)
     {
-        if (row.Status != "split"
-            || row.ContentHash is null
-            || priorPlan is null
-            || !priorPlan.TryGetValue(row.OriginalPath, out var prior)
-            || prior.ContentHash is null)
+        var wouldAct = row.Status == "split";
+
+        // The rename has not happened, so a refused file is still at the path it was read from.
+        if (!priorPlan.TryGetValue(row.OriginalPath, out var prior))
         {
-            return row;
+            return wouldAct
+                ? FileResult.StalePlan(row.OriginalPath, row.OriginalPath, NoPlanRowReason, null)
+                : row with { ContentHash = null };
         }
 
-        var stale = ContentHash.DescribeMismatch(prior.ContentHash, row.ContentHash);
+        if (!wouldAct)
+        {
+            return row with { ContentHash = prior.ContentHash };
+        }
 
-        // The rename has not happened, so the file is still at its original path.
-        return stale is null ? row : FileResult.Skip(row.OriginalPath, row.OriginalPath, stale) with { ContentHash = prior.ContentHash };
+        var stale = prior.Status == "split" ? ContentHash.DescribeMismatch(prior.ContentHash, row.ContentHash!) : NotPlannedAsSplitReason;
+        return stale is null
+            ? row with { ContentHash = prior.ContentHash }
+            : FileResult.StalePlan(row.OriginalPath, row.OriginalPath, stale, prior.ContentHash);
     }
 
     /// <summary>
@@ -263,7 +290,7 @@ internal sealed class FileSplitter
     {
         try
         {
-            return WithPlannedGitMove(ProcessCore(path, phase, planned), planned);
+            return WithPlannedFacts(ProcessCore(path, phase, planned), planned);
         }
         catch (Exception ex)
         {
@@ -280,19 +307,39 @@ internal sealed class FileSplitter
                 reported = path;
             }
 
-            return WithPlannedGitMove(FileResult.Failed(reported, reported, ex.Message), planned);
+            return WithPlannedFacts(FileResult.Failed(reported, reported, ex.Message), planned);
         }
     }
 
     /// <summary>
-    /// Restores the pending-rename flag the refusal and failure factories drop. Whether a
-    /// rename is owed is a fact about the plan, not about how this run ended, so a row that
-    /// forgets it tells the next reader no move is pending for a file that still needs one.
-    /// The paths are deliberately left alone: they say where the file is, which a planned
-    /// row cannot answer for a run that refused before the rename landed.
+    /// Restores the two facts about the plan that the refusal and failure factories drop: the
+    /// pending-rename flag and the content hash.
     /// </summary>
-    private static FileResult WithPlannedGitMove(FileResult result, FileResult? planned) =>
-        planned is null || result.Status == "split" ? result : result with { GitMove = planned.GitMove };
+    /// <remarks>
+    /// <para>
+    /// Whether a rename is owed is a fact about the plan, not about how this run ended, so a
+    /// row that forgets it tells the next reader no move is pending for a file that still
+    /// needs one. The paths are deliberately left alone: they say where the file is, which a
+    /// planned row cannot answer for a run that refused before the rename landed.
+    /// </para>
+    /// <para>
+    /// The hash is the same kind of fact. Every row the content phase writes for a planned
+    /// file replaces that file's manifest row, including the exits that never read the file:
+    /// an excluded path, a missing file, an inconsistent rename state. A row that dropped the
+    /// hash there would leave the next phase nothing to hold the file to. Carried on every
+    /// status, so the content phase can never change a recorded hash.
+    /// </para>
+    /// </remarks>
+    private static FileResult WithPlannedFacts(FileResult result, FileResult? planned)
+    {
+        if (planned is null)
+        {
+            return result;
+        }
+
+        var carried = result with { ContentHash = planned.ContentHash };
+        return result.Status == "split" ? carried : carried with { GitMove = planned.GitMove };
+    }
 
     /// <summary>
     /// Implements <see cref="Process"/>. Kept separate so every exit path, including an
@@ -367,7 +414,7 @@ internal sealed class FileSplitter
             var stale = ContentHash.DescribeMismatch(planned.ContentHash, contentHash);
             if (stale is not null)
             {
-                return FileResult.Skip(originalPath, readPath, stale) with { ContentHash = planned.ContentHash };
+                return FileResult.StalePlan(originalPath, readPath, stale, planned.ContentHash);
             }
         }
 

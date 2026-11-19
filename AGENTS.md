@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 30 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 124 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 136 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -75,7 +75,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 124 passed, 0 failed
+dotnet test  -c Release      # must be 136 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -148,14 +148,15 @@ weight.
     employer's copyright text and one repository's directory layout. Both made the tool
     useless everywhere else.
 
-12. **A file must match its planned content hash before a phase acts on it.** Every
-    manifest row carries the SHA-256 of the input's raw bytes. The content phase refuses a
-    file whose bytes differ, and the renames phase does the same before it renames, for
-    every file the manifest on disk recorded a hash for. A manifest with no `contentHash`
-    column ends the content run with exit 3. Never add a fallback to the structural check,
-    never hash decoded text, never drop the hash from a row that is carried between runs,
-    and never let a `stale plan:` row store the hash it found in place of the planned one.
-    `ManifestContentHashTests` pins all of it. See decision 21.
+12. **A run that starts a plan records content hashes. Every later phase only carries and
+    compares them.** Every manifest row carries the SHA-256 of the input's raw bytes. The
+    content phase refuses a file whose bytes differ. The renames phase renames only a
+    file the manifest marks `split` whose bytes match. A manifest with no `contentHash`
+    column ends a renames or content run with exit 3. Never add a fallback to the
+    structural check, never hash decoded text, and never let renames or content write a
+    hash it computed: each row copies the hash of the manifest row it replaces, on every
+    status and every exit. Review found a launder path through each exit that forgot
+    this. `ManifestContentHashTests` pins all of it. See decision 21.
 
 ## Conventions for anything you write
 
@@ -183,6 +184,9 @@ agent does not pay again.
 - **A test that edits a file between plan and content now gets `stale plan:`, not the
   reason you were aiming for.** The hash check runs first. To reach a later guard, such as
   the structural mismatch, leave the source alone and edit the manifest row instead.
+- **A renames test with a manifest on disk is now held to it.** A file the manifest does
+  not mark `split`, or has no row for, is refused. Delete the manifest, or plan first, if
+  the test wants renames to plan afresh.
 - **The renames phase needs a tracked file, not a commit.** `git init` and `git add` are
   enough for `git mv`, so a test needs no author identity on the machine. See the helper
   in `ManifestContentHashTests`.
@@ -263,6 +267,11 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   to the plan path, so a content run that fails a row replaces its `split` plan with
   `failed`, and a retry answers `not present as split in plan manifest`. Recovery is to
   re-run the plan phase. See the decision log for why this waits on a decision.
+- A second content run over a file the first run already split reports it as
+  `stale plan:`. The first run rewrote the kept file, so its bytes differ from the plan,
+  and the tool cannot tell its own write from an outside edit. The file is left alone.
+  Telling the two apart needs the content phase to record what it wrote, which belongs
+  with the decision about what the manifest means after a content run.
 - `CsvFieldReader` exists, but not for the reason previously recorded here. The claim was
   that `Microsoft.VisualBasic.FileIO.TextFieldParser` forces a Windows only target. That
   was tested on this machine and is false: it compiles and parses quoted commas correctly

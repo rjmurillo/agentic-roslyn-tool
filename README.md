@@ -176,11 +176,12 @@ git commit -m "Rename C# files to match primary types"
 
 Keep renames in their own commit. Git can then record renames instead of delete-and-add pairs, preserving file history.
 
-The renames phase recomputes the plan from the current files rather than replaying the
-reviewed manifest, and rewrites the manifest with what it did. It still holds each file to
-the reviewed plan: a file whose bytes no longer match the `contentHash` the plan recorded
-is skipped with a `stale plan:` reason and is not renamed. Re-run the plan phase and review
-it again if the tree changed since your last plan.
+The renames phase recomputes the plan from the current files and rewrites the manifest
+with what it did, but it is bound to the reviewed plan. It renames only a file the
+manifest marks `split` whose bytes still match the recorded `contentHash`. A file that
+changed, a file the plan did not mark `split`, and a file added to the input after the
+plan are each skipped with a `stale plan:` reason and not renamed. Re-run the plan phase
+and review it again if the tree changed since your last plan.
 
 Finally, split files and review the result:
 
@@ -195,9 +196,10 @@ dotnet build
 git diff --check
 ```
 
-The content phase exits 3 if no plan manifest exists at `--manifest`, or if that manifest
-has no `contentHash` column because an older version wrote it. Re-run the plan phase to
-rebuild it. The content phase overwrites the manifest with its results. Copy the reviewed plan to a second path first when you want to
+The content phase exits 3 if no plan manifest exists at `--manifest`. The renames and
+content phases both exit 3 if the manifest has no `contentHash` column because an older
+version wrote it. Re-run the plan phase to rebuild it. The content phase overwrites the
+manifest with its results. Copy the reviewed plan to a second path first when you want to
 keep it for comparison.
 
 The content phase moves each non-primary top-level type into its own file. Each type keeps its owned XML comments, attributes, and ordinary comments. Every emitted file also receives the source using directives and namespace declaration.
@@ -241,7 +243,12 @@ The renames and content phases hash each file again. Any difference, a changed m
 body, a trailing space, a new line ending, a byte order mark, refuses that file with a
 `skipped` row whose reason starts with `stale plan:`. Nothing is written for it, and the
 other files in the run are unaffected. A `git mv` does not change bytes, so a renamed file
-still matches. Re-run the plan phase, review it, and apply again.
+still matches. The refusal holds until you re-run the plan phase and review the new plan.
+Running renames or content again refuses the file again.
+
+One case reads oddly. A second content run over a file the first run already split
+reports it as `stale plan:`, because the first run rewrote the kept file. The file is left
+alone.
 
 Blank-line handling uses Roslyn trivia nodes, not raw text. Blank lines inside block comments or `#if` regions belong to a token's trivia text. A text normalizer can corrupt that content, while trivia-level handling preserves it.
 

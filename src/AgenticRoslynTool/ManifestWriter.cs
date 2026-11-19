@@ -42,7 +42,7 @@ internal static class ManifestWriter
             // A missing column is a property of the whole file, so it is one error for the
             // run and not one skip per row. A run that skipped every row would exit 0 and
             // look like a run with nothing to do.
-            throw new InvalidOperationException($"Plan manifest has no contentHash column, so an older version wrote it and it cannot prove the inputs are unchanged. Re-run --phase plan to rebuild it: {path}");
+            throw new InvalidOperationException($"Plan manifest has no contentHash column, so it cannot prove the inputs are unchanged. An older version wrote it, or it is not a plan manifest. Re-run --phase plan to rebuild it: {path}");
         }
 
         var rows = new List<(string OriginalPath, string KeptPath, bool GitMove, string Status, string Reason, string Note, string NewFilePath, string Type, string ContentHash)>();

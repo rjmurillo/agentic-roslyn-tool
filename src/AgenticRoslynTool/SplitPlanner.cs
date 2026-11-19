@@ -100,8 +100,10 @@ internal static class SplitPlanner
     }
 
     /// <summary>
-    /// Indexes the plan's <c>split</c> rows by every path the content phase can be handed
-    /// for them: the original path, and the kept path of a row whose rename is planned.
+    /// Indexes plan rows by every path a later phase can be handed for them: the original
+    /// path, and the kept path of a row whose rename is planned. The content phase passes
+    /// the <c>split</c> rows, which are the ones it can act on. The renames phase passes
+    /// every row, because it holds a file to whatever the plan recorded for it.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -118,9 +120,9 @@ internal static class SplitPlanner
     /// neither, so this index never guesses which plan a file belongs to.
     /// </para>
     /// </remarks>
-    internal static Dictionary<string, FileResult> IndexByInputPath(IEnumerable<FileResult> splitRows)
+    internal static Dictionary<string, FileResult> IndexByInputPath(IEnumerable<FileResult> planRows)
     {
-        var rows = splitRows.ToArray();
+        var rows = planRows.ToArray();
         var index = rows.ToDictionary(r => r.OriginalPath, PathComparison.Comparer);
         var renamed = rows
             .Where(r => r.GitMove)

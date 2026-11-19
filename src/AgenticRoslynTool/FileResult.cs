@@ -20,12 +20,12 @@ internal sealed record FileResult(string OriginalPath, string KeptPath, bool Git
 {
     /// <summary>
     /// Hash of the input's raw bytes as the plan recorded them, in the form
-    /// <see cref="ContentHash.Compute"/> writes. Null when the run never read the file: an
-    /// excluded path, a missing file, an unreadable one. The content phase compares a
-    /// <c>split</c> row's value against the bytes on disk and refuses the file on any
-    /// difference, so this is what ties an applied split to the plan that was reviewed.
-    /// A row that refuses a file as stale keeps the planned value, so only the plan phase
-    /// ever replaces a recorded hash with a different one.
+    /// <see cref="ContentHash.Compute"/> writes. Null when the plan never read the file: an
+    /// excluded path, a missing file, an unreadable one. The renames and content phases
+    /// compare it against the bytes on disk and refuse the file on any difference, so this is
+    /// what ties an applied split to the plan that was reviewed. Those phases carry the
+    /// value from the manifest row and never write one of their own, so only a run that
+    /// starts a plan records a hash.
     /// </summary>
     /// <remarks>
     /// An init property and not a constructor parameter, so every <c>with</c> expression
@@ -38,6 +38,14 @@ internal sealed record FileResult(string OriginalPath, string KeptPath, bool Git
 
     /// <summary>Constructs a skip result with a diagnostic reason. Skips are not failures; they mean the tool refused to touch this file.</summary>
     public static FileResult Skip(string originalPath, string keptPath, string reason) => new(originalPath, keptPath, false, "skipped", reason, null, Array.Empty<NewFileResult>());
+
+    /// <summary>
+    /// Constructs the refusal for a file that no longer matches its plan. A skip, because a
+    /// stale plan is a refusal and not a failed attempt, that keeps the hash the plan
+    /// recorded. The row replaces the manifest row, and a refusal carrying the hash of the
+    /// bytes it found would match on the next run and turn one refusal into permission.
+    /// </summary>
+    public static FileResult StalePlan(string originalPath, string keptPath, string reason, string? plannedHash) => Skip(originalPath, keptPath, reason) with { ContentHash = plannedHash };
 
     /// <summary>Constructs a failure result. Failures record an attempted split that could not complete safely; no output is written for a failed row.</summary>
     public static FileResult Failed(string originalPath, string keptPath, string reason) => new(originalPath, keptPath, false, "failed", reason, null, Array.Empty<NewFileResult>());

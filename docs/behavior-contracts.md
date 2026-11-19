@@ -135,11 +135,12 @@ whether work happened. `total` counts manifest rows, which is one per distinct i
 
 `contentHash` is the last CSV column and the last field of each JSON file entry. It is
 `sha256:` followed by 64 lowercase hexadecimal digits, computed over the raw bytes of the
-input as the plan read them, before any write. It is empty in the CSV and `null` in the
-JSON when the run never read the file: an excluded path, a missing file, an unreadable one.
-Every other row carries it, whatever its status. A `stale plan:` row keeps the planned
-hash and names the hash it found in its reason, so only the plan phase ever replaces a
-recorded hash with a different one. New columns are appended, never inserted.
+input as the plan read them. It is empty in the CSV and `null` in the JSON when the plan
+never read the file: an excluded path, a missing file, an unreadable one. Every other row
+carries it, whatever its status. A run that starts a plan records the hash. The renames
+and content phases copy it from the manifest row they replace and never write their own,
+so a `stale plan:` row still shows the planned hash and names the hash it found in its
+reason. New columns are appended, never inserted.
 
 ## Phase contracts
 
@@ -168,27 +169,34 @@ Runs `git mv` for files whose name does not match their primary type.
 
 Promises:
 
-- Only touches rows the plan marked `split` with `GitMove` true.
-- **Does not rename a file that changed since the plan.** This phase recomputes the plan
-  and its rows replace the manifest, so it checks each file against the manifest already
-  on disk first. A file this run would split must still hash to the `contentHash` that
-  manifest recorded for it, whatever status the recorded row has. If it does not, the row
-  is `skipped` with a `stale plan:` reason, it keeps the recorded hash, and no `git mv`
-  runs for it. Without this check the edited bytes would be hashed into the new manifest,
-  and the content phase would apply an edit nobody reviewed. Only the plan phase starts a
-  new plan.
-- That check has nothing to compare when there is no manifest on disk, when the manifest
-  has no row for the file, or when the row has no hash, as in a manifest an older version
-  wrote. Each of those proceeds as a fresh plan, and the new rows carry fresh hashes.
+- Only renames a file the plan marked `split` with `GitMove` true.
+- **Is bound to the manifest on disk.** This phase recomputes the plan and its rows
+  replace the manifest, so each computed row is held to the manifest row for that file
+  first. A file this run would split is refused, with a `skipped` row and no `git mv`,
+  unless the manifest marks it `split` and its bytes still hash to the recorded
+  `contentHash`. The three refusals are a changed file, a file the manifest marks
+  `skipped` or `failed`, and a file the manifest has no row for. Each reason starts with
+  `stale plan:`. Only the plan phase starts a new plan.
+- **Never records a hash of its own when a manifest exists.** Every row it writes copies
+  `contentHash` from the manifest row it replaces, whatever the row's status. A file the
+  manifest has no row for gets an empty hash. Without this, an edited file that this
+  phase skipped for an unrelated reason would have its new hash recorded, and would match
+  on the next run.
+- Throws when the manifest exists and has no `contentHash` column. This ends the whole
+  run with exit code 3 before any rename, the same as the content phase.
+- With no manifest on disk, nothing was planned and there is nothing to be held to. The
+  phase plans and hashes afresh, as the plan phase would.
+- Reads each file again just before `git mv` and refuses the rename if those bytes no
+  longer match the row's hash.
 - `FileSplitter.ApplyRenameOnly` re-reads the moved file and throws if `git mv` changed
   its content.
 - Kept as a separate phase so the rename lands in its own commit. Git then records a
   rename instead of a delete plus an add, and the file history survives.
 
-Requires a real git repository. Most of the test suite avoids this phase by keeping every
-fixture file name equal to its primary type name. `ManifestContentHashTests` is the
-exception: two of its tests run `git init` and `git add` in a temporary directory and then
-run this phase for real.
+Requires a real git repository to rename. Most of the test suite avoids this phase by
+keeping every fixture file name equal to its primary type name. `ManifestContentHashTests`
+is the exception: its rename tests run `git init` and `git add` in a temporary directory
+and then run this phase for real.
 
 ### content
 
@@ -219,6 +227,12 @@ Promises:
 - Refuses a file whose row carries an empty or malformed `contentHash`, with the same
   `stale plan:` prefix. A malformed value is never compared loosely and never crashes the
   run.
+- **Never changes a recorded hash.** Every row it writes for a planned file copies the
+  planned `contentHash`, including a row for a file it never read: an excluded path, a
+  missing file, an inconsistent rename state.
+- A second run over a file an earlier run already split reports that file as
+  `stale plan:`. The earlier run rewrote the kept file, so its bytes differ from the plan.
+  The file is left alone.
 - Refuses a file when the recomputed plan disagrees with the manifest it was handed. The
   comparison is structural: it covers the kept path, the git move flag, and the set of
   output paths. With the hash in front of it, this check now guards the other side: the
@@ -243,6 +257,10 @@ Reason text shown in italics is a template; the run substitutes real values.
 | Content phase, bytes differ from the planned hash | skipped | `stale plan: input changed after the plan was written (planned <hash>, found <hash>); re-run --phase plan` |
 | Content phase, row has no hash | skipped | `stale plan: the manifest row carries no contentHash; re-run --phase plan` |
 | Content phase, row has a malformed hash | skipped | `stale plan: the manifest row carries a malformed contentHash '<value>'; re-run --phase plan` |
+| Renames phase, would split a file the manifest does not mark `split` | skipped | `stale plan: the plan manifest does not mark this file as split; re-run --phase plan` |
+| Renames phase, would split a file the manifest has no row for | skipped | `stale plan: the plan manifest has no row for this file; re-run --phase plan` |
+
+The three hash reasons apply in the renames phase as well.
 | Parse produced an error diagnostic | failed | `input has syntax errors: <diagnostics>` |
 | File has top level statements | skipped | `contains top-level statements; manual split required` |
 | One type or fewer | skipped | `nothing to split: input has <n> top-level type declaration(s)` |

@@ -517,36 +517,38 @@ nobody had reviewed. The maintainer chose to close this with a hash that is alwa
 
 **Decision.** Every manifest row records `contentHash`, the SHA-256 of the input's raw
 bytes, written as `sha256:` plus 64 lowercase hexadecimal digits. It is the last CSV column
-and the last field of each JSON file entry. The details that follow were settled with it.
+and the last field of each JSON file entry. One rule governs it: **a run that starts a
+plan records hashes, and every later phase only carries and compares them.** The details
+below follow from that rule.
 
 - **Raw bytes, not decoded text.** The hash is taken from the bytes `FileSplitter` already
-  reads and hands to `EncodedSource`, so the file is read once. A change of encoding, byte
-  order mark, or newline style therefore counts. The tool re-emits all of those, so the
-  plan was reviewed against them too.
-- **Which rows carry it.** Every row for a file the run read, whatever its status. A row is
-  empty only when the run never read the file: excluded, missing, or unreadable. One rule
-  with no status cases is easier to keep true than a rule per status, and a hash on a
-  `skipped` row costs nothing.
-- **What the value means.** The bytes the plan was written against. A `split` row written
-  by the content phase still shows the planned hash, not the hash of the rewritten kept
-  file. A `stale plan:` row also keeps the planned hash and names the hash it found in
-  its reason. Each phase writes its rows back over the manifest, so a refusal that stored
-  the new hash would match on the next run and turn one refusal into permission. Only the
-  plan phase replaces a recorded hash with a different one.
+  reads and hands to `EncodedSource`, so planning reads the file once. A change of
+  encoding, byte order mark, or newline style therefore counts. The tool re-emits all of
+  those, so the plan was reviewed against them too.
+- **Which rows carry it.** Every row for a file the plan read, whatever its status. A row
+  is empty only when the plan never read the file: excluded, missing, or unreadable. One
+  rule with no status cases is easier to keep true than a rule per status.
+- **Later phases never write their own hash.** Renames and content each write their rows
+  back over the manifest. If either stored the hash of the bytes it found, a refusal
+  would match on the next run and turn into permission. So a row written by renames or
+  content takes its hash from the manifest row it replaces, on every status and every
+  exit, including the exits that never read the file. A `split` row written by content
+  still shows the planned hash, not the hash of the rewritten kept file.
 - **A mismatch is a `skipped` row, not `failed`.** It matches the structural mismatch,
   which was already a skip, and decision 13: refusing is the correct outcome. The reason
-  starts with `stale plan:` so a caller can find these rows without parsing hashes. The
-  check runs straight after the read, before any other guard, and nothing is written.
-- **Renames is held to the plan as well.** The renames phase recomputes the plan and its
-  rows replace the manifest. Left alone, an edit made between plan and renames would be
-  hashed into the new manifest and applied by content. So renames reads the manifest that
-  is already on disk and refuses, without renaming, any file it would split whose bytes
-  differ from the hash that manifest recorded. Every recorded row counts, not only the
-  `split` ones: a file the plan skipped can gain a type later, and a file content refused
-  as stale is written back as `skipped`. A `git mv` does not change bytes, so a renamed
-  file still matches in the content phase.
-- **A manifest with no `contentHash` column ends the content run.** It exits 3 with a
-  message that says to re-run the plan phase, before any file is read. See Rejected.
+  starts with `stale plan:` so a caller can find these rows without parsing hashes. In
+  the content phase the check runs straight after the read, before any other guard, and
+  nothing is written.
+- **Renames is bound to the plan.** The renames phase recomputes the plan, and it used to
+  apply whatever it computed. When a manifest exists it now renames only a file the
+  manifest marks `split` whose bytes match the recorded hash. A file the manifest marks
+  `skipped` or `failed`, and a file the manifest has no row for, are refused with a
+  `stale plan:` reason. That covers a file the plan skipped that later gains a type, and
+  a file content refused as stale and wrote back as `skipped`. A `git mv` does not change
+  bytes, so a renamed file still matches in the content phase.
+- **A manifest with no `contentHash` column ends the run.** Content and renames both exit
+  3 with a message that says to re-run the plan phase, before any file is read or moved.
+  See Rejected.
 - **An empty or malformed value refuses that one file.** It is a `skipped` row with the
   same prefix. The comparison is ordinal against one canonical form, so uppercase digits,
   a short value, or another algorithm's prefix never match by accident and never throw.
@@ -560,27 +562,37 @@ of it. Skipping every row for a missing column was also rejected. A run that ski
 everything exits 0 and looks like a run with nothing to do, and the cause is one fact about
 the file, not one per row. An opt in flag was rejected by the maintainer: a safety check
 that is off by default protects nobody who has not read about it. Hashing decoded text was
-rejected because it would pass a newline or encoding change the plan never showed.
+rejected because it would pass a newline or encoding change the plan never showed. Letting
+renames check only the rows it was about to rename was tried first and rejected in review.
+Each row status it did not check was a path by which a fresh hash reached the manifest.
 
 **Consequences.** This is a manifest and JSON schema change. A manifest written by an
-earlier version cannot drive the content phase; re-run the plan phase. A reader that
-addresses CSV columns by position keeps working, because the column is appended. A reader
-that rejects unknown columns or JSON fields needs an update. Renames now reads the
-manifest when one exists, so a manifest it cannot parse ends a renames run with exit 3
-where it used to be overwritten. The suite now starts `git` in two tests.
+earlier version cannot drive the renames or content phase; re-run the plan phase. A reader
+that addresses CSV columns by position keeps working, because the column is appended. A
+reader that rejects unknown columns or JSON fields needs an update. Renames now reads the
+manifest when one exists. It used to ignore and overwrite it. Renames no longer renames a
+file added to the input after the plan; re-run the plan phase to include it. The suite now
+starts `git` in several tests.
 
-Two limits remain. Renames and content each trust the manifest on disk. Someone who edits
-a file and then edits its `contentHash` to match defeats the check. The hash detects
-drift, it does not authenticate the manifest. And renames can only hold a file to a hash
-that exists. With no manifest on disk, no row for the file, or a row with no hash, as in
-a manifest an older version wrote, renames plans that file afresh and records a new hash.
-That is the same thing the plan phase does, reached through a different phase.
+Three limits remain.
+
+1. The phases trust the manifest on disk. Someone who edits a file and then edits its
+   `contentHash` to match defeats the check, and so does deleting the manifest before
+   renames. The hash detects drift. It does not authenticate the manifest.
+2. Renames with no manifest on disk plans and hashes afresh, as it always could. Nothing
+   was planned, so there is nothing to hold the file to.
+3. A second content run over a file the first run already split reports it as
+   `stale plan:`. The first run rewrote the kept file, so its bytes differ from the plan,
+   and the tool cannot tell its own write from an outside edit. Before the hash, that
+   second run reported `nothing to split`. The file is left alone either way.
 
 **Reversal warning.** Remove the content check and an edit made after review is applied
-with no sign, as long as type names and paths survive it. Remove the renames check and
-the same edit, made one phase earlier, is hashed into a fresh manifest and applied. Make
-the missing column a fallback and every old manifest silently loses the guarantee. Hash
-decoded text instead of bytes and a newline or encoding change slips through.
+with no sign, as long as type names and paths survive it. Let renames or content store the
+hash of the bytes it found, on any row, and a refused edit matches on the next run. Let
+renames act on a file the manifest does not mark `split` and the same edit is planned
+afresh one phase early. Make the missing column a fallback and every old manifest silently
+loses the guarantee. Hash decoded text instead of bytes and a newline or encoding change
+slips through.
 
 ## Unrecorded decisions
 

@@ -13,7 +13,7 @@ namespace AgenticRoslynTool;
 /// <param name="Reason">Diagnostic text for a skip or a failure, otherwise null.</param>
 /// <param name="Note">Supplementary note, for example the directive-safety summary.</param>
 /// <param name="NewFiles">The files this row creates, each carrying its path and its type.</param>
-/// <param name="ContentHash">Hash of the input's raw bytes as the plan recorded them, <c>sha256:</c> plus 64 lowercase hexadecimal digits, or null when the run never read the file. A <c>stale plan:</c> row keeps the planned value.</param>
+/// <param name="ContentHash">Hash of the input's raw bytes as the plan recorded them, <c>sha256:</c> plus 64 lowercase hexadecimal digits, or null when the plan never read the file. The renames and content phases carry the planned value on every row.</param>
 internal sealed record FileReport(
     [property: JsonPropertyName("originalPath")] string OriginalPath,
     [property: JsonPropertyName("keptPath")] string KeptPath,
