@@ -163,8 +163,14 @@ Promises:
 - Kept as a separate phase so the rename lands in its own commit. Git then records a
   rename instead of a delete plus an add, and the file history survives.
 
-Requires a real git repository. The test suite avoids this phase by keeping every fixture
-file name equal to its primary type name, so no `git` process ever starts.
+- Does not compare against the reviewed manifest. It recomputes the plan and `Program`
+  writes the result over the manifest. So a `--file-naming` value that differs from the
+  plan is not refused here: the renames follow the value this run was given.
+
+Requires a real git repository. Most of the test suite avoids this phase by keeping every
+fixture file name equal to its primary type name, so no `git` process starts.
+`MetadataFileNamingTests` is the exception. It runs `git init` in a temporary directory and
+drives a real `git mv` to a file name that contains a backtick.
 
 ### content
 
@@ -184,9 +190,11 @@ Promises:
   one ends the whole run, not just the file.
 - Refuses a file when the recomputed plan disagrees with the manifest it was handed. The
   comparison is structural: it covers the kept path, the git move flag, and the set of
-  output paths. The manifest carries no content hash, so an edit that leaves type names
-  and paths alone passes this check. Treat it as drift detection on the plan shape, not as
-  proof the source is unchanged.
+  output paths. Each planned output path must also be one this run could have planned: the
+  path it computes for that type, or the cross-file qualified form of it. That is what
+  catches a plan made under a different `--file-naming`. The manifest carries no content
+  hash, so an edit that leaves type names and paths alone passes this check. Treat it as
+  drift detection on the plan shape, not as proof the source is unchanged.
 - Writes its own manifest to the same default path, which **overwrites the plan
   manifest**. Pass an explicit `--manifest` when you want to keep both.
 
@@ -257,13 +265,25 @@ Two refusals here are what make the plan then apply workflow trustworthy:
 2. **A recomputed plan that disagrees with the supplied manifest refuses that file.** The
    row is `skipped` and no output is written for it, so a reviewed plan is applied or
    nothing is. Other files in the run are unaffected. See the structural limit noted
-   under the `content` phase above.
+   under the `content` phase above. The comparison of output path sets runs after the
+   manifest paths are substituted in, so it cannot see a changed path by itself. A second
+   comparison holds each substituted path against the path computed before substitution,
+   and accepts only that path or its `<OriginalFileName>.<name>` qualified form.
+
+File names come from `--file-naming`. Under `stylecop`, the default, a generic type is
+named `Name{T1,T2}.cs` only when another type in the input shares its simple name, and the
+kept type is the one whose simple name matches the file. Under `metadata`, every generic
+type is named ``Name`N.cs`` with N its arity, the kept type is the one whose arity name
+matches the file, and a generic type kept in a plain named file is renamed to its arity
+name. The tool never reads `stylecop.json` or `.editorconfig` to choose.
 
 Within a single input file, two types with the same simple name that do not differ by
 generic arity are refused with `target path collision within split: <path>`. A type with
 the kept type's name and type parameters targets the kept path, so two parts of one
 partial type, generic or not, are refused this way even when the kept type keeps the
 original file name. The same reason covers two manifest rows that resolve to one path.
+Under `metadata`, differing by type parameter names is not enough: `Box<T>` and `Box<U>`
+share ``Box`1.cs`` and are refused this way.
 
 ### VerifyOutputs
 

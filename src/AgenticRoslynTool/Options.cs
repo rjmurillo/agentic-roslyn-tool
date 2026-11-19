@@ -19,7 +19,11 @@ namespace AgenticRoslynTool;
 /// Empty by default: the tool ships with no opinion about which directories are generated.
 /// </param>
 /// <param name="Json">When true, the run prints a single JSON report to standard output instead of CSV.</param>
-internal sealed record Options(string InputPath, string ManifestPath, string RepoRoot, Phase Phase, string? RequiredHeader, IReadOnlyList<string>? Excludes = null, bool Json = false)
+/// <param name="FileNaming">
+/// Which SA1649 file naming convention planned file names follow. It shapes planned paths,
+/// so every phase of one split must be run with the same value.
+/// </param>
+internal sealed record Options(string InputPath, string ManifestPath, string RepoRoot, Phase Phase, string? RequiredHeader, IReadOnlyList<string>? Excludes = null, bool Json = false, FileNamingConvention FileNaming = FileNamingConvention.StyleCop)
 {
     /// <summary>
     /// Parses the raw argument array into an <see cref="Options"/> instance, resolving
@@ -36,6 +40,7 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
         string? requiredHeader = null;
         var excludes = new List<string>();
         var json = false;
+        var fileNaming = FileNamingConvention.StyleCop;
         string repoRoot = Directory.GetCurrentDirectory();
         var phase = Phase.Content;
         var dryRun = false;
@@ -71,6 +76,9 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
                 case "--json":
                     json = true;
                     break;
+                case "--file-naming":
+                    fileNaming = ParseFileNaming(RequireValue(args, ref i, "--file-naming"));
+                    break;
 
                 // --help is handled by the caller before parsing, so asking for help never
                 // depends on the rest of the command line. Parsing must not print or exit:
@@ -94,7 +102,7 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
 
         var inputPath = input == StdinPath ? StdinPath : Path.GetFullPath(input);
         manifest ??= Path.Combine(DefaultManifestDirectory(inputPath, repoRoot), "sa1402-split-manifest.csv");
-        return new Options(inputPath, Path.GetFullPath(manifest), Path.GetFullPath(repoRoot), phase, requiredHeader, excludes, json);
+        return new Options(inputPath, Path.GetFullPath(manifest), Path.GetFullPath(repoRoot), phase, requiredHeader, excludes, json, fileNaming);
     }
 
     /// <summary>The <c>--input</c> value that means "read newline-delimited paths from standard input".</summary>
@@ -102,7 +110,7 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
 
     /// <summary>Options that consume the token after them, so that token is a value and never a flag.</summary>
     private static readonly string[] ValueOptions =
-        ["--input", "--manifest", "--repo-root", "--phase", "--require-header", "--exclude"];
+        ["--input", "--manifest", "--repo-root", "--phase", "--require-header", "--exclude", "--file-naming"];
 
     /// <summary>
     /// True when any of <paramref name="names"/> appears in an option position.
@@ -169,6 +177,16 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
             "renames" => Phase.Renames,
             "content" => Phase.Content,
             _ => throw new ArgumentException($"Unknown phase: {value}"),
+        };
+    }
+
+    private static FileNamingConvention ParseFileNaming(string value)
+    {
+        return value.ToLowerInvariant() switch
+        {
+            "stylecop" => FileNamingConvention.StyleCop,
+            "metadata" => FileNamingConvention.Metadata,
+            _ => throw new ArgumentException($"Unknown file naming convention: {value}. Expected stylecop or metadata."),
         };
     }
 }

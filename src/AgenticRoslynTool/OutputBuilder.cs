@@ -21,8 +21,22 @@ internal static class OutputBuilder
     /// differ by arity are caught earlier in <see cref="SplitPlanner.BuildPlan"/> and refused as
     /// <c>target path collision within split</c>.
     /// </summary>
-    internal static string GetFileName(TopLevelType type, IReadOnlyList<TopLevelType> allTypes)
+    /// <remarks>
+    /// Under <see cref="FileNamingConvention.Metadata"/> every generic type is named
+    /// <c>Name`N.cs</c> with N its arity, whether or not a sibling shares its name, because
+    /// that is the only name SA1649 accepts for it under that convention. Two generic types
+    /// with one name and one arity then map to the same file and are refused by the same
+    /// collision check.
+    /// </remarks>
+    internal static string GetFileName(TopLevelType type, IReadOnlyList<TopLevelType> allTypes, FileNamingConvention convention = FileNamingConvention.StyleCop)
     {
+        if (convention == FileNamingConvention.Metadata)
+        {
+            return type.TypeParameters.Count == 0
+                ? type.Name + ".cs"
+                : type.Name + "`" + type.TypeParameters.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".cs";
+        }
+
         var sameName = allTypes.Where(t => StringComparer.Ordinal.Equals(t.Name, type.Name)).ToArray();
         if (type.TypeParameters.Count > 0 && sameName.Length > 1)
         {

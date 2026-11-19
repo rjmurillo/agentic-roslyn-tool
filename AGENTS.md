@@ -24,8 +24,8 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 29 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 93 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 30 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 120 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -52,6 +52,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `NewFileReport.cs` | One created file inside a `FileReport`, carrying its path and type name. |
 | `PathComparison.cs` | The path equality rule used for identity. Platform aware on purpose. |
 | `Phase.cs` | The `plan`, `renames`, `content` enum. |
+| `FileNamingConvention.cs` | The `stylecop`, `metadata` enum behind `--file-naming`. Decides generic file names. |
 | `EncodedSource.cs` | Reads bytes into text while capturing encoding, byte order mark, and newline style, then writes them back unchanged. |
 | `TopLevelType.cs` | One top level type declaration plus the file name it maps to. |
 | `SplitPlan.cs` | The decision for one input: keep, rename, split, or refuse. |
@@ -74,7 +75,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 93 passed, 0 failed
+dotnet test  -c Release      # must be 120 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -179,6 +180,14 @@ agent does not pay again.
   manifest path, the summary line, and every `error:` message go to standard error so a
   caller can pipe standard output straight into a parser. Do not add chatter to standard
   output.
+- **`--file-naming` must be the same in every phase.** It decides planned paths. The
+  content phase skips a file whose plan was made under the other value, because
+  `BuildPlan` compares each manifest path with the path it computed before substitution.
+  The renames phase has no such check: it recomputes the plan, so it follows whatever value
+  that run was given. See decision 21.
+- **A backtick in a path is escaped in `--json` output.** ``Foo`1.cs`` is written as
+  `Foo\u00601.cs`. Parse the JSON before you search it for a file name. The CSV manifest
+  holds the character itself.
 - **Standard input is read once per process.** A `plan` run and a `content` run are two
   processes, so a pipe has to be repeated. Reusing one `FileSplitter` instance for both
   phases in a test would see an empty stream on the second pass; use a list file there.

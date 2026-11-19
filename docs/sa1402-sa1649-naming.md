@@ -98,17 +98,50 @@ The rules the tool follows:
 ## If you use the metadata convention
 
 Under `metadata`, SA1649 expects ``Foo`1.cs`` for `Foo<T>` and rejects both `Foo{T}.cs` and
-`Foo.cs`. The tool does not read your StyleCop settings. Every generic file it emits,
-whether `Foo{T}.cs` or a plain `Foo.cs`, raises SA1649 in a `metadata` repository, unless
-its first type is `partial`.
+`Foo.cs`. The number is the count of type parameters, so `Pair<TKey, TValue>` is
+``Pair`2.cs``. A type that is not generic keeps its plain name, `Foo.cs`, under both
+conventions. A generic delegate follows the same rule as a generic class.
 
-You have two choices:
+The tool does not read your StyleCop settings. Tell it with `--file-naming metadata`:
 
-* Rename each generic file by hand after the content phase, for example with
-  ``git mv 'Result{T}.cs' 'Result`1.cs'``. The single quotes keep the backtick literal.
-  Commit the renames on their own so Git records them as renames.
-* Switch the repository to the `stylecop` convention, if nothing else depends on
-  `metadata`. See [Configure the convention](#configure-the-convention).
+```powershell
+agentic-roslyn-tool split-types --input files.txt --manifest plan.csv --dry-run --file-naming metadata
+agentic-roslyn-tool split-types --input files.txt --manifest plan.csv --phase renames --file-naming metadata
+agentic-roslyn-tool split-types --input files.txt --manifest plan.csv --phase content --file-naming metadata
+```
+
+Pass the flag to all three phases. It decides file names, so each phase must agree. The
+content phase skips a file whose plan was made under the other convention, with the reason
+`content phase plan does not match manifest`, and writes nothing for it. The renames phase
+has no such check, because it recomputes the plan instead of replaying it. A renames run
+without the flag applies the `stylecop` renames.
+
+With the flag, the rules in the section above change in four ways:
+
+* Every generic type gets the arity name, with or without a same-name sibling. The
+  `Result.cs` example above yields `Result.cs` and ``Result`1.cs``.
+* The type that stays in place is the one whose arity name matches the file. In
+  ``Foo`1.cs``, `Foo<T>` stays and a plain `Foo` moves to `Foo.cs`.
+* A generic type kept in a plain named file is renamed. `Foo.cs` holding `Foo<T>` and `Bar`
+  becomes ``Foo`1.cs`` in the renames phase, and `Bar` moves to `Bar.cs`.
+* Only arity tells two same-name types apart. `Box<T>` and `Box<U>` both map to
+  ``Box`1.cs``, so that file is skipped with `target path collision within split`. The
+  `stylecop` convention splits it, as `Box{T}.cs` and `Box{U}.cs`.
+
+Three things the flag does not do:
+
+* It does not rename a file that needs no split. A lone `Foo<T>` in `Foo.cs` is skipped as
+  nothing to split, so rename it by hand, for example with
+  ``git mv 'Foo.cs' 'Foo`1.cs'``. The single quotes keep the backtick literal.
+* It does not fix the qualified form used for a
+  [cross-file collision](#same-type-name-in-two-namespaces). That becomes
+  ``A.Shared`1.cs``, which SA1649 reads as `A` and still rejects.
+* It does not change your StyleCop settings. If nothing depends on `metadata`, switching
+  the repository to `stylecop` also works. See
+  [Configure the convention](#configure-the-convention).
+
+In a `--json` report the backtick is written as the escape `\u0060`. Any JSON parser
+decodes it back to a backtick. The CSV manifest holds the character itself.
 
 ## Same type name in two namespaces
 
@@ -230,7 +263,8 @@ stylecop.documentation.fileNamingConvention = metadata
 
 **What file name does StyleCop want for a generic class?**
 `Foo{T}.cs` under the default `stylecop` convention, and plain `Foo.cs` is accepted too.
-Under `metadata` it wants ``Foo`1.cs``.
+Under `metadata` it wants ``Foo`1.cs``. The tool plans that name when you pass
+`--file-naming metadata`.
 
 **Does SA1649 ignore suffixes like `.Designer.cs`?**
 Yes. It compares only the part of the file name before the first dot.

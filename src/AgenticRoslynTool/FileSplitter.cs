@@ -344,7 +344,7 @@ internal sealed class FileSplitter
             return FileResult.Skip(originalPath, readPath, directiveSafety.Reason ?? "contains unsafe directive; manual split required");
         }
 
-        var plan = SplitPlanner.BuildPlan(originalPath, readPath, types, planned, directiveNote: directiveSafety.Note);
+        var plan = SplitPlanner.BuildPlan(originalPath, readPath, types, planned, directiveNote: directiveSafety.Note, convention: _options.FileNaming);
         if (plan.SkipReason is not null)
         {
             return FileResult.Skip(originalPath, plan.KeptPath, plan.SkipReason);

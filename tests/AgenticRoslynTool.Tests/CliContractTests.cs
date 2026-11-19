@@ -151,6 +151,45 @@ public sealed class CliContractTests
         Assert.DoesNotContain("Usage:", result.StandardOutput, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void UnknownFileNamingConvention_ExitsTwo()
+    {
+        var result = Run("split-types", "--input", "list.txt", "--file-naming", "pascal");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Equal(string.Empty, result.StandardOutput.Trim());
+        Assert.Contains("error: Unknown file naming convention: pascal", result.StandardError, StringComparison.Ordinal);
+    }
+
+    // The flag has to reach the planner through the real command line, not only through an
+    // Options value a test built by hand.
+    [Fact]
+    public void FileNamingMetadata_PlansAnArityFileNameThroughTheRealCommandLine()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var source = Path.Combine(directory, "A.cs");
+            File.WriteAllText(source, "namespace N;\n\npublic class A\n{\n}\n\npublic class Foo<T>\n{\n}\n");
+            var manifest = Path.Combine(directory, "manifest.csv");
+
+            var result = Run("split-types", "--input", source, "--manifest", manifest, "--dry-run", "--json", "--file-naming", "metadata");
+
+            Assert.Equal(0, result.ExitCode);
+
+            // The JSON writer escapes a backtick as \u0060, so decode before looking for it.
+            using var report = System.Text.Json.JsonDocument.Parse(result.StandardOutput);
+            Assert.Contains("Foo`1.cs", System.Text.RegularExpressions.Regex.Unescape(result.StandardOutput), StringComparison.Ordinal);
+            Assert.Contains("Foo`1.cs", File.ReadAllText(manifest), StringComparison.Ordinal);
+            Assert.Equal(new[] { source }, Directory.GetFiles(directory, "*.cs"));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     // Any run-time failure owes the caller one error line and exit 3. A manifest with a
     // duplicate header name used to escape the filtered catch and print a stack trace.
     [Fact]
