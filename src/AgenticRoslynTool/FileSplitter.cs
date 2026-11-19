@@ -82,9 +82,20 @@ internal sealed class FileSplitter
     /// for every split row whose kept file name changes. Content edits are not
     /// performed in this phase, so the resulting commit contains only renames.
     /// </summary>
+    /// <remarks>
+    /// This phase recomputes the plan, and <c>Program</c> writes the result over the manifest.
+    /// Left unchecked, that would launder an edit made between plan and renames: the new row
+    /// would carry the hash of the edited bytes, and the content phase would find a match. So
+    /// when a manifest already exists, a file it plans as <c>split</c> must still hash to the
+    /// planned value, or it is refused here and never renamed. A manifest with no hash for the
+    /// row, and a run with no manifest at all, are a fresh plan and proceed as before.
+    /// </remarks>
     private IReadOnlyList<FileResult> RunRenames()
     {
-        var results = BuildResolvedPlan();
+        var priorPlan = File.Exists(_options.ManifestPath)
+            ? SplitPlanner.IndexByInputPath(ManifestWriter.Read(_options.ManifestPath).Where(r => r.Status == "split"))
+            : null;
+        var results = BuildResolvedPlan(row => RefuseIfStale(row, priorPlan));
         foreach (var result in results.Where(r => r.Status == "split" && r.GitMove))
         {
             _writer.ApplyRenameOnly(result.OriginalPath, File.ReadAllBytes(result.OriginalPath), result.KeptPath);
@@ -94,15 +105,41 @@ internal sealed class FileSplitter
     }
 
     /// <summary>Runs the plan for every input path and resolves any cross-file output-name collisions into their qualified form.</summary>
-    private IReadOnlyList<FileResult> BuildResolvedPlan()
+    /// <param name="review">
+    /// Applied to each row before collisions are resolved, so a row it turns into a skip
+    /// claims no output path and cannot force a qualified name onto another input.
+    /// </param>
+    private IReadOnlyList<FileResult> BuildResolvedPlan(Func<FileResult, FileResult>? review = null)
     {
         var results = new List<FileResult>();
         foreach (var path in InputSource.ReadRunnableInputs(_options.InputPath).ToArray())
         {
-            results.Add(Process(path, Phase.Plan, null));
+            var row = Process(path, Phase.Plan, null);
+            results.Add(review is null ? row : review(row));
         }
 
         return SplitPlanner.ResolvePlannedOutputCollisions(results);
+    }
+
+    /// <summary>
+    /// Turns a freshly planned <c>split</c> row into a skip when an existing manifest planned
+    /// the same file against different bytes. See the remarks on <see cref="RunRenames"/>.
+    /// </summary>
+    private static FileResult RefuseIfStale(FileResult row, Dictionary<string, FileResult>? priorPlan)
+    {
+        if (row.Status != "split"
+            || row.ContentHash is null
+            || priorPlan is null
+            || !priorPlan.TryGetValue(row.OriginalPath, out var prior)
+            || prior.ContentHash is null)
+        {
+            return row;
+        }
+
+        var stale = ContentHash.DescribeMismatch(prior.ContentHash, row.ContentHash);
+
+        // The rename has not happened, so the file is still at its original path.
+        return stale is null ? row : FileResult.Skip(row.OriginalPath, row.OriginalPath, stale) with { ContentHash = row.ContentHash };
     }
 
     /// <summary>
@@ -138,7 +175,7 @@ internal sealed class FileSplitter
         // part of the plan of record and a content run must not quietly drop it.
         //
         // Read already collapses the CSV to one row per path, so nothing re-groups here.
-        var manifestPlan = ManifestWriter.Read(_options.ManifestPath);
+        var manifestPlan = ManifestWriter.Read(_options.ManifestPath, requireContentHash: true);
         var plannedFiles = SplitPlanner.IndexByInputPath(manifestPlan.Where(r => r.Status == "split"));
 
         var results = new List<FileResult>();
@@ -184,7 +221,7 @@ internal sealed class FileSplitter
             .Select(p => FileResult.Skip(
                 p.OriginalPath,
                 p.KeptPath,
-                "planned as split but not supplied to the content phase input"))).ToArray();
+                "planned as split but not supplied to the content phase input") with { ContentHash = p.ContentHash })).ToArray();
 
         return new RunOutcome(manifestRows, reportRows);
     }
@@ -301,6 +338,41 @@ internal sealed class FileSplitter
             return FileResult.Failed(originalPath, readPath, $"cannot read input: {ex.Message}");
         }
 
+        // Hashed from the bytes already in hand, so the file is read once and the hash
+        // describes exactly what the rest of this method parses, verifies, and rewrites.
+        var contentHash = ContentHash.Compute(originalBytes);
+        if (phase == Phase.Content && planned is not null)
+        {
+            // First check after the read, ahead of every structural one. The plan was
+            // reviewed against specific bytes, and an edit that keeps every type name and
+            // path would pass each check below and be applied unreviewed. A skip and not a
+            // throw: a stale plan is a refusal, the same as the manifest mismatch.
+            var stale = ContentHash.DescribeMismatch(planned.ContentHash, contentHash);
+            if (stale is not null)
+            {
+                return FileResult.Skip(originalPath, readPath, stale) with { ContentHash = contentHash };
+            }
+        }
+
+        try
+        {
+            return ProcessBytes(originalPath, readPath, originalBytes, phase, planned) with { ContentHash = contentHash };
+        }
+        catch (Exception ex)
+        {
+            // Same row the catch in ProcessCore would build, plus the hash. The bytes were
+            // read, so the row says which bytes the failure was about.
+            return FileResult.Failed(originalPath, readPath, ex.Message) with { ContentHash = contentHash };
+        }
+    }
+
+    /// <summary>
+    /// Implements <see cref="ProcessResolved"/> from the point the input's bytes are in
+    /// hand. Split out so the caller can stamp one content hash on every row this returns,
+    /// whichever of its exits produced it.
+    /// </summary>
+    private FileResult ProcessBytes(string originalPath, string readPath, byte[] originalBytes, Phase phase, FileResult? planned)
+    {
         EncodedSource source;
         try
         {

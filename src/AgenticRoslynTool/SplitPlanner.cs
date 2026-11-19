@@ -72,7 +72,7 @@ internal static class SplitPlanner
         {
             if (qualifiedCollisions.Contains(result.OriginalPath))
             {
-                return FileResult.Skip(result.OriginalPath, result.KeptPath, "qualified output path collision requires manual handling");
+                return FileResult.Skip(result.OriginalPath, result.KeptPath, "qualified output path collision requires manual handling") with { ContentHash = result.ContentHash };
             }
 
             var newFiles = result.NewFiles.Select(file =>

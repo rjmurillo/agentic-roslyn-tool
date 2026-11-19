@@ -18,6 +18,19 @@ namespace AgenticRoslynTool;
 /// <param name="NewFiles">The set of new sibling files this row will create; empty for skips and failures.</param>
 internal sealed record FileResult(string OriginalPath, string KeptPath, bool GitMove, string Status, string? Reason, string? Note, IReadOnlyList<NewFileResult> NewFiles)
 {
+    /// <summary>
+    /// Hash of the input's raw bytes as the run that produced this row read them, in the
+    /// form <see cref="ContentHash.Compute"/> writes. Null when the run never read the file:
+    /// an excluded path, a missing file, an unreadable one. The content phase compares a
+    /// <c>split</c> row's value against the bytes on disk and refuses the file on any
+    /// difference, so this is what ties an applied split to the plan that was reviewed.
+    /// </summary>
+    /// <remarks>
+    /// An init property and not a constructor parameter, so every <c>with</c> expression
+    /// that rewrites a row carries it along without having to name it.
+    /// </remarks>
+    public string? ContentHash { get; init; }
+
     /// <summary>Constructs a successful split result.</summary>
     public static FileResult Split(string originalPath, string keptPath, bool gitMove, string? note, IReadOnlyList<NewFileResult> newFiles) => new(originalPath, keptPath, gitMove, "split", null, note, newFiles);
 

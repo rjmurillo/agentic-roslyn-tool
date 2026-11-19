@@ -24,8 +24,8 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 29 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 93 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 30 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 121 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -64,6 +64,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `FileResult.cs` | One manifest row. Owns the `split`, `skipped`, `failed` status vocabulary. |
 | `NewFileResult.cs` | One created file inside a manifest row. |
 | `ManifestWriter.cs` | Reads and writes the CSV manifest that carries state between phases. |
+| `ContentHash.cs` | Computes and compares the `sha256:` content hash a manifest row carries for its input. Owns the `stale plan:` refusal text. |
 | `CsvFieldReader.cs` | Quote aware CSV field parsing for the manifest and for CSV inputs. |
 
 The tool splits itself cleanly. Running it over `src/AgenticRoslynTool/` reports every file
@@ -74,7 +75,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 93 passed, 0 failed
+dotnet test  -c Release      # must be 121 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -147,6 +148,14 @@ weight.
     employer's copyright text and one repository's directory layout. Both made the tool
     useless everywhere else.
 
+12. **A file must match its planned content hash before a phase acts on it.** Every
+    manifest row carries the SHA-256 of the input's raw bytes. The content phase refuses a
+    file whose bytes differ, and the renames phase does the same before it renames. A
+    manifest with no `contentHash` column ends the content run with exit 3. Never add a
+    fallback to the structural check, never hash decoded text, and never drop the hash
+    from a row that is carried between runs. `ManifestContentHashTests` pins all of it.
+    See decision 21.
+
 ## Conventions for anything you write
 
 [CONTRIBUTING.md](CONTRIBUTING.md) owns the commit and style rules. The two that agents
@@ -170,6 +179,12 @@ agent does not pay again.
   travels with its type, put the comment immediately above the type declaration.
 - **The content phase overwrites the plan manifest** when both use the default path. Pass
   an explicit `--manifest` if you want to keep the plan for comparison.
+- **A test that edits a file between plan and content now gets `stale plan:`, not the
+  reason you were aiming for.** The hash check runs first. To reach a later guard, such as
+  the structural mismatch, leave the source alone and edit the manifest row instead.
+- **The renames phase needs a tracked file, not a commit.** `git init` and `git add` are
+  enough for `git mv`, so a test needs no author identity on the machine. See the helper
+  in `ManifestContentHashTests`.
 - **Exit codes are 0, 1, 2, 3, and they mean different things.** 0 the run completed with
   no failures, 1 a row is `failed`, 2 the command line was wrong, 3 the run could not
   complete. Skips are not failures, so a run that skips everything exits 0. Read
@@ -253,8 +268,6 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   on plain `net10.0`. The custom reader is kept because it works, is covered by seven
   tests, and carries no dependency on a Visual Basic compatibility API. Replacing it with
   `TextFieldParser` is a legitimate simplification nobody has measured on Linux.
-- A stale plan manifest is detected structurally only. The manifest records paths and type
-  names, not a content hash, so an edit that preserves both passes the mismatch check.
 
 ## Where to record what you learn
 

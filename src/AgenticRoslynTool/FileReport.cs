@@ -13,6 +13,7 @@ namespace AgenticRoslynTool;
 /// <param name="Reason">Diagnostic text for a skip or a failure, otherwise null.</param>
 /// <param name="Note">Supplementary note, for example the directive-safety summary.</param>
 /// <param name="NewFiles">The files this row creates, each carrying its path and its type.</param>
+/// <param name="ContentHash">Hash of the input's raw bytes as the run read them, <c>sha256:</c> plus 64 lowercase hexadecimal digits, or null when the run never read the file.</param>
 internal sealed record FileReport(
     [property: JsonPropertyName("originalPath")] string OriginalPath,
     [property: JsonPropertyName("keptPath")] string KeptPath,
@@ -20,4 +21,5 @@ internal sealed record FileReport(
     [property: JsonPropertyName("status")] string Status,
     [property: JsonPropertyName("reason")] string? Reason,
     [property: JsonPropertyName("note")] string? Note,
-    [property: JsonPropertyName("newFiles")] IReadOnlyList<NewFileReport> NewFiles);
+    [property: JsonPropertyName("newFiles")] IReadOnlyList<NewFileReport> NewFiles,
+    [property: JsonPropertyName("contentHash")] string? ContentHash);

@@ -93,9 +93,9 @@ agent can see the whole change before it happens, and if what gets applied is pr
 what was reviewed.
 
 **Consequences.** Three invocations instead of one. A plan whose shape has drifted is
-detected rather than applied. The check is structural: it compares the kept path, the git
-move flag, and the set of output paths. It does not hash content, so a source edit that
-leaves type names and paths alone will not be caught.
+detected rather than applied. That check is structural: it compares the kept path, the git
+move flag, and the set of output paths. On its own it missed a source edit that left type
+names and paths alone. Decision 21 added a content hash to close that gap.
 
 > **Warning.** Collapsing this into a single pass removes the review artifact and the
 > drift check together. At that point the tool is asking for trust it has not earned, on
@@ -507,6 +507,72 @@ made with the Actions token do not trigger `push` workflows. CI does not run aga
 Turn code owner review back on while there is one owner and the maintainer's own pull
 requests cannot merge. Removing Renovate's release age lets a freshly published,
 possibly compromised version merge itself within minutes.
+
+### Decision 21. The plan manifest carries a content hash of every input
+
+**Context.** The content phase compared its recomputed plan against the manifest by shape
+only: kept path, git move flag, output paths. An edit that kept every type name and path,
+such as a changed method body, passed that check. The tool then applied a split to bytes
+nobody had reviewed. The maintainer chose to close this with a hash that is always on.
+
+**Decision.** Every manifest row records `contentHash`, the SHA-256 of the input's raw
+bytes, written as `sha256:` plus 64 lowercase hexadecimal digits. It is the last CSV column
+and the last field of each JSON file entry. The details that follow were settled with it.
+
+- **Raw bytes, not decoded text.** The hash is taken from the bytes `FileSplitter` already
+  reads and hands to `EncodedSource`, so the file is read once. A change of encoding, byte
+  order mark, or newline style therefore counts. The tool re-emits all of those, so the
+  plan was reviewed against them too.
+- **Which rows carry it.** Every row for a file the run read, whatever its status. A row is
+  empty only when the run never read the file: excluded, missing, or unreadable. One rule
+  with no status cases is easier to keep true than a rule per status, and a hash on a
+  `skipped` row costs nothing.
+- **What the value means.** The bytes as the run that wrote the row read them, before any
+  write. A `split` row written by the content phase therefore still shows the planned
+  hash, not the hash of the rewritten kept file.
+- **A mismatch is a `skipped` row, not `failed`.** It matches the structural mismatch,
+  which was already a skip, and decision 13: refusing is the correct outcome. The reason
+  starts with `stale plan:` so a caller can find these rows without parsing hashes. The
+  check runs straight after the read, before any other guard, and nothing is written.
+- **Renames is held to the plan as well.** The renames phase recomputes the plan and its
+  rows replace the manifest. Left alone, an edit made between plan and renames would be
+  hashed into the new manifest and applied by content. So renames reads the manifest that
+  is already on disk and refuses, without renaming, any file it plans as `split` whose
+  bytes no longer match. A `git mv` does not change bytes, so a renamed file still matches
+  in the content phase.
+- **A manifest with no `contentHash` column ends the content run.** It exits 3 with a
+  message that says to re-run the plan phase, before any file is read. See Rejected.
+- **An empty or malformed value refuses that one file.** It is a `skipped` row with the
+  same prefix. The comparison is ordinal against one canonical form, so uppercase digits,
+  a short value, or another algorithm's prefix never match by accident and never throw.
+- **The structural check stays.** The hash proves the source is unchanged. It says nothing
+  about the manifest. The structural comparison now catches an edited manifest over
+  unchanged source, which `ManifestContentHashTests` pins.
+
+**Rejected.** Falling back to the structural check when the column is missing. That is the
+silent path: a caller with an old manifest would get the old, weaker guarantee and no sign
+of it. Skipping every row for a missing column was also rejected. A run that skips
+everything exits 0 and looks like a run with nothing to do, and the cause is one fact about
+the file, not one per row. An opt in flag was rejected by the maintainer: a safety check
+that is off by default protects nobody who has not read about it. Hashing decoded text was
+rejected because it would pass a newline or encoding change the plan never showed.
+
+**Consequences.** This is a manifest and JSON schema change. A manifest written by an
+earlier version cannot drive the content phase; re-run the plan phase. A reader that
+addresses CSV columns by position keeps working, because the column is appended. A reader
+that rejects unknown columns or JSON fields needs an update. Renames now reads the
+manifest when one exists, so a manifest it cannot parse ends a renames run with exit 3
+where it used to be overwritten. The suite now starts `git` in two tests.
+
+One limit remains. Renames and content each trust the manifest on disk. Someone who edits
+a file and then edits its `contentHash` to match defeats the check. The hash detects
+drift, it does not authenticate the manifest.
+
+**Reversal warning.** Remove the content check and an edit made after review is applied
+with no sign, as long as type names and paths survive it. Remove the renames check and
+the same edit, made one phase earlier, is hashed into a fresh manifest and applied. Make
+the missing column a fallback and every old manifest silently loses the guarantee. Hash
+decoded text instead of bytes and a newline or encoding change slips through.
 
 ## Unrecorded decisions
 

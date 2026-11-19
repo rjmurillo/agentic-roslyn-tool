@@ -147,6 +147,22 @@ A key is the type name, plus its type parameter names for a generic type, for ex
 `Repository<T>`. The check compares keys only. It does not compare namespaces, modifiers,
 base types, or constraints. The repository scan below covers those.
 
+## Before the checks: the input must be the one that was planned
+
+The four checks above prove a split is faithful to the file the tool read. They cannot
+prove that file is the one you reviewed. The plan manifest closes that gap. Each row
+records `contentHash`, the SHA-256 of the input's raw bytes. The renames and content phases
+hash the file again before doing anything else.
+
+A file whose bytes changed is not split and not renamed. Its row is `skipped`, not
+`failed`, and the reason starts with `stale plan:` and names both hashes. The hash covers
+raw bytes, so a new line ending or a byte order mark counts as a change. A `git mv` does
+not change bytes, so a file the renames phase moved still matches. To recover, re-run the
+plan phase and review the new plan.
+
+A manifest with no `contentHash` column came from an older version. The content phase
+stops with exit code 3 and an `error:` line that says to re-run the plan phase.
+
 ## What happens when a check fails
 
 - The file is left untouched on disk.
@@ -304,6 +320,8 @@ repository is closed source, so this result cannot be reproduced from here.
 
 1. Review the plan manifest before anything runs. Every `split` row lists the new files
    and the type each one receives. Every `skipped` and `failed` row carries a reason.
+   After the content phase, search the report for `stale plan:`. Each hit is a file that
+   changed after your review and was left alone.
 2. Confirm the renames are in their own commit. Then `git log --follow` on a renamed file
    shows its history from before the rename.
 3. Confirm the content commit holds only splits, with no unrelated edits.
@@ -324,6 +342,10 @@ stay with the code they describe.
 **Does the tool check semantics?**
 No. It uses the Roslyn Syntax API and never builds a semantic model. Build the solution
 afterward and run your tests.
+
+**What if someone edits a file after I review the plan?**
+The renames and content phases refuse that file with a `stale plan:` reason, because its
+bytes no longer match the `contentHash` in the manifest. Re-run the plan phase.
 
 **If one file fails, are other files rolled back?**
 No. Each file is all or nothing, but files processed earlier stay rewritten. Review the

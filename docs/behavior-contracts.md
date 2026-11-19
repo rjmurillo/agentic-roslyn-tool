@@ -122,7 +122,8 @@ its status vocabulary match the CSV manifest, so the two formats are one contrac
       "status": "split",
       "reason": null,
       "note": null,
-      "newFiles": [{ "newFilePath": "C:\\repo\\src\\Bar.cs", "type": "Bar" }]
+      "newFiles": [{ "newFilePath": "C:\\repo\\src\\Bar.cs", "type": "Bar" }],
+      "contentHash": "sha256:5f2b0e9c41d7a8366c1e0b94d2f7a3158e6c0d4b9a7f31e2c58d06b4a19e73fc"
     }
   ]
 }
@@ -131,6 +132,12 @@ its status vocabulary match the CSV manifest, so the two formats are one contrac
 The CSV repeats the row once per new file; the JSON nests them under `newFiles` instead.
 Both carry the same values. `summary` exists so a caller never has to tally rows to learn
 whether work happened. `total` counts manifest rows, which is one per distinct input path.
+
+`contentHash` is the last CSV column and the last field of each JSON file entry. It is
+`sha256:` followed by 64 lowercase hexadecimal digits, computed over the raw bytes of the
+input as the run read them, before any write. It is empty in the CSV and `null` in the
+JSON when the run never read the file: an excluded path, a missing file, an unreadable one.
+Every other row carries it, whatever its status. New columns are appended, never inserted.
 
 ## Phase contracts
 
@@ -147,6 +154,8 @@ Promises:
   that inputs repeating an earlier path are dropped by a de-duplication that follows the
   platform's filesystem case rules, and produce no row.
 - The manifest round trips through `ManifestWriter.Read`.
+- Every row for a file the run read carries that file's `contentHash`. Verified by
+  `ManifestContentHashTests`.
 
 You can run `plan` as many times as you like. It is the review step, and it is the reason
 a human or an agent can inspect the whole change before a single byte moves.
@@ -158,13 +167,22 @@ Runs `git mv` for files whose name does not match their primary type.
 Promises:
 
 - Only touches rows the plan marked `split` with `GitMove` true.
+- **Does not rename a file that changed since the plan.** This phase recomputes the plan
+  and its rows replace the manifest, so it checks each file against the manifest already
+  on disk first. A file that manifest plans as `split` must still hash to the recorded
+  `contentHash`. If it does not, the row is `skipped` with a `stale plan:` reason and no
+  `git mv` runs for it. Without this check the edited bytes would be hashed into the new
+  manifest, and the content phase would apply an edit nobody reviewed. A run with no
+  manifest on disk, or a row with no recorded hash, is a fresh plan and proceeds.
 - `FileSplitter.ApplyRenameOnly` re-reads the moved file and throws if `git mv` changed
   its content.
 - Kept as a separate phase so the rename lands in its own commit. Git then records a
   rename instead of a delete plus an add, and the file history survives.
 
-Requires a real git repository. The test suite avoids this phase by keeping every fixture
-file name equal to its primary type name, so no `git` process ever starts.
+Requires a real git repository. Most of the test suite avoids this phase by keeping every
+fixture file name equal to its primary type name. `ManifestContentHashTests` is the
+exception: two of its tests run `git init` and `git add` in a temporary directory and then
+run this phase for real.
 
 ### content
 
@@ -182,11 +200,23 @@ Promises:
   runs on the row.
 - Throws when the plan manifest does not exist. The message names the missing path. This
   one ends the whole run, not just the file.
+- Throws when the plan manifest has no `contentHash` column, which means an older version
+  wrote it. The message says to re-run the plan phase. This also ends the whole run, with
+  exit code 3, before any file is read. There is no fallback to the structural check
+  alone.
+- **Refuses a file whose bytes differ from the planned `contentHash`.** The comparison
+  runs straight after the file is read, ahead of every other guard. The row is `skipped`,
+  the reason starts with `stale plan:` and names both hashes, and nothing is written for
+  that file. Other files in the run are unaffected. The hash covers raw bytes, so a
+  changed body, whitespace, newline style, encoding, or byte order mark all count. A
+  renamed file still matches, because `git mv` does not change bytes.
+- Refuses a file whose row carries an empty or malformed `contentHash`, with the same
+  `stale plan:` prefix. A malformed value is never compared loosely and never crashes the
+  run.
 - Refuses a file when the recomputed plan disagrees with the manifest it was handed. The
   comparison is structural: it covers the kept path, the git move flag, and the set of
-  output paths. The manifest carries no content hash, so an edit that leaves type names
-  and paths alone passes this check. Treat it as drift detection on the plan shape, not as
-  proof the source is unchanged.
+  output paths. With the hash in front of it, this check now guards the other side: the
+  source is proven unchanged, so a disagreement here means the manifest was edited.
 - Writes its own manifest to the same default path, which **overwrites the plan
   manifest**. Pass an explicit `--manifest` when you want to keep both.
 
@@ -204,6 +234,9 @@ Reason text shown in italics is a template; the run substitutes real values.
 | Path contains an `--exclude` pattern | skipped | `excluded by pattern: <pattern>` |
 | File missing | skipped | `input file does not exist` |
 | File exists but cannot be read | failed | `cannot read input: <message>` |
+| Content phase, bytes differ from the planned hash | skipped | `stale plan: input changed after the plan was written (planned <hash>, found <hash>); re-run --phase plan` |
+| Content phase, row has no hash | skipped | `stale plan: the manifest row carries no contentHash; re-run --phase plan` |
+| Content phase, row has a malformed hash | skipped | `stale plan: the manifest row carries a malformed contentHash '<value>'; re-run --phase plan` |
 | Parse produced an error diagnostic | failed | `input has syntax errors: <diagnostics>` |
 | File has top level statements | skipped | `contains top-level statements; manual split required` |
 | One type or fewer | skipped | `nothing to split: input has <n> top-level type declaration(s)` |
@@ -256,8 +289,8 @@ Two refusals here are what make the plan then apply workflow trustworthy:
    would silently drop a type when the second write lands.
 2. **A recomputed plan that disagrees with the supplied manifest refuses that file.** The
    row is `skipped` and no output is written for it, so a reviewed plan is applied or
-   nothing is. Other files in the run are unaffected. See the structural limit noted
-   under the `content` phase above.
+   nothing is. Other files in the run are unaffected. The content hash check described
+   under the `content` phase runs before this one and covers edits to the source.
 
 Within a single input file, two types with the same simple name that do not differ by
 generic arity are refused with `target path collision within split: <path>`. A type with

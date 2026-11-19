@@ -71,12 +71,12 @@ internal class Result<T> : Result
 }
 ```
 
-The plan phase writes this manifest row. Paths are shortened here; the tool writes absolute
-paths.
+The plan phase writes this manifest row. Paths and hashes are shortened here; the tool
+writes absolute paths and a full 64 digit `contentHash`.
 
 ```csv
-originalPath,keptPath,gitMove,status,reason,note,newFilePath,type
-"src/Result.cs","src/Result.cs",false,"split","","","src/Result{T}.cs","Result<T>"
+originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash
+"src/Result.cs","src/Result.cs",false,"split","","","src/Result{T}.cs","Result<T>","sha256:9c1e..."
 ```
 
 After the content phase, `Result.cs` keeps `Result` and `Result{T}.cs` holds `Result<T>`.
@@ -133,9 +133,9 @@ internal class Shared
 outputs as `<OriginalFileName>.<TypeName>.cs`. The plan says so in the `note` column:
 
 ```csv
-originalPath,keptPath,gitMove,status,reason,note,newFilePath,type
-"src/A.cs","src/A.cs",false,"split","","resolved output path collision: src/A.cs -> src/A.Shared.cs; src/B.cs -> src/B.Shared.cs","src/A.Shared.cs","Shared"
-"src/B.cs","src/B.cs",false,"split","","resolved output path collision: src/A.cs -> src/A.Shared.cs; src/B.cs -> src/B.Shared.cs","src/B.Shared.cs","Shared"
+originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash
+"src/A.cs","src/A.cs",false,"split","","resolved output path collision: src/A.cs -> src/A.Shared.cs; src/B.cs -> src/B.Shared.cs","src/A.Shared.cs","Shared","sha256:41d7..."
+"src/B.cs","src/B.cs",false,"split","","resolved output path collision: src/A.cs -> src/A.Shared.cs; src/B.cs -> src/B.Shared.cs","src/B.Shared.cs","Shared","sha256:b94d..."
 ```
 
 The collision check ignores case, so `Shared.cs` and `shared.cs` count as the same path.

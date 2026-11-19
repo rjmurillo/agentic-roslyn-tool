@@ -177,8 +177,10 @@ git commit -m "Rename C# files to match primary types"
 Keep renames in their own commit. Git can then record renames instead of delete-and-add pairs, preserving file history.
 
 The renames phase recomputes the plan from the current files rather than replaying the
-reviewed manifest, and rewrites the manifest with what it did. Re-run the plan phase and
-review it again if the tree changed since your last plan.
+reviewed manifest, and rewrites the manifest with what it did. It still holds each file to
+the reviewed plan: a file whose bytes no longer match the `contentHash` the plan recorded
+is skipped with a `stale plan:` reason and is not renamed. Re-run the plan phase and review
+it again if the tree changed since your last plan.
 
 Finally, split files and review the result:
 
@@ -193,8 +195,9 @@ dotnet build
 git diff --check
 ```
 
-The content phase exits 3 if no plan manifest exists at `--manifest`, and overwrites that
-manifest with its results. Copy the reviewed plan to a second path first when you want to
+The content phase exits 3 if no plan manifest exists at `--manifest`, or if that manifest
+has no `contentHash` column because an older version wrote it. Re-run the plan phase to
+rebuild it. The content phase overwrites the manifest with its results. Copy the reviewed plan to a second path first when you want to
 keep it for comparison.
 
 The content phase moves each non-primary top-level type into its own file. Each type keeps its owned XML comments, attributes, and ordinary comments. Every emitted file also receives the source using directives and namespace declaration.
@@ -222,8 +225,23 @@ a run leaves the earlier files already rewritten. Review the plan first, and com
 phases.
 
 The tool also refuses to write over a file that already exists, whether that path came
-from its own naming rules or from the manifest, and refuses to run the content phase at
-all when the recomputed plan disagrees with the reviewed manifest.
+from its own naming rules or from the manifest, and refuses a file in the content phase
+when the recomputed plan disagrees with the reviewed manifest.
+
+The plan is tied to the bytes it was reviewed against. Every manifest row records a
+`contentHash`, the SHA-256 of the input file's raw bytes, and the JSON report carries the
+same field:
+
+```csv
+originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash
+"/repo/src/Foo.cs","/repo/src/Foo.cs",false,"split","","","/repo/src/Bar.cs","Bar","sha256:5f2b0e9c41d7a8366c1e0b94d2f7a3158e6c0d4b9a7f31e2c58d06b4a19e73fc"
+```
+
+The renames and content phases hash each file again. Any difference, a changed method
+body, a trailing space, a new line ending, a byte order mark, refuses that file with a
+`skipped` row whose reason starts with `stale plan:`. Nothing is written for it, and the
+other files in the run are unaffected. A `git mv` does not change bytes, so a renamed file
+still matches. Re-run the plan phase, review it, and apply again.
 
 Blank-line handling uses Roslyn trivia nodes, not raw text. Blank lines inside block comments or `#if` regions belong to a token's trivia text. A text normalizer can corrupt that content, while trivia-level handling preserves it.
 
