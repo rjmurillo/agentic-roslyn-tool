@@ -232,9 +232,10 @@ Promises:
 - **Never changes a recorded hash.** Every row it writes for a planned file copies the
   planned `contentHash`, including a row for a file it never read: an excluded path, a
   missing file, an inconsistent rename state. The report row for an input the plan did
-  not mark `split` repeats the hash of that input's manifest row, when it has one.
+  not mark `split` repeats the hash of that input's manifest row, when it has one. The
+  row is found by the input's original path, or by its kept path once it was renamed.
 - A second run over a file an earlier run already split reports that file as
-  `stale plan:`. The earlier run rewrote the kept file, so its bytes differ from the plan.
+  `stale plan:`, and so does a renames run after it. The earlier run rewrote the kept file, so its bytes differ from the plan.
   The file is left alone.
 - Refuses a file when the recomputed plan disagrees with the manifest it was handed. The
   comparison is structural: it covers the kept path, the git move flag, and the set of

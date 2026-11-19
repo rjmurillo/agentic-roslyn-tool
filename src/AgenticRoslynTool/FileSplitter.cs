@@ -179,8 +179,11 @@ internal sealed class FileSplitter
                 : row with { ContentHash = null };
         }
 
-        // A null hash means this run never read the file, so there are no bytes to compare.
-        if (row.ContentHash is not null)
+        // A null hash on the fresh row means this run never read the file, so there are no
+        // bytes to compare. A null hash on the recorded row means no plan read it either.
+        // That only refuses a row that would act: a file nobody planned, which this run
+        // would leave alone anyway, has nothing to be stale against.
+        if (row.ContentHash is not null && (prior.ContentHash is not null || wouldAct))
         {
             var changed = ContentHash.DescribeMismatch(prior.ContentHash, row.ContentHash);
             if (changed is not null)
@@ -230,8 +233,9 @@ internal sealed class FileSplitter
         var manifestPlan = ManifestWriter.Read(_options.ManifestPath, requireContentHash: true);
         var plannedFiles = SplitPlanner.IndexByInputPath(manifestPlan.Where(r => r.Status == "split"));
 
-        // Read groups by original path with this comparer, so the keys are already unique.
-        var recordedRows = manifestPlan.ToDictionary(r => r.OriginalPath, PathComparison.Comparer);
+        // Every row, under the same paths the split index uses, so an input handed over by
+        // its kept path still finds the row the plan recorded for it.
+        var recordedRows = SplitPlanner.IndexByInputPath(manifestPlan);
 
         var results = new List<FileResult>();
         var applied = new HashSet<string>(PathComparison.Comparer);

@@ -515,7 +515,7 @@ only: kept path, git move flag, output paths. An edit that kept every type name 
 such as a changed method body, passed that check. The tool then applied a split to bytes
 nobody had reviewed. The maintainer chose to close this with a hash that is always on.
 
-**Decision.** Every manifest row records `contentHash`, the SHA-256 of the input's raw
+**Decision.** Every manifest row for a file the plan read records `contentHash`, the SHA-256 of the input's raw
 bytes, written as `sha256:` plus 64 lowercase hexadecimal digits. It is the last CSV column
 and the last field of each JSON file entry. One rule governs it: **a run that starts a
 plan records hashes, and every later phase only carries and compares them.** The details
@@ -585,7 +585,7 @@ Three limits remain.
    renames. The hash detects drift. It does not authenticate the manifest.
 2. Renames with no manifest on disk plans and hashes afresh, as it always could. Nothing
    was planned, so there is nothing to hold the file to.
-3. A second content run over a file the first run already split reports it as
+3. A second content run, or a renames run, over a file content already split reports it as
    `stale plan:`. The first run rewrote the kept file, so its bytes differ from the plan,
    and the tool cannot tell its own write from an outside edit. Before the hash, that
    second run reported `nothing to split`. The file is left alone either way.

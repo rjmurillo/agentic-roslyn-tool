@@ -239,7 +239,8 @@ originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash
 "/repo/src/Foo.cs","/repo/src/Foo.cs",false,"split","","","/repo/src/Bar.cs","Bar","sha256:5f2b0e9c41d7a8366c1e0b94d2f7a3158e6c0d4b9a7f31e2c58d06b4a19e73fc"
 ```
 
-The renames and content phases hash each file again. Any difference, a changed method
+The renames phase hashes each file it reads again, and the content phase hashes each file
+the plan marks `split`. Any difference, a changed method
 body, a trailing space, a new line ending, a byte order mark, refuses that file with a
 `skipped` row whose reason starts with `stale plan:`. Nothing is written for it, and the
 other files in the run are unaffected. A `git mv` does not change bytes, so a renamed file
@@ -248,8 +249,8 @@ A later run does not apply the file. The refusal row replaces the plan row and
 keeps the planned hash, so renames reports `stale plan:` again and content reports
 `not present as split in plan manifest`.
 
-One case reads oddly. A second content run over a file the first run already split
-reports it as `stale plan:`, because the first run rewrote the kept file. The file is left
+One case reads oddly. A second content run, or a renames run, over a file content already
+split reports it as `stale plan:`, because content rewrote the kept file. The file is left
 alone.
 
 Blank-line handling uses Roslyn trivia nodes, not raw text. Blank lines inside block comments or `#if` regions belong to a token's trivia text. A text normalizer can corrupt that content, while trivia-level handling preserves it.

@@ -152,8 +152,8 @@ base types, or constraints. The repository scan below covers those.
 The four checks above prove a split is faithful to the file the tool read. They cannot
 prove that file is the one you reviewed. The plan manifest closes that gap. Each row
 records `contentHash`, the SHA-256 of the input's raw bytes. The renames phase hashes each
-file again before it renames it. The content phase hashes each file again before it does
-anything else with it.
+file it reads again before it renames anything. The content phase hashes each file the
+plan marks `split` again, straight after it reads it.
 
 A file whose bytes differ from the plan is not split and not renamed. Its row is
 `skipped`, not `failed`, and the reason starts with `stale plan:` and names both hashes.
@@ -353,8 +353,9 @@ No. It uses the Roslyn Syntax API and never builds a semantic model. Build the s
 afterward and run your tests.
 
 **What if someone edits a file after I review the plan?**
-The renames and content phases refuse that file with a `stale plan:` reason, because its
-bytes no longer match the `contentHash` in the manifest. The file stays unapplied on
+If the plan marked that file `split`, the renames and content phases refuse it with a
+`stale plan:` reason, because its bytes no longer match the `contentHash` in the manifest.
+The content phase never applies a file the plan did not mark `split`. The file stays unapplied on
 every later renames or content run. Re-run the plan phase and review the new plan.
 
 **If one file fails, are other files rolled back?**
