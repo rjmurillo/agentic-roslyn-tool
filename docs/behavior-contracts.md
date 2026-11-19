@@ -135,9 +135,11 @@ whether work happened. `total` counts manifest rows, which is one per distinct i
 
 `contentHash` is the last CSV column and the last field of each JSON file entry. It is
 `sha256:` followed by 64 lowercase hexadecimal digits, computed over the raw bytes of the
-input as the run read them, before any write. It is empty in the CSV and `null` in the
+input as the plan read them, before any write. It is empty in the CSV and `null` in the
 JSON when the run never read the file: an excluded path, a missing file, an unreadable one.
-Every other row carries it, whatever its status. New columns are appended, never inserted.
+Every other row carries it, whatever its status. A `stale plan:` row keeps the planned
+hash and names the hash it found in its reason, so only the plan phase ever replaces a
+recorded hash with a different one. New columns are appended, never inserted.
 
 ## Phase contracts
 
@@ -169,11 +171,15 @@ Promises:
 - Only touches rows the plan marked `split` with `GitMove` true.
 - **Does not rename a file that changed since the plan.** This phase recomputes the plan
   and its rows replace the manifest, so it checks each file against the manifest already
-  on disk first. A file that manifest plans as `split` must still hash to the recorded
-  `contentHash`. If it does not, the row is `skipped` with a `stale plan:` reason and no
-  `git mv` runs for it. Without this check the edited bytes would be hashed into the new
-  manifest, and the content phase would apply an edit nobody reviewed. A run with no
-  manifest on disk, or a row with no recorded hash, is a fresh plan and proceeds.
+  on disk first. A file this run would split must still hash to the `contentHash` that
+  manifest recorded for it, whatever status the recorded row has. If it does not, the row
+  is `skipped` with a `stale plan:` reason, it keeps the recorded hash, and no `git mv`
+  runs for it. Without this check the edited bytes would be hashed into the new manifest,
+  and the content phase would apply an edit nobody reviewed. Only the plan phase starts a
+  new plan.
+- That check has nothing to compare when there is no manifest on disk, when the manifest
+  has no row for the file, or when the row has no hash, as in a manifest an older version
+  wrote. Each of those proceeds as a fresh plan, and the new rows carry fresh hashes.
 - `FileSplitter.ApplyRenameOnly` re-reads the moved file and throws if `git mv` changed
   its content.
 - Kept as a separate phase so the rename lands in its own commit. Git then records a

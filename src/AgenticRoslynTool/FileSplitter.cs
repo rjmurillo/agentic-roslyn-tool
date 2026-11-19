@@ -86,14 +86,23 @@ internal sealed class FileSplitter
     /// This phase recomputes the plan, and <c>Program</c> writes the result over the manifest.
     /// Left unchecked, that would launder an edit made between plan and renames: the new row
     /// would carry the hash of the edited bytes, and the content phase would find a match. So
-    /// when a manifest already exists, a file it plans as <c>split</c> must still hash to the
-    /// planned value, or it is refused here and never renamed. A manifest with no hash for the
-    /// row, and a run with no manifest at all, are a fresh plan and proceed as before.
+    /// when a manifest already exists, a file this run would split must still hash to the
+    /// value that manifest recorded for it, or it is refused here and never renamed.
+    /// <para>
+    /// Every prior row with a hash counts, not only the <c>split</c> ones. A file the plan
+    /// skipped can gain a type afterwards, and a file the content phase refused as stale is
+    /// written back as <c>skipped</c>. Checking split rows alone would let this phase plan
+    /// either one afresh. Only the plan phase starts a new plan.
+    /// </para>
+    /// <para>
+    /// A file the manifest has no row for, a row with no hash, and a run with no manifest at
+    /// all have nothing to be held to, and proceed as a fresh plan.
+    /// </para>
     /// </remarks>
     private IReadOnlyList<FileResult> RunRenames()
     {
         var priorPlan = File.Exists(_options.ManifestPath)
-            ? SplitPlanner.IndexByInputPath(ManifestWriter.Read(_options.ManifestPath).Where(r => r.Status == "split"))
+            ? SplitPlanner.IndexByInputPath(ManifestWriter.Read(_options.ManifestPath).Where(r => r.ContentHash is not null))
             : null;
         var results = BuildResolvedPlan(row => RefuseIfStale(row, priorPlan));
         foreach (var result in results.Where(r => r.Status == "split" && r.GitMove))
@@ -122,9 +131,14 @@ internal sealed class FileSplitter
     }
 
     /// <summary>
-    /// Turns a freshly planned <c>split</c> row into a skip when an existing manifest planned
-    /// the same file against different bytes. See the remarks on <see cref="RunRenames"/>.
+    /// Turns a freshly planned <c>split</c> row into a skip when an existing manifest recorded
+    /// different bytes for the same file. See the remarks on <see cref="RunRenames"/>.
     /// </summary>
+    /// <remarks>
+    /// The refusal keeps the recorded hash, not the hash of the bytes found. The row replaces
+    /// the manifest row, and a row carrying the new hash would match on the next run, which
+    /// would turn one refusal into permission.
+    /// </remarks>
     private static FileResult RefuseIfStale(FileResult row, Dictionary<string, FileResult>? priorPlan)
     {
         if (row.Status != "split"
@@ -139,7 +153,7 @@ internal sealed class FileSplitter
         var stale = ContentHash.DescribeMismatch(prior.ContentHash, row.ContentHash);
 
         // The rename has not happened, so the file is still at its original path.
-        return stale is null ? row : FileResult.Skip(row.OriginalPath, row.OriginalPath, stale) with { ContentHash = row.ContentHash };
+        return stale is null ? row : FileResult.Skip(row.OriginalPath, row.OriginalPath, stale) with { ContentHash = prior.ContentHash };
     }
 
     /// <summary>
@@ -347,10 +361,13 @@ internal sealed class FileSplitter
             // reviewed against specific bytes, and an edit that keeps every type name and
             // path would pass each check below and be applied unreviewed. A skip and not a
             // throw: a stale plan is a refusal, the same as the manifest mismatch.
+            //
+            // The row keeps the planned hash. It is written back to the manifest, and a row
+            // carrying the hash of the edited bytes would let a later run find a match.
             var stale = ContentHash.DescribeMismatch(planned.ContentHash, contentHash);
             if (stale is not null)
             {
-                return FileResult.Skip(originalPath, readPath, stale) with { ContentHash = contentHash };
+                return FileResult.Skip(originalPath, readPath, stale) with { ContentHash = planned.ContentHash };
             }
         }
 

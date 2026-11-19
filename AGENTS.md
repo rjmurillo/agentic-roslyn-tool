@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 30 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 121 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 124 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -75,7 +75,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 121 passed, 0 failed
+dotnet test  -c Release      # must be 124 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -150,11 +150,12 @@ weight.
 
 12. **A file must match its planned content hash before a phase acts on it.** Every
     manifest row carries the SHA-256 of the input's raw bytes. The content phase refuses a
-    file whose bytes differ, and the renames phase does the same before it renames. A
-    manifest with no `contentHash` column ends the content run with exit 3. Never add a
-    fallback to the structural check, never hash decoded text, and never drop the hash
-    from a row that is carried between runs. `ManifestContentHashTests` pins all of it.
-    See decision 21.
+    file whose bytes differ, and the renames phase does the same before it renames, for
+    every file the manifest on disk recorded a hash for. A manifest with no `contentHash`
+    column ends the content run with exit 3. Never add a fallback to the structural check,
+    never hash decoded text, never drop the hash from a row that is carried between runs,
+    and never let a `stale plan:` row store the hash it found in place of the planned one.
+    `ManifestContentHashTests` pins all of it. See decision 21.
 
 ## Conventions for anything you write
 

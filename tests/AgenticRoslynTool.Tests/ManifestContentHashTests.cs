@@ -237,6 +237,82 @@ public sealed class ManifestContentHashTests
     }
 
     [Fact]
+    public void StaleRefusal_StaysRefused_WhenRenamesRunsAfterIt()
+    {
+        // The content phase writes its refusal back to the manifest as a skipped row. If that
+        // row stored the hash it found, or if renames only looked at split rows, a renames
+        // run would plan the edited file afresh and the next content run would apply it.
+        using var workspace = new TempWorkspace();
+        var source = workspace.WriteFile("Foo.cs", TwoTypes);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+        var planned = Assert.Single(Plan(workspace, manifestPath, source));
+
+        File.WriteAllText(source, TwoTypes.Replace("=> 1;", "=> 2;", StringComparison.Ordinal));
+        var edited = File.ReadAllBytes(source);
+
+        var refused = Assert.Single(RunAndWriteManifest(workspace, manifestPath, Phase.Content, source).ReportRows);
+        Assert.Equal("skipped", refused.Status);
+        Assert.Equal(planned.ContentHash, refused.ContentHash);
+
+        // No rename is planned for Foo.cs, so this phase starts no git process.
+        var renamed = Assert.Single(RunAndWriteManifest(workspace, manifestPath, Phase.Renames, source).ReportRows);
+        Assert.Equal("skipped", renamed.Status);
+        Assert.StartsWith(ContentHash.StalePlanPrefix, renamed.Reason, StringComparison.Ordinal);
+        Assert.Equal(planned.ContentHash, renamed.ContentHash);
+
+        var row = Assert.Single(RunAndWriteManifest(workspace, manifestPath, Phase.Content, source).ReportRows);
+        Assert.Equal("skipped", row.Status);
+        Assert.Equal(edited, File.ReadAllBytes(source));
+        Assert.False(File.Exists(Path.Combine(workspace.Root, "Bar.cs")));
+
+        // The plan phase is the one way out.
+        Plan(workspace, manifestPath, source);
+        Assert.Equal("split", Assert.Single(Content(workspace, manifestPath, source).ReportRows).Status);
+    }
+
+    [Fact]
+    public void FileThePlanSkipped_ThenGainsAType_IsRefusedByRenames()
+    {
+        // The plan recorded this file as nothing to split. An edit that adds a type would
+        // make renames plan a split nobody reviewed, so the skipped row's hash holds it too.
+        using var workspace = new TempWorkspace();
+        var source = workspace.WriteFile("Foo.cs", "namespace N;\n\npublic class Foo\n{\n}\n");
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+        Assert.Equal("skipped", Assert.Single(Plan(workspace, manifestPath, source)).Status);
+
+        File.WriteAllText(source, TwoTypes);
+
+        var renamed = Assert.Single(RunAndWriteManifest(workspace, manifestPath, Phase.Renames, source).ReportRows);
+        Assert.Equal("skipped", renamed.Status);
+        Assert.StartsWith(ContentHash.StalePlanPrefix, renamed.Reason, StringComparison.Ordinal);
+
+        var row = Assert.Single(Content(workspace, manifestPath, source).ReportRows);
+        Assert.Equal("skipped", row.Status);
+        Assert.False(File.Exists(Path.Combine(workspace.Root, "Bar.cs")));
+    }
+
+    [Fact]
+    public void CollisionQualifiedRow_KeepsItsHash_AndIsApplied()
+    {
+        // Two inputs plan the same output name, so the plan rewrites both rows with a
+        // qualified path. The rewritten rows must still carry the hash.
+        using var workspace = new TempWorkspace();
+        var a = workspace.WriteFile("A.cs", "namespace One;\n\npublic class A\n{\n}\n\npublic class Shared\n{\n}\n");
+        var b = workspace.WriteFile("B.cs", "namespace Two;\n\npublic class B\n{\n}\n\npublic class Shared\n{\n}\n");
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+
+        var planned = Plan(workspace, manifestPath, a, b);
+        Assert.All(planned, r => Assert.Contains("resolved output path collision", r.Note, StringComparison.Ordinal));
+        Assert.All(planned, r => Assert.True(ContentHash.IsWellFormed(r.ContentHash)));
+
+        var rows = Content(workspace, manifestPath, a, b).ReportRows;
+
+        Assert.All(rows, r => Assert.Equal("split", r.Status));
+        Assert.True(File.Exists(Path.Combine(workspace.Root, "A.Shared.cs")));
+        Assert.True(File.Exists(Path.Combine(workspace.Root, "B.Shared.cs")));
+    }
+
+    [Fact]
     public void ManifestWithoutTheHashColumn_FailsTheContentRun_BeforeAnyFileIsTouched()
     {
         using var workspace = new TempWorkspace();

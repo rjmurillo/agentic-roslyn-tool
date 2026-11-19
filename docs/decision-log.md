@@ -527,9 +527,12 @@ and the last field of each JSON file entry. The details that follow were settled
   empty only when the run never read the file: excluded, missing, or unreadable. One rule
   with no status cases is easier to keep true than a rule per status, and a hash on a
   `skipped` row costs nothing.
-- **What the value means.** The bytes as the run that wrote the row read them, before any
-  write. A `split` row written by the content phase therefore still shows the planned
-  hash, not the hash of the rewritten kept file.
+- **What the value means.** The bytes the plan was written against. A `split` row written
+  by the content phase still shows the planned hash, not the hash of the rewritten kept
+  file. A `stale plan:` row also keeps the planned hash and names the hash it found in
+  its reason. Each phase writes its rows back over the manifest, so a refusal that stored
+  the new hash would match on the next run and turn one refusal into permission. Only the
+  plan phase replaces a recorded hash with a different one.
 - **A mismatch is a `skipped` row, not `failed`.** It matches the structural mismatch,
   which was already a skip, and decision 13: refusing is the correct outcome. The reason
   starts with `stale plan:` so a caller can find these rows without parsing hashes. The
@@ -537,9 +540,11 @@ and the last field of each JSON file entry. The details that follow were settled
 - **Renames is held to the plan as well.** The renames phase recomputes the plan and its
   rows replace the manifest. Left alone, an edit made between plan and renames would be
   hashed into the new manifest and applied by content. So renames reads the manifest that
-  is already on disk and refuses, without renaming, any file it plans as `split` whose
-  bytes no longer match. A `git mv` does not change bytes, so a renamed file still matches
-  in the content phase.
+  is already on disk and refuses, without renaming, any file it would split whose bytes
+  differ from the hash that manifest recorded. Every recorded row counts, not only the
+  `split` ones: a file the plan skipped can gain a type later, and a file content refused
+  as stale is written back as `skipped`. A `git mv` does not change bytes, so a renamed
+  file still matches in the content phase.
 - **A manifest with no `contentHash` column ends the content run.** It exits 3 with a
   message that says to re-run the plan phase, before any file is read. See Rejected.
 - **An empty or malformed value refuses that one file.** It is a `skipped` row with the
@@ -564,9 +569,12 @@ that rejects unknown columns or JSON fields needs an update. Renames now reads t
 manifest when one exists, so a manifest it cannot parse ends a renames run with exit 3
 where it used to be overwritten. The suite now starts `git` in two tests.
 
-One limit remains. Renames and content each trust the manifest on disk. Someone who edits
+Two limits remain. Renames and content each trust the manifest on disk. Someone who edits
 a file and then edits its `contentHash` to match defeats the check. The hash detects
-drift, it does not authenticate the manifest.
+drift, it does not authenticate the manifest. And renames can only hold a file to a hash
+that exists. With no manifest on disk, no row for the file, or a row with no hash, as in
+a manifest an older version wrote, renames plans that file afresh and records a new hash.
+That is the same thing the plan phase does, reached through a different phase.
 
 **Reversal warning.** Remove the content check and an edit made after review is applied
 with no sign, as long as type names and paths survive it. Remove the renames check and

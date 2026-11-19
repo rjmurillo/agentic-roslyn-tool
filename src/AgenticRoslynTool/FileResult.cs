@@ -19,11 +19,13 @@ namespace AgenticRoslynTool;
 internal sealed record FileResult(string OriginalPath, string KeptPath, bool GitMove, string Status, string? Reason, string? Note, IReadOnlyList<NewFileResult> NewFiles)
 {
     /// <summary>
-    /// Hash of the input's raw bytes as the run that produced this row read them, in the
-    /// form <see cref="ContentHash.Compute"/> writes. Null when the run never read the file:
-    /// an excluded path, a missing file, an unreadable one. The content phase compares a
+    /// Hash of the input's raw bytes as the plan recorded them, in the form
+    /// <see cref="ContentHash.Compute"/> writes. Null when the run never read the file: an
+    /// excluded path, a missing file, an unreadable one. The content phase compares a
     /// <c>split</c> row's value against the bytes on disk and refuses the file on any
     /// difference, so this is what ties an applied split to the plan that was reviewed.
+    /// A row that refuses a file as stale keeps the planned value, so only the plan phase
+    /// ever replaces a recorded hash with a different one.
     /// </summary>
     /// <remarks>
     /// An init property and not a constructor parameter, so every <c>with</c> expression
