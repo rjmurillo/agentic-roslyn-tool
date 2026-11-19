@@ -522,8 +522,10 @@ name at the first dot, read at commit `4502632`. A build with StyleCop.Analyzers
 `file-first` is the default and is today's behavior. `type-first` emits
 `<TypeName>.<OriginalFileName>.cs`. Both forms are built from the target file name the
 plan already chose, so a generic keeps its braces: `Shared{T}.A.cs`. The content phase
-refuses a row whose manifest path is the other value's qualified form, with
-`content phase plan does not match manifest`.
+refuses a row the plan resolved under the other value, with
+`content phase plan does not match manifest`. It knows such a row by two facts together:
+the path has the other value's qualified form, and the row's note records that the
+collision pass chose it.
 
 **Rejected.** Changing the default to `type-first`. Every plan with a collision would get
 new paths, and a manifest reviewed before the upgrade would stop matching. Reading
@@ -536,11 +538,13 @@ Revisit it if a second flag ever changes planned paths.
 **Consequences.** The value must be passed to every phase. The renames phase reads no
 manifest, so it cannot check the value. It moves kept files only, but the value can change
 which inputs the collision pass skips, so it should match there too. The content check
-infers the plan's value from the shape of a path. It is per row. A row with no collision has the same paths under both
-values and still applies. One default behavior changed, on purpose. A default content run
-now refuses a manifest path of the exact form `<TypeName>.<OriginalFileName>.cs` for a
-type that file would emit. Before, it wrote that path. Any other hand-edited free path is
-still accepted. Under the `metadata` convention `Shared{T}.A.cs` still raises SA1649,
+reads the plan's value from the path and the note together. It is per row. A row with no
+collision has the same paths under both values and still applies. No default behavior
+changed. A run without the flag plans the same paths as before, and it still accepts a
+free path typed into the manifest by hand, including one shaped like `Shared.A.cs`. Such
+a row's note does not name that path, so the check does not fire. The cost is a
+dependency on the note text: strip or rewrite the note and the check goes quiet for that
+row. Under the `metadata` convention `Shared{T}.A.cs` still raises SA1649,
 for the same reason `Shared{T}.cs` does.
 
 A forgotten flag is the likely mistake, and it is not free. The mismatched rows are
@@ -557,11 +561,14 @@ type is named `G`. It is left alone so default plans stay identical.
 
 **Reversal warning.** Remove the content check and the flag stops meaning anything in the
 content phase. That phase takes paths from the manifest and never reruns the collision
-pass, so it would write whichever form the manifest holds and report `split`. Widen the
-check to "every manifest path must be one this run computes" and every hand-edited path is
-refused, which breaks reviewed plans that work today. Flip the default and every existing
-plan with a collision goes stale at once. The flag name and its two values are now
-command line contract. Rename or remove one and every script that passes it exits 2.
+pass, so it would write whichever form the manifest holds and report `split`. Drop the
+note half of the check and a default run starts refusing a hand-edited `Shared.A.cs`,
+which it has always written. Change the note text the collision pass writes without
+changing `FormatResolution` and the check stops matching. Widen the check to "every
+manifest path must be one this run computes" and every hand-edited path is refused.
+Flip the default and every existing plan with a collision goes stale at once. The flag
+name and its two values are now command line contract. Rename or remove one and every
+script that passes it exits 2.
 
 ## Unrecorded decisions
 

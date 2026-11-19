@@ -91,7 +91,7 @@ internal static class SplitPlanner
                 entry.OriginalPath,
                 Note = "resolved output path collision: " + string.Join("; ", group
                     .OrderBy(e => e.OriginalPath, StringComparer.OrdinalIgnoreCase)
-                    .Select(e => $"{e.OriginalPath} -> {resolvedPaths[(e.OriginalPath, e.Type, e.Path)]}")),
+                    .Select(e => FormatResolution(e.OriginalPath, resolvedPaths[(e.OriginalPath, e.Type, e.Path)]))),
             }))
             .GroupBy(x => x.OriginalPath, PathComparison.Comparer)
             .ToDictionary(g => g.Key, g => string.Join(" | ", g.Select(x => x.Note).Distinct(StringComparer.Ordinal)), PathComparison.Comparer);
@@ -152,27 +152,41 @@ internal static class SplitPlanner
     }
 
     /// <summary>
-    /// Describes a manifest path that is the qualified form of the collision naming this run
-    /// was not given, or returns null when the path is not that form.
+    /// Describes a manifest path that the plan phase resolved under the collision naming
+    /// this run was not given, or returns null when the path is not one.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The content phase takes output paths from the manifest and never reruns the collision
     /// pass, so nothing else notices that a plan was made under the other
-    /// <c>--collision-naming</c> value. The test is this narrow on purpose. Requiring every
-    /// manifest path to be one the run would compute would refuse any hand-edited path, which
-    /// the content phase has always accepted when the path is free. The two forms of one
-    /// output are never equal: a moved type never shares the source file's base name, because
-    /// the type that does is the one kept in place.
+    /// <c>--collision-naming</c> value.
+    /// </para>
+    /// <para>
+    /// Two things must both hold. The path has the other value's qualified form, and the
+    /// row's note records that the collision pass chose that path. The note is what tells a
+    /// plan made under the other value from a path a reviewer typed into the manifest. A
+    /// hand-edited free path, of any shape, is accepted exactly as it was before the flag
+    /// existed. The two forms of one output are never equal: a moved type never shares the
+    /// source file's base name, because the type that does is the one kept in place.
+    /// </para>
     /// </remarks>
-    private static string? DescribeOtherCollisionNamingForm(string originalPath, string computedPath, string plannedPath, CollisionNaming collisionNaming)
+    private static string? DescribeOtherCollisionNamingForm(string originalPath, string computedPath, string plannedPath, string? plannedNote, CollisionNaming collisionNaming)
     {
         var other = collisionNaming == CollisionNaming.FileFirst ? CollisionNaming.TypeFirst : CollisionNaming.FileFirst;
-        if (!StringComparer.OrdinalIgnoreCase.Equals(plannedPath, GetQualifiedPath(originalPath, computedPath, other)))
+        if (!StringComparer.OrdinalIgnoreCase.Equals(plannedPath, GetQualifiedPath(originalPath, computedPath, other))
+            || plannedNote is null
+            || !plannedNote.Contains(FormatResolution(originalPath, plannedPath), StringComparison.Ordinal))
         {
             return null;
         }
 
         return $"manifest path {plannedPath} is the --collision-naming {FlagValue(other)} form and this run used {FlagValue(collisionNaming)}; run the plan phase again and pass one value to every phase";
+    }
+
+    /// <summary>The text the collision pass writes into a row's note for one resolved output.</summary>
+    private static string FormatResolution(string originalPath, string resolvedPath)
+    {
+        return $"{originalPath} -> {resolvedPath}";
     }
 
     private static string FlagValue(CollisionNaming collisionNaming)
@@ -349,12 +363,12 @@ internal static class SplitPlanner
             }
 
             // The collision pass does not run in this phase, so the manifest is the only place
-            // a collision name can come from. One built under the other --collision-naming
-            // value is a plan this run was not asked to apply. This runs after the existence
+            // a collision name can come from. One the plan phase resolved under the other
+            // --collision-naming value is a plan this run was not asked to apply. This runs after the existence
             // and uniqueness checks so those keep their own, more specific reasons.
             foreach (var file in files.Where(f => !f.IsKept))
             {
-                var mismatch = DescribeOtherCollisionNamingForm(originalPath, computedPaths[file.Type.Key], file.Path, collisionNaming);
+                var mismatch = DescribeOtherCollisionNamingForm(originalPath, computedPaths[file.Type.Key], file.Path, planned.Note, collisionNaming);
                 if (mismatch is not null)
                 {
                     return new SplitPlan(keep, keptPath, gitMove, note, PlanMismatchReason, Array.Empty<PlannedFile>(), SkipNote: mismatch);

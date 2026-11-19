@@ -114,11 +114,14 @@ public sealed class CollisionNamingTests
         Assert.Equal(new[] { "A.cs", "B.cs", "C.cs", "Lone.cs" }, CsFiles(ws));
     }
 
-    [Fact]
-    public void ContentPhase_StillAcceptsAHandEditedFreePath()
+    [Theory]
+    [InlineData("SharedOne.cs")]
+    [InlineData("Shared.A.cs")]
+    public void ContentPhase_StillAcceptsAHandEditedFreePath(string editedName)
     {
-        // The naming check refuses one shape only: the other naming's qualified form. A
-        // reviewer who renames an output in the manifest to a free path is still obeyed.
+        // Default behavior must not move. A reviewer who retypes an output path in a default
+        // plan is obeyed, even when the new path has the type-first shape. The note still
+        // records the name the plan chose, which is how the two cases are told apart.
         using var ws = new TempWorkspace();
         var (aPath, _, listPath) = WriteSharedPair(ws, sharedTypes: "public class Shared { }\n");
         var manifestPath = Path.Combine(ws.Root, "m.csv");
@@ -126,7 +129,7 @@ public sealed class CollisionNamingTests
         var plan = RunPhase(ws, listPath, manifestPath, Phase.Plan, CollisionNaming.FileFirst);
         var edited = plan
             .Select(r => r.OriginalPath == aPath
-                ? r with { NewFiles = r.NewFiles.Select(f => f with { Path = Path.Combine(ws.Root, "SharedOne.cs") }).ToArray() }
+                ? r with { NewFiles = r.NewFiles.Select(f => f with { Path = Path.Combine(ws.Root, editedName) }).ToArray() }
                 : r)
             .ToArray();
         ManifestWriter.Write(edited, manifestPath);
@@ -134,7 +137,7 @@ public sealed class CollisionNamingTests
         var content = RunPhase(ws, listPath, manifestPath, Phase.Content, CollisionNaming.FileFirst);
 
         Assert.All(content, r => Assert.Equal("split", r.Status));
-        Assert.Equal(new[] { "A.cs", "B.Shared.cs", "B.cs", "SharedOne.cs" }, CsFiles(ws));
+        Assert.Equal(new[] { "A.cs", "B.Shared.cs", "B.cs", editedName }.Order(StringComparer.Ordinal), CsFiles(ws));
     }
 
     [Fact]

@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 30 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 107 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 108 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -75,7 +75,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 107 passed, 0 failed
+dotnet test  -c Release      # must be 108 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -173,7 +173,8 @@ agent does not pay again.
   an explicit `--manifest` if you want to keep the plan for comparison.
 - **The content phase never reruns the cross file collision pass.** It takes every output
   path from the manifest. So `--collision-naming` would be ignored there without the check
-  in `SplitPlanner.BuildPlan` that refuses the other value's qualified name. A test that
+  in `SplitPlanner.BuildPlan` that refuses a row the plan resolved under the other value.
+  The check reads the row's note, so it depends on `SplitPlanner.FormatResolution`. A test that
   only runs plan and content with one value cannot see that check go missing.
   `CollisionNamingTests` runs the two phases with different values for this reason.
 - **Exit codes are 0, 1, 2, 3, and they mean different things.** 0 the run completed with

@@ -158,7 +158,7 @@ originalPath,keptPath,gitMove,status,reason,note,newFilePath,type
 ```
 
 SA1649 reads both names as `Shared`, so both files pass. The flag is opt-in, and the
-default stays `file-first`, so the plan phase produces the same paths as before. Six
+default stays `file-first`, so a run without the flag behaves as it did before. Six
 things to know:
 
 * **Pass the flag to every phase.** The value changes planned paths. A content run whose
@@ -170,10 +170,10 @@ things to know:
   0, and files with no collision are still split. The content phase then writes its rows
   back to the manifest, so the skipped files lose their `split` rows. Run the plan phase
   again with the value you want before you retry.
-* **A hand-edited `Shared.A.cs` now needs the flag.** A content run without the flag
-  refuses a manifest path of the exact form `<TypeName>.<OriginalFileName>.cs`, because it
-  cannot tell that edit from a type-first plan. Earlier versions wrote it. Pass
-  `--collision-naming type-first` to plan and content instead of editing the manifest.
+* **The check reads the plan's own note.** The content phase refuses a path only when the
+  `note` column records that the plan chose it under the other value. A path you typed
+  into the manifest by hand is still accepted when it is free, whatever its shape. Do not
+  edit the note of a row you want this check to protect.
 * **Some source names are refused.** Roslyn treats a file as generated code when its name
   ends in `.g`, `.g.i`, `.designer`, or `.generated` before the extension. Analyzers skip
   such a file and nullable annotations switch off in it. Type-first puts the source file

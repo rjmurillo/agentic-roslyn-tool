@@ -192,14 +192,15 @@ Promises:
   output paths. The manifest carries no content hash, so an edit that leaves type names
   and paths alone passes this check. Treat it as drift detection on the plan shape, not as
   proof the source is unchanged.
-- Refuses a row whose output path is the qualified collision name of the
-  `--collision-naming` value this run was not given. The reason is the same
-  `content phase plan does not match manifest`, and the row's note names the path and both
-  values. The content phase never reruns the collision pass, so this check is the only
-  thing that keeps the flag in step with the plan. It runs with or without the flag, so a
-  default run refuses a manifest path hand-edited to `TypeName.FileName.cs`. The skipped
-  row replaces the `split` row when the manifest is written back, so recovery is to run
-  the plan phase again.
+- Refuses a row the plan phase resolved under the `--collision-naming` value this run
+  was not given. Two things must hold: the output path has the other value's qualified
+  form, and the row's note records that the collision pass chose that path. The reason is
+  the same `content phase plan does not match manifest`, and the skipped row's note names
+  the path and both values. The content phase never reruns the collision pass, so this
+  check is the only thing that keeps the flag in step with the plan. A path typed into the
+  manifest by hand has no such note and is accepted as before. The skipped row replaces
+  the `split` row when the manifest is written back, so recovery is to run the plan phase
+  again.
 - Writes its own manifest to the same default path, which **overwrites the plan
   manifest**. Pass an explicit `--manifest` when you want to keep both.
 
