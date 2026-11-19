@@ -536,8 +536,10 @@ any row is touched. It also changes the manifest CSV for every caller, to serve 
 Revisit it if a second flag ever changes planned paths.
 
 **Consequences.** The value must be passed to every phase. The renames phase reads no
-manifest, so it cannot check the value. It moves kept files only, but the value can change
-which inputs the collision pass skips, so it should match there too. The content check
+manifest, so it cannot check the value. It also writes the manifest again from its own
+plan. A renames run with a different value replaces the reviewed collision names, and the
+content check then agrees with the new manifest. Closing that gap means teaching renames
+to read the manifest, which is a larger change than this flag. The content check
 reads the plan's value from the path and the note together. It is per row. A row with no
 collision has the same paths under both values and still applies. No default behavior
 changed. A run without the flag plans the same paths as before, and it still accepts a
@@ -553,8 +555,9 @@ then writes those rows back as `skipped`, which uses up the reviewed plan for th
 fix is to run the plan phase again. This is the known cost of the manifest being both
 plan and report.
 
-Type-first refuses a source whose base name is `G`, `Designer`, or `Generated`, or ends
-in `.g` or `.g.i`. The qualified name would end in a suffix that Roslyn's
+Type-first refuses a colliding source whose base name is `G`, `Designer`, or `Generated`,
+or ends in `.g`, `.g.i`, `.designer`, or `.generated`. The qualified name would end in a
+suffix that Roslyn's
 `GeneratedCodeUtilities.IsGeneratedCodeFile` reads as generated code. Analyzers skip such
 a file and nullable annotations switch off in it. File-first has the mirror case when the
 type is named `G`. It is left alone so default plans stay identical.

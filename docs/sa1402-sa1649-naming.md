@@ -158,14 +158,17 @@ originalPath,keptPath,gitMove,status,reason,note,newFilePath,type
 ```
 
 SA1649 reads both names as `Shared`, so both files pass. The flag is opt-in, and the
-default stays `file-first`, so a run without the flag behaves as it did before. Six
-things to know:
+default stays `file-first`, so a run without the flag behaves as it did before. What
+to know:
 
 * **Pass the flag to every phase.** The value changes planned paths. A content run whose
   flag differs from the one the plan used skips each affected file with
   `content phase plan does not match manifest` and writes no source for it. The `note`
-  column names the path and both values. The renames phase reads no manifest and cannot
-  check, so give it the same value.
+  column names the path and both values.
+* **The renames phase writes the manifest again.** It recomputes the plan under the value
+  it is given and replaces the manifest with the result. A renames run with a different
+  value therefore swaps the reviewed names for the other form, and nothing refuses. Give
+  it the same value as the plan run.
 * **A mismatched content run uses up the plan.** Skips are not failures, so the run exits
   0, and files with no collision are still split. The content phase then writes its rows
   back to the manifest, so the skipped files lose their `split` rows. Run the plan phase
@@ -179,7 +182,8 @@ things to know:
   such a file and nullable annotations switch off in it. Type-first puts the source file
   name last, so `G.cs` or `Designer.cs` would yield `Shared.G.cs` or
   `Shared.Designer.cs`. The tool skips that input with
-  `qualified output name would be read as generated code; manual handling required`.
+  `qualified output name would be read as generated code; manual handling required`. The
+  `note` column names the refused path.
 * **A generic type keeps its braces.** When `Shared<T>` collides too, the output is
   `Shared{T}.A.cs`. SA1649 reads that as `Shared{T}`. It passes under the `stylecop`
   convention and raises SA1649 under `metadata`, the same as `Shared{T}.cs` would. A build

@@ -163,10 +163,11 @@ Promises:
 - Kept as a separate phase so the rename lands in its own commit. Git then records a
   rename instead of a delete plus an add, and the file history survives.
 
-Recomputes the plan and reads no manifest. So it cannot notice a `--collision-naming`
-value that differs from the plan run. Renames touch only kept files, never a qualified
-output. The value can still change which inputs are skipped, and a skipped input is not
-renamed. So pass the same value here as in the plan run.
+Recomputes the plan, reads no manifest, and writes the manifest again with its own rows.
+So it cannot notice a `--collision-naming` value that differs from the plan run, and a
+different value replaces the reviewed collision names with the other form. The content
+check then sees a manifest that agrees with whatever renames was given. Pass the same
+value here as in the plan run.
 
 Requires a real git repository. The test suite avoids this phase by keeping every fixture
 file name equal to its primary type name, so no `git` process ever starts.

@@ -140,6 +140,31 @@ public sealed class CollisionNamingTests
         Assert.Equal(new[] { "A.cs", "B.Shared.cs", "B.cs", editedName }.Order(StringComparer.Ordinal), CsFiles(ws));
     }
 
+    [Theory]
+    [InlineData("file-first")]
+    [InlineData("type-first")]
+    public void ContentPhase_AppliesAPlanWhoseTwoFormsAreOneName(string value)
+    {
+        // A.A.cs moving a type A is qualified as A.A.A.cs under both values. A run that
+        // uses one value for both phases must apply it, not read it as the other form.
+        var naming = Options.Parse(["--input", "list.txt", "--collision-naming", value]).CollisionNaming;
+        using var ws = new TempWorkspace();
+        var dotted = ws.WriteFile("A.A.cs", TestHeader.Copyright + "\nnamespace Sample.One;\n\npublic class X { }\n\npublic class A { }\n");
+        var plain = ws.WriteFile("B.cs", TestHeader.Copyright + "\nnamespace Sample.Two;\n\npublic class B { }\n\npublic class A { }\n");
+        var listPath = ws.WriteInputList(dotted, plain);
+        var manifestPath = Path.Combine(ws.Root, "m.csv");
+
+        ManifestWriter.Write(RunPhase(ws, listPath, manifestPath, Phase.Plan, naming), manifestPath);
+
+        // No type is named A.A, so the plan renames the kept file to X.cs. The renames
+        // phase needs git, so the move is done by hand here.
+        File.Move(dotted, Path.Combine(ws.Root, "X.cs"));
+        var content = RunPhase(ws, listPath, manifestPath, Phase.Content, naming);
+
+        Assert.All(content, r => Assert.Equal("split", r.Status));
+        Assert.True(File.Exists(Path.Combine(ws.Root, "A.A.A.cs")));
+    }
+
     [Fact]
     public void TypeFirst_RefusesWhenTheQualifiedPathAlreadyExists()
     {
@@ -224,6 +249,7 @@ public sealed class CollisionNamingTests
 
         Assert.Equal("skipped", typeFirst[0].Status);
         Assert.Equal(SplitPlanner.GeneratedNameReason, typeFirst[0].Reason);
+        Assert.Equal("refused output name: " + Path.Combine(root, "Shared." + sourceName), typeFirst[0].Note);
         Assert.Equal("split", typeFirst[1].Status);
         Assert.Equal(Path.Combine(root, "Shared.B.cs"), Assert.Single(typeFirst[1].NewFiles).Path);
 

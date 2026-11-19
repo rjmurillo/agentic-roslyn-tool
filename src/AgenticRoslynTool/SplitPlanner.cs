@@ -105,7 +105,11 @@ internal static class SplitPlanner
 
             if (generatedNames.Contains(result.OriginalPath))
             {
-                return FileResult.Skip(result.OriginalPath, result.KeptPath, GeneratedNameReason);
+                var refused = resolvedPaths
+                    .Where(kvp => PathComparison.Comparer.Equals(kvp.Key.OriginalPath, result.OriginalPath) && HasGeneratedCodeName(kvp.Value))
+                    .Select(kvp => kvp.Value)
+                    .Order(StringComparer.Ordinal);
+                return FileResult.Skip(result.OriginalPath, result.KeptPath, GeneratedNameReason) with { Note = "refused output name: " + string.Join("; ", refused) };
             }
 
             var newFiles = result.NewFiles.Select(file =>
@@ -166,14 +170,20 @@ internal static class SplitPlanner
     /// row's note records that the collision pass chose that path. The note is what tells a
     /// plan made under the other value from a path a reviewer typed into the manifest. A
     /// hand-edited free path, of any shape, is accepted exactly as it was before the flag
-    /// existed. The two forms of one output are never equal: a moved type never shares the
-    /// source file's base name, because the type that does is the one kept in place.
+    /// existed.
+    /// </para>
+    /// <para>
+    /// The two forms can be one string. <c>A.A.cs</c> moving a type <c>A</c> gives
+    /// <c>A.A.A.cs</c> either way. A path that is also this run's own form is never a
+    /// mismatch, so that case is excluded first.
     /// </para>
     /// </remarks>
     private static string? DescribeOtherCollisionNamingForm(string originalPath, string computedPath, string plannedPath, string? plannedNote, CollisionNaming collisionNaming)
     {
         var other = collisionNaming == CollisionNaming.FileFirst ? CollisionNaming.TypeFirst : CollisionNaming.FileFirst;
-        if (!StringComparer.OrdinalIgnoreCase.Equals(plannedPath, GetQualifiedPath(originalPath, computedPath, other))
+        var comparer = StringComparer.OrdinalIgnoreCase;
+        if (comparer.Equals(plannedPath, GetQualifiedPath(originalPath, computedPath, collisionNaming))
+            || !comparer.Equals(plannedPath, GetQualifiedPath(originalPath, computedPath, other))
             || plannedNote is null
             || !plannedNote.Contains(FormatResolution(originalPath, plannedPath), StringComparison.Ordinal))
         {
