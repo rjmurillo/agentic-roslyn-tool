@@ -9,6 +9,8 @@ namespace AgenticRoslynTool.Tests;
 // cannot see a disagreement; the last test pins that limit.
 public sealed class FileNamingAgreementTests
 {
+    private const string FooWithBar = "namespace N;\n\npublic class Foo<T>\n{\n}\n\npublic class Bar\n{\n}\n";
+
     [Theory]
     [InlineData(FileNamingConvention.Metadata, FileNamingConvention.StyleCop, "Foo`1.cs", "Foo.cs")]
     [InlineData(FileNamingConvention.StyleCop, FileNamingConvention.Metadata, "Foo.cs", "Foo`1.cs")]
@@ -31,6 +33,51 @@ public sealed class FileNamingAgreementTests
             result.Reason);
         Assert.Equal(FileNamingRuns.AWithGenericFoo, File.ReadAllText(source));
         Assert.Equal(new[] { "A.cs" }, FileNamingRuns.CsFiles(ws));
+    }
+
+    [Fact]
+    public void ContentPhase_NamesBothKeptPathsWhenTheConventionMovesTheKeptFile()
+    {
+        // Foo.cs is the right name for Foo<T> under stylecop and the wrong one under
+        // metadata, so the two conventions disagree on the kept path, not on a new file.
+        using var ws = new TempWorkspace();
+        var source = ws.WriteFile("Foo.cs", FooWithBar);
+        var listPath = ws.WriteInputList(source);
+
+        var result = Assert.Single(FileNamingRuns.RunPlanThenContent(ws, listPath, Path.Combine(ws.Root, "m.csv"), FileNamingConvention.StyleCop, FileNamingConvention.Metadata));
+
+        Assert.Equal("skipped", result.Status);
+        Assert.Equal(
+            $"content phase plan does not match manifest: manifest keeps {source}, this run keeps {Path.Combine(ws.Root, "Foo`1.cs")}",
+            result.Reason);
+        Assert.Equal(FooWithBar, File.ReadAllText(source));
+        Assert.Equal(new[] { "Foo.cs" }, FileNamingRuns.CsFiles(ws));
+    }
+
+    [Fact]
+    public void ContentPhase_NamesTheLandedRenameWhenTheFlagIsDroppedAfterRenames()
+    {
+        // Plan and renames under metadata move Foo.cs to Foo`1.cs. A content run without
+        // the flag would keep Foo.cs. The skipped row records that computed path, so the
+        // reason has to carry the path the manifest held, which is where the file now is.
+        using var ws = new TempWorkspace();
+        var source = ws.WriteFile("Foo.cs", FooWithBar);
+        var listPath = ws.WriteInputList(source);
+        var manifestPath = Path.Combine(ws.Root, "m.csv");
+        var renamedPath = Path.Combine(ws.Root, "Foo`1.cs");
+        FileNamingRuns.Git(ws.Root, "init", "--quiet");
+        FileNamingRuns.Git(ws.Root, "add", "Foo.cs");
+        FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Plan, FileNamingConvention.Metadata);
+        FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Renames, FileNamingConvention.Metadata);
+
+        var result = Assert.Single(FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Content, FileNamingConvention.StyleCop));
+
+        Assert.Equal("skipped", result.Status);
+        Assert.Equal(
+            $"content phase plan does not match manifest: manifest keeps {renamedPath}, this run keeps {source}",
+            result.Reason);
+        Assert.Equal(FooWithBar, File.ReadAllText(renamedPath));
+        Assert.Equal(new[] { "Foo`1.cs" }, FileNamingRuns.CsFiles(ws));
     }
 
     [Fact]

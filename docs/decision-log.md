@@ -543,9 +543,10 @@ a moved file's name, so it passed and was applied. Each substituted path must no
 path computed before substitution, or its cross-file qualified form. Those are the only two
 paths an unedited plan can hold. A manifest edited to send a type to some other free path
 used to be applied and is now skipped as a mismatch. The existence and uniqueness checks
-still run first, so `ManifestPathTamperingTests` reports the same reasons. The mismatch
-reason names the manifest path and the computed path. The skipped row replaces the plan
-row, so the reason is the only place that manifest path survives. It still cannot name the
+still run first, so `ManifestPathTamperingTests` reports the same reasons. Every mismatch
+reason names what differs: the kept path, the rename, or a new file path, with the
+manifest's value beside the computed one. The skipped row replaces the plan row, so the
+reason is the only place the manifest's value survives. It still cannot name the
 convention, because the manifest does not record one.
 
 Under `metadata`, `Box<T>` and `Box<U>` in one file share ``Box`1.cs`` and are refused as

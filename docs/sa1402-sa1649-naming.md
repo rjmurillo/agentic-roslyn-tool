@@ -8,8 +8,9 @@ live in `Foo.cs` and `Foo{T}.cs` without breaking SA1402 or SA1649.
 This page explains the rules behind that answer, what `agentic-roslyn-tool` names each
 file when it splits one, and what to do in the cases it cannot name for you.
 
-Every result below comes from a real build with StyleCop.Analyzers `1.2.0-beta.556` on
-.NET SDK 10.0.401, and from running the tool against a sample repository.
+Every result below comes from a real build with StyleCop.Analyzers `1.2.0-beta.556`, and
+from running the tool against a sample repository. The build ran on .NET SDK 10.0.401,
+except for the metadata section, which names its own.
 
 ## What SA1649 actually compares
 
@@ -121,7 +122,8 @@ Pass the flag to all three phases. It decides file names, so each phase must agr
 content phase skips a file whose manifest row the other convention would have planned
 differently and writes nothing for it. The reason starts with
 `content phase plan does not match manifest` and then names the manifest path and the path
-this run computes. A file whose paths come out the same under both conventions still splits.
+this run computes. For a kept file the two conventions name differently, it reads
+``manifest keeps Foo`1.cs, this run keeps Foo.cs``, with full paths. A file whose paths come out the same under both conventions still splits.
 That covers every file with no generic type. The run exits 0 and its rows replace the plan,
 so run the plan phase again before you retry.
 

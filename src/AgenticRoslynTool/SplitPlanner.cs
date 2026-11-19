@@ -17,7 +17,7 @@ internal static class SplitPlanner
 {
     /// <summary>
     /// The skip reason for a content phase row whose manifest disagrees with this run's
-    /// plan. A drifted path appends the two paths after it, so match it as a prefix.
+    /// plan. What differs is appended after it, so match it as a prefix.
     /// </summary>
     private const string PlanMismatchReason = "content phase plan does not match manifest";
 
@@ -32,8 +32,8 @@ internal static class SplitPlanner
     /// The qualified fallback form violates StyleCop SA1649 (file name must match
     /// first type). The tool prefers a StyleCop violation over a build break; the
     /// alternative would be to refuse to split, which loses coverage.
-    /// <see cref="BuildPlan"/> depends on the forms this method can produce. In the content
-    /// phase it accepts a manifest path only when it is the computed path or its
+    /// <see cref="ApplyManifestPaths"/> depends on the forms this method can produce. In the
+    /// content phase it accepts a manifest path only when it is the computed path or its
     /// <see cref="GetQualifiedPath"/> form. A third form added here must be added there,
     /// or the content phase refuses every row that carries it.
     /// </remarks>
@@ -275,8 +275,8 @@ internal static class SplitPlanner
     /// <remarks>
     /// The order is load-bearing. Existence and uniqueness of the substituted paths are
     /// checked first, then the plan shape, then each manifest path against the computed
-    /// one. A drifted path is reported with both paths, because the row that reports it
-    /// replaces the plan row that held the manifest path.
+    /// one. Every mismatch reason names the manifest's value, because the row that
+    /// reports it replaces the plan row that held it.
     /// </remarks>
     /// <param name="originalPath">The input path the plan row is keyed by.</param>
     /// <param name="files">The files this run computed, before any manifest path is used.</param>
@@ -316,11 +316,10 @@ internal static class SplitPlanner
             }
         }
 
-        var plannedNewFiles = planned.NewFiles.Select(f => f.Path).Order(StringComparer.OrdinalIgnoreCase).ToArray();
-        var actualNewFiles = substituted.Where(f => !f.IsKept).Select(f => f.Path).Order(StringComparer.OrdinalIgnoreCase).ToArray();
-        if (!StringComparer.OrdinalIgnoreCase.Equals(planned.KeptPath, keptPath) || planned.GitMove != gitMove || !plannedNewFiles.SequenceEqual(actualNewFiles, StringComparer.OrdinalIgnoreCase))
+        var actualNewFiles = substituted.Where(f => !f.IsKept).Select(f => f.Path).ToArray();
+        if (DescribeShapeMismatch(planned, keptPath, gitMove, actualNewFiles) is { } shapeMismatch)
         {
-            return (Array.Empty<PlannedFile>(), PlanMismatchReason);
+            return (Array.Empty<PlannedFile>(), $"{PlanMismatchReason}: {shapeMismatch}");
         }
 
         // The path set comparison above runs after substitution, so on its own it compares
@@ -341,6 +340,47 @@ internal static class SplitPlanner
         return (substituted, null);
     }
 
+    /// <summary>
+    /// Compares the plan shape, which is the kept path, the git move flag, and the set of
+    /// new file paths, and says what differs.
+    /// </summary>
+    /// <remarks>
+    /// The text names the manifest's value. The row that carries the reason replaces the
+    /// plan row, and that row records this run's kept path, so the reason is the only
+    /// place the manifest's value survives.
+    /// </remarks>
+    /// <param name="planned">The plan manifest row for this input.</param>
+    /// <param name="keptPath">The kept path this run computed.</param>
+    /// <param name="gitMove">Whether this run plans a rename of the kept file.</param>
+    /// <param name="actualNewFiles">This run's new file paths, after manifest paths were applied.</param>
+    /// <returns>What differs, or null when the shape matches.</returns>
+    private static string? DescribeShapeMismatch(FileResult planned, string keptPath, bool gitMove, IReadOnlyList<string> actualNewFiles)
+    {
+        if (!StringComparer.OrdinalIgnoreCase.Equals(planned.KeptPath, keptPath))
+        {
+            return $"manifest keeps {planned.KeptPath}, this run keeps {keptPath}";
+        }
+
+        if (planned.GitMove != gitMove)
+        {
+            return planned.GitMove
+                ? $"manifest renames the kept file to {planned.KeptPath}, this run plans no rename"
+                : $"manifest plans no rename, this run renames the kept file to {keptPath}";
+        }
+
+        var plannedNewFiles = planned.NewFiles.Select(f => f.Path).ToArray();
+        if (plannedNewFiles.Except(actualNewFiles, StringComparer.OrdinalIgnoreCase).FirstOrDefault() is { } onlyInManifest)
+        {
+            return $"manifest has {onlyInManifest}, which this run does not plan";
+        }
+
+        if (actualNewFiles.Except(plannedNewFiles, StringComparer.OrdinalIgnoreCase).FirstOrDefault() is { } onlyInRun)
+        {
+            return $"this run plans {onlyInRun}, which the manifest lacks";
+        }
+
+        return plannedNewFiles.Length == actualNewFiles.Count ? null : "manifest lists a new file path more than once";
+    }
 
     /// <summary>
     /// Picks the type that stays in the input file, and says whether the file is already
