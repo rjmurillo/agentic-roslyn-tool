@@ -290,7 +290,7 @@ public sealed class SeparateRunReportTests
         var content = Phase("content", workspace, listPath, manifestPath, "--report", link);
 
         Assert.Equal(3, content.ExitCode);
-        Assert.Contains("reaches the plan manifest", content.StandardError, StringComparison.Ordinal);
+        Assert.Contains("is a symbolic link", content.StandardError, StringComparison.Ordinal);
         Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
         Assert.Equal(TwoTypes, File.ReadAllText(input));
     }
@@ -469,7 +469,7 @@ public sealed class SeparateRunReportTests
         var content = Phase("content", workspace, listPath, manifestPath, "--report", Path.Combine(alias, "plan.csv"));
 
         Assert.Equal(3, content.ExitCode);
-        Assert.Contains("reaches the plan manifest", content.StandardError, StringComparison.Ordinal);
+        Assert.Contains("is the plan manifest under another name", content.StandardError, StringComparison.Ordinal);
         Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
         Assert.Equal(TwoTypes, File.ReadAllText(input));
     }
@@ -508,9 +508,80 @@ public sealed class SeparateRunReportTests
         var content = Phase("content", workspace, listPath, manifestPath, "--report", reportPath);
 
         Assert.Equal(3, content.ExitCode);
-        Assert.Contains("reaches the plan manifest", content.StandardError, StringComparison.Ordinal);
+        Assert.Contains("is the plan manifest under another name", content.StandardError, StringComparison.Ordinal);
         Assert.Equal(planBytes, File.ReadAllBytes(direct));
         Assert.Equal("split", Assert.Single(ManifestWriter.Read(direct)).Status);
+    }
+
+    [Fact]
+    public void ReportReachingThePlanThroughALinkTargetThatClimbsOutOfALink_IsRefused()
+    {
+        // deep/inner holds nothing but is where "hop" points. "via" points at
+        // hop/../plans, and the operating system resolves ".." from the real location of
+        // hop's target, deep/inner, so via is deep/plans. Collapsing ".." as text gives
+        // <root>/plans instead, which does not exist.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var plans = Path.Combine(workspace.Root, "deep", "plans");
+        Directory.CreateDirectory(plans);
+        Directory.CreateDirectory(Path.Combine(workspace.Root, "deep", "inner"));
+        var manifestPath = Path.Combine(plans, "plan.csv");
+        var hop = Path.Combine(workspace.Root, "hop");
+        var via = Path.Combine(workspace.Root, "via");
+        try
+        {
+            Directory.CreateSymbolicLink(hop, Path.Combine(workspace.Root, "deep", "inner"));
+            Directory.CreateSymbolicLink(via, Path.Combine("hop", "..", "plans"));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return;
+        }
+
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        var planBytes = File.ReadAllBytes(manifestPath);
+        Assert.Equal(planBytes, File.ReadAllBytes(Path.Combine(via, "plan.csv")));
+        Squat(workspace, "Beta.cs");
+
+        var content = Phase("content", workspace, listPath, manifestPath, "--report", Path.Combine(via, "plan.csv"));
+
+        Assert.Equal(3, content.ExitCode);
+        Assert.Contains("is the plan manifest under another name", content.StandardError, StringComparison.Ordinal);
+        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+        Assert.Empty(Directory.GetFiles(plans, "*.tmp"));
+    }
+
+    [Fact]
+    public void ReportBesideThePlanInALinkedDirectory_IsAllowed()
+    {
+        // The same directory under another spelling is fine when the name differs. Only
+        // the manifest's own entry is protected.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var plans = Path.Combine(workspace.Root, "plans");
+        Directory.CreateDirectory(plans);
+        var manifestPath = Path.Combine(plans, "plan.csv");
+        var alias = Path.Combine(workspace.Root, "alias");
+        try
+        {
+            Directory.CreateSymbolicLink(alias, plans);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return;
+        }
+
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        var planBytes = File.ReadAllBytes(manifestPath);
+
+        var content = Phase("content", workspace, listPath, manifestPath, "--report", Path.Combine(alias, "run.csv"));
+
+        Assert.Equal(0, content.ExitCode);
+        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+        Assert.Equal("split", Assert.Single(ManifestWriter.Read(Path.Combine(plans, "run.csv"))).Status);
+        Assert.Equal(["plan.csv", "run.csv"], Directory.GetFiles(plans).Select(Path.GetFileName).Order(StringComparer.Ordinal));
     }
 
     [Fact]

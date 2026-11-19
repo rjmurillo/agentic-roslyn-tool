@@ -527,12 +527,17 @@ and `content` phases write what they did to a report file in the same CSV format
   with the `plan` phase, where the flag would be a silent no-op.
 - **The report path is proven before the run.** The report is written after every source
   file is rewritten. A path found unusable at that point ends a run that already changed
-  files with exit code 3 and no report file. So `ReportFile.Prepare` runs first and ends the run with exit code 3 when the path reaches
-  the manifest through a symbolic link, is itself a link or a directory, sits in a
-  directory that cannot take a new file, or names an existing file that is not a report.
-  The last rule keeps `--report` off the input list and off source files that exist when
-  the run starts. It is the report's answer to rule 10: the file must be replaceable for a
-  retry, so the check asks what the existing file is, not whether one exists.
+  files with exit code 3 and no report file. So `ReportFile.Prepare` runs first. It ends
+  the run with exit code 3 when the path is the manifest under another name, is itself a
+  link or a directory, sits in a directory that cannot take a new file, or names an
+  existing file that is not a report. The last rule keeps `--report` off the input list
+  and off source files that exist when the run starts. It is the report's answer to rule
+  10: the file must be replaceable for a retry, so the check asks what the existing file
+  is, not whether one exists.
+- **Whether the report path is the manifest is observed, not derived.** The check creates
+  a file beside the report path and looks for it in the manifest's directory. Two earlier
+  versions resolved symbolic links by hand. One took each link target as final and one
+  collapsed `..` as text. Each let a report path reach the manifest and replace the plan.
 - **The same question is asked again at the write.** The run creates source files, and
   one of them can land on the report path. `ReportFile.Write` refuses to replace it. The
   rows then go to standard output and the run exits 3, so neither the type nor the record

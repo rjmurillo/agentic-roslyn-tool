@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 29 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 129 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 131 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -74,7 +74,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 129 passed, 0 failed
+dotnet test  -c Release      # must be 131 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -182,10 +182,11 @@ agent does not pay again.
   only once every source file is rewritten. `ReportFile.Write` asks again, because the run
   may have created a source file at that path. Drop the second check and `--report
   src/Beta.cs` replaces a type the run just split out, at exit code 0.
-- **Resolving a path through symbolic links takes more than one pass.** A link's target
-  can itself run through a linked directory. `ReportFile.RealPath` replaces one link and
-  starts again from the root. A version that took each target as final let `--report`
-  reach the manifest through two links and replace the plan.
+- **Do not work out by hand whether two paths name one directory.** Two versions of
+  `ReportFile` resolved symbolic links themselves. One took each link target as final, one
+  collapsed `..` as text, and each let `--report` reach the manifest and replace the plan.
+  `ReportFile.ReachesManifest` now observes it: a file created beside the report path is
+  visible under the manifest's directory exactly when the two are one directory.
 - **Nothing in `ReportFile` opens an existing file for writing.** The probe and the report
   both go to a new sibling file. An earlier version probed with `FileMode.Create` on the
   report path. That truncated a plan reached through a hard link, at exit code 0.

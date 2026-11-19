@@ -32,7 +32,7 @@ agentic-roslyn-tool split-types --input <dir|file.cs|csv|list|-> [options]
 |---|---|
 | Idempotency | Yes for `plan`. Yes for `content`: it never writes the plan it reads, and a row an earlier run applied is skipped as `already applied`. |
 | Side effects | `plan` writes only the manifest. `renames` runs `git mv` and writes the report. `content` writes source files and the report. Neither of the last two writes the manifest. |
-| Failure mode | Per file. An unexpected exception while reading, parsing, planning, or writing becomes a `failed` row and the run continues. So does a verification failure. Only a throw before the read path is resolved, or a missing content manifest, ends the run. |
+| Failure mode | Per file. An unexpected exception while reading, parsing, planning, or writing becomes a `failed` row and the run continues. So does a verification failure. Only a throw before the read path is resolved, a missing content manifest, a refused report path, or a report that could not be written ends the run with exit code 3. |
 | Exit code | 0 no failures, 1 at least one row `failed`, 2 the command line was wrong, 3 the run could not complete. Skips are not failures. |
 | Streams | Standard output carries a parseable document or nothing: the manifest CSV in `plan`, the JSON report under `--json`, and nothing in `renames` and `content` without `--json`, unless the report file could not be written, when the rows print as CSV. The manifest path, the report path, the one-line summary, and every error go to standard error. |
 | Performance | Syntax parse only, no semantic model and no MSBuild load. A 7,818 file run completed in a single pass, measured outside this repository. |
@@ -149,13 +149,17 @@ Two CSV files with one format and two jobs.
 - `--report` naming the manifest is rejected with exit code 2, compared without regard to
   case. So is `--report` with the `plan` phase, where it would do nothing.
 - **The report path is checked before the run changes anything.** `ReportFile.Prepare`
-  ends the run with exit code 3, and no source file touched, when the path reaches the
-  manifest through a symbolic link in any component, is itself a symbolic link, is a
-  directory, sits in a directory that cannot take a new file, or names an existing file
+  ends the run with exit code 3, and no source file touched, when the path is the
+  manifest under another name, is itself a symbolic link, is a directory, sits in a directory that cannot take a new file, or names an existing file
   that is not a report. An existing file counts as a report when its first line starts
   with the `originalPath` column. An empty file does not. A path that ends in a directory
   separator is refused as a directory. So `--report` cannot replace the input list or a source
   file. A second plan manifest is in that format and would be replaced.
+- **Whether the report path is the manifest is observed, not derived.** The check creates
+  a file beside the report path and looks for it in the manifest's directory. It is there
+  exactly when the two are one directory, whatever links either path runs through. The
+  path is refused when the directory is the same and the file names match without regard
+  to case.
 - **The check changes no existing file.** It writes and removes one new file beside the
   report path, and never opens the report path itself. It creates the report's directory
   when that is missing, and leaves it there if the run then ends early.
