@@ -165,7 +165,8 @@ Promises:
 
 - Does not compare against the reviewed manifest. It recomputes the plan and `Program`
   writes the result over the manifest. So a `--file-naming` value that differs from the
-  plan is not refused here: the renames follow the value this run was given.
+  plan is not refused here: the renames follow the value this run was given, and the
+  content phase then checks against the rewritten manifest, not the reviewed one.
 
 Requires a real git repository. Most of the test suite avoids this phase by keeping every
 fixture file name equal to its primary type name, so no `git` process starts.

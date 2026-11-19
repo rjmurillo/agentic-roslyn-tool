@@ -528,7 +528,11 @@ change file names without a word. The caller knows the convention and states it.
 
 **Rejected.** Recording the convention in the manifest. The manifest already records every
 planned path, which is the thing the convention decides. A second copy could disagree with
-the paths beside it.
+the paths beside it. The cost of rejecting it is real: a recorded convention would let the
+renames phase refuse a flag that differs from the plan, and would let a mismatch reason
+name its cause. The column alone would not close that gap. The renames phase replays no
+manifest at all today, so it would also have to start reading one. That is a change to
+what the renames phase does, and it is left for its own decision.
 
 **Consequences.** The content phase gained a check that applies with or without the flag.
 It substitutes manifest paths into the plan and then compared output path sets, which
@@ -540,15 +544,22 @@ used to be applied and is now skipped as a mismatch. The existence and uniquenes
 still run first, so `ManifestPathTamperingTests` reports the same reasons.
 
 Under `metadata`, `Box<T>` and `Box<U>` in one file share ``Box`1.cs`` and are refused as
-`target path collision within split`. Under `stylecop` they split by parameter name. The
-renames phase does not replay the manifest, so it cannot refuse a flag that differs from
-the plan. The docs tell the caller to pass the flag to every phase.
+`target path collision within split`. Under `stylecop` they split by parameter name.
 
-**Reversal warning.** Remove the computed path comparison and a content run that omits
-`--file-naming metadata` applies a `metadata` plan at exit 0, or the reverse, and the
-reviewed plan no longer says which convention produced the tree. Drop the kept type rule
-and every correctly named ``Foo`1.cs`` loses `Foo<T>` to a new file, which is the opposite
-of what the flag is for. Change the default and every existing plan and test changes names.
+The content check covers one of two ways to disagree. Plan and renames under one value,
+content under the other: generic files are skipped and nothing is written for them. Files
+with no generic type still split, the run exits 0, and its rows replace the plan, so
+recovery is to run the plan phase again. Renames under a value that differs from the plan
+is not caught. The renames phase does not replay the manifest. It runs its own renames
+and rewrites the manifest, and a content run under that same value then applies it at exit
+0. The docs tell the caller to pass the flag to every phase and to plan again after
+changing it. `AGENTS.md` lists this as a known issue.
+
+**Reversal warning.** Remove the computed path comparison and a content run whose flag
+differs from the manifest it was handed applies that manifest at exit 0, with names from
+the other convention. Drop the kept type rule and every correctly named ``Foo`1.cs`` loses
+`Foo<T>` to a new file, which is the opposite of what the flag is for. Change the default
+and every existing plan and test that involves a generic type changes names.
 
 ## Unrecorded decisions
 

@@ -32,9 +32,7 @@ internal static class OutputBuilder
     {
         if (convention == FileNamingConvention.Metadata)
         {
-            return type.TypeParameters.Count == 0
-                ? type.Name + ".cs"
-                : type.Name + "`" + type.TypeParameters.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".cs";
+            return GetMetadataName(type) + ".cs";
         }
 
         var sameName = allTypes.Where(t => StringComparer.Ordinal.Equals(t.Name, type.Name)).ToArray();
@@ -44,6 +42,17 @@ internal static class OutputBuilder
         }
 
         return type.Name + ".cs";
+    }
+
+    /// <summary>
+    /// The name SA1649 expects for a type under the metadata convention, without the
+    /// extension: <c>Name`N</c> for a generic type of arity N, and <c>Name</c> otherwise.
+    /// </summary>
+    internal static string GetMetadataName(TopLevelType type)
+    {
+        return type.TypeParameters.Count == 0
+            ? type.Name
+            : type.Name + "`" + type.TypeParameters.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 
     /// <summary>

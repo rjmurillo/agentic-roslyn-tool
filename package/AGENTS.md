@@ -7,10 +7,11 @@ Use `agentic-roslyn-tool split-types` to split top-level types into separate fil
 ## Splitting C# files (SA1402)
 
 - Save the original C# paths in one list file before running any phase. Use the same list file for every phase.
+- Decide `--file-naming` before the first run. If the repository sets StyleCop `fileNamingConvention` to `metadata`, add `--file-naming metadata` to every command below, the dry run included. Generic files are then named ``Foo`1.cs``. Without the flag a generic file is named `Foo.cs`, or `Foo{T}.cs` when another type in the file shares the name.
+- Never change `--file-naming` between phases. If you did, run the dry run again and review the new plan. Only the content phase detects a mismatch. The renames phase replaces the plan with its own.
 - Run `agentic-roslyn-tool split-types --input <list file> --dry-run --json --manifest <path outside the repo>` first. This changes no source file.
 - Exit 0: read `summary`. If `summary.split` is 0, inspect skipped rows and their reasons. No automatic splits are planned. Exit 1: read `reason` on each `failed` row.
 - Exit 2: fix the arguments. Exit 3: read the `error:` line on standard error.
-- If the repository sets StyleCop `fileNamingConvention` to `metadata`, add `--file-naming metadata` to every phase. Generic files are then named ``Foo`1.cs``. The default, `stylecop`, names them `Foo{T}.cs`.
 - Run `--phase renames` with the same input and manifest, then commit the renames.
 - Run `--phase content` with the same input and manifest, then build and test.
 

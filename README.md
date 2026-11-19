@@ -179,8 +179,9 @@ Keep renames in their own commit. Git can then record renames instead of delete-
 
 If you pass `--file-naming metadata` to the plan, pass it to the renames and content phases
 too. The convention decides file names, so it has to be the same in all three. The content
-phase skips a file whose plan was made under the other convention, and writes nothing for
-it.
+phase skips a file whose manifest row was made under the other convention, and writes
+nothing for it. The renames phase has no such check. It rewrites the manifest under the
+value it was given, so run the plan again if you changed the flag.
 
 The renames phase recomputes the plan from the current files rather than replaying the
 reviewed manifest, and rewrites the manifest with what it did. Re-run the plan phase and
