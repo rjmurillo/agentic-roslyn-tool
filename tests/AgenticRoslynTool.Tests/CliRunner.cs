@@ -25,9 +25,12 @@ internal static class CliRunner
         }
 
         using var process = Process.Start(start)!;
+
+        // Standard error is drained on its own task. Reading one stream to the end before
+        // touching the other blocks forever once the unread one fills its pipe.
+        var standardError = process.StandardError.ReadToEndAsync();
         var standardOutput = process.StandardOutput.ReadToEnd();
-        var standardError = process.StandardError.ReadToEnd();
         process.WaitForExit();
-        return new CliResult(process.ExitCode, standardOutput, standardError);
+        return new CliResult(process.ExitCode, standardOutput, standardError.GetAwaiter().GetResult());
     }
 }

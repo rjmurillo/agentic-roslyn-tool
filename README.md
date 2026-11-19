@@ -76,7 +76,7 @@ Use these options to control the operation:
 | `--input <dir\|file\|csv\|list\|->` | Supplies the required file list. |
 | `--repo-root <path>` | Sets the repository root. |
 | `--manifest <path>` | Sets the CSV plan manifest path. Only the `plan` phase writes it. |
-| `--report <path>` | Sets where `renames` and `content` record what they did. Defaults to the manifest path with `.report.csv` as its extension. Rejected with the `plan` phase, and rejected when it names the manifest. |
+| `--report <path>` | Sets where `renames` and `content` record what they did. Defaults to the manifest path with `.report.csv` as its extension. Rejected with the `plan` phase, and rejected when it names the manifest. Replaces an earlier report, and refuses any other existing file. |
 | `--json` | Prints one JSON report to standard output instead of CSV. |
 | `--require-header <text>` | Prepends `<text>` to every emitted file and fails the split if any output does not start with it. Off by default. |
 | `--exclude <path-substring>` | Skips any input whose path contains `<path-substring>`. Repeatable. Off by default. |
@@ -200,7 +200,10 @@ git diff --check
 
 The content phase exits 3 if no plan manifest exists at `--manifest`. It never writes the
 manifest. It records what it did in the report file, which is `split-types.report.csv`
-here, or the path you pass with `--report`. Each run replaces the previous report.
+here, or the path you pass with `--report`. Each run replaces the previous report. The
+tool checks the report path before it changes anything. It exits 3 without touching a
+source file when the path cannot be written, or names an existing file that is not an
+earlier report.
 
 Because the plan stays as you reviewed it, a content run can be repeated. When a row
 fails, fix the cause and run the same command again. The retry applies the rows that

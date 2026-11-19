@@ -73,10 +73,6 @@ public sealed class ContentPhaseSkipTests
         var reported = Assert.Single(second, r => IsSolo(r.OriginalPath));
         Assert.Equal("skipped", reported.Status);
         Assert.Equal("not present as split in plan manifest", reported.Reason);
-
-        // The plan still says why the file was refused.
-        var stillPlanned = Assert.Single(ManifestWriter.Read(manifestPath), r => IsSolo(r.OriginalPath));
-        Assert.Equal(plannedSolo.Reason, stillPlanned.Reason);
     }
 
     private static bool IsSolo(string path) =>

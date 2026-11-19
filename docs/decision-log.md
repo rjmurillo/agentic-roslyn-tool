@@ -525,6 +525,13 @@ and `content` phases write what they did to a report file in the same CSV format
   `split-types.report.csv`. A default derived from the manifest name can never be the
   manifest. `--report` naming the manifest is rejected with exit code 2. So is `--report`
   with the `plan` phase, where the flag would be a silent no-op.
+- **The report path is proven before the run.** The report is written after every source
+  file is rewritten. A path found unusable at that point costs the record of the run. So
+  `ReportFile.Prepare` runs first and ends the run with exit code 3 when the path is a
+  symbolic link to the manifest, is a directory, cannot be created, or names an existing
+  file that is not a report. The last rule is what keeps `--report` off the input list
+  and off source files. It is the report's answer to rule 10: the file must be replaceable
+  for a retry, so the check asks what the existing file is, not whether one exists.
 - **Standard output is unchanged.** The report is a file. Its path goes to standard error
   on a `Report:` line beside the `Manifest:` line.
 - **`--json` gains one field.** `report` carries the report path, and is `null` in `plan`.
@@ -533,7 +540,9 @@ and `content` phases write what they did to a report file in the same CSV format
   longer writes the manifest. Its rows go to the report. A rename has to follow the file
   as it is now, and the content phase already refuses a row whose rename state disagrees
   with the plan, so nothing downstream depended on the rewrite. Decision 19 needs the
-  kept path of each `split` row, and the plan phase already records it.
+  kept path of each `split` row, and the plan phase already records it. A rename that
+  fails is now a `failed` row and exit code 1. It used to end the run with exit code 3
+  after earlier renames had landed, which left no report to name them.
 - **A retry skips what is already done.** A row whose planned outputs all exist, and whose
   file still declares a type but none of the planned ones, is `skipped` with the reason
   `already applied: every planned output exists and this file no longer declares the
@@ -549,17 +558,31 @@ retry, and leaves a file that claims `split` for work that did not happen.
 defensible design, and it is a second behavior change on a phase this decision did not
 need to touch. It can be taken up on its own.
 
+**Rejected.** Reading the previous report to learn which rows were applied. The report is
+replaced on every run and a caller may delete it, so it cannot be trusted as state. The
+tree can. Nothing in the tool reads a report.
+
 **Rejected.** Treating `target path already exists` as success on a retry. An existing
 output proves nothing about who wrote it. The already applied check asks a narrower
 question, and a file that fails it still reaches every existence check with no exemption.
 
 **Consequences.** Two files instead of one, and the report is replaced on every run, so it
-describes the last run only. `renames` followed by `content` with no `plan` run now exits
+describes the last run that completed. A run that ends with exit code 3 removes the
+earlier report and writes none. `renames` followed by `content` with no `plan` run now exits
 3, because the renames phase no longer leaves a manifest behind. That sequence used to
 apply a plan nobody had reviewed. A caller that read results from the manifest path after
 `content` now reads the unchanged plan, and must read the report or `--json` instead. A
 content run against a manifest an older version already rewrote behaves as before: its
 `failed` rows are not `split`, so re-run the plan once.
+
+**Known limits.** The link check follows a symbolic link at the report path only. A hard
+link to the manifest, or a link in a parent directory, is not detected. The already
+applied check does not compare the types that remain with the plan, so a source edited
+after planning can read as applied when its planned outputs exist. A process killed
+between the files of one split can leave a planned output missing while the kept file no
+longer declares its type. A retry reports that file as `nothing to split`. That window
+predates this decision, and the retry contract makes it worth closing in its own change.
+The report write is not atomic.
 
 **Reversal warning.** Write a later phase's rows back to the manifest and a failed row
 erases its own plan again. The retry then reports the file as not planned, at exit code 0.

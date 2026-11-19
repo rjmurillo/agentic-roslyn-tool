@@ -24,8 +24,8 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 28 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 107 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 29 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 117 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -46,8 +46,9 @@ Every source file, so you do not have to open one to find out whether it matters
 | `Program.cs` | Top level statements. Verb dispatch, error handling, exit codes, output selection. Decides which file a run writes: the manifest in `plan`, the report otherwise. Declares no type. |
 | `Options.cs` | Command line parsing and the option record. Add a new flag here. |
 | `RunReport.cs` | Builds the `--json` report and the one-line summary from the rows a run returned. |
+| `ReportFile.cs` | Proves the report path is safe and writable before a renames or content run changes anything. Refuses the manifest, a directory, and any existing file that is not an earlier report. |
 | `RunSummary.cs` | The aggregate counts inside that report. |
-| `FileReport.cs` | One manifest row in JSON form. Field names mirror the CSV columns. |
+| `FileReport.cs` | One manifest or report row in JSON form. Field names mirror the CSV columns. |
 | `NewFileReport.cs` | One created file inside a `FileReport`, carrying its path and type name. |
 | `PathComparison.cs` | The path equality rule used for identity. Platform aware on purpose. |
 | `Phase.cs` | The `plan`, `renames`, `content` enum. |
@@ -60,8 +61,8 @@ Every source file, so you do not have to open one to find out whether it matters
 | `BlankLineCollapser.cs` | Collapses the blank line runs left behind when a type is removed. |
 | `DirectiveInfo.cs` | One preprocessor directive and its span. |
 | `DirectiveSafety.cs` | Verdict on whether directives make a file unsafe to split. |
-| `FileResult.cs` | One manifest row. Owns the `split`, `skipped`, `failed` status vocabulary. |
-| `NewFileResult.cs` | One created file inside a manifest row. |
+| `FileResult.cs` | One manifest or report row. Owns the `split`, `skipped`, `failed` status vocabulary. |
+| `NewFileResult.cs` | One created file inside a manifest or report row. |
 | `ManifestWriter.cs` | Reads and writes the CSV format shared by the plan manifest and the run report. |
 | `CsvFieldReader.cs` | Quote aware CSV field parsing for the manifest and for CSV inputs. |
 
@@ -73,7 +74,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 107 passed, 0 failed
+dotnet test  -c Release      # must be 117 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -172,9 +173,13 @@ agent does not pay again.
   `FileSplitter` directly cannot see this, because the choice of file lives in
   `Program.cs`. Test it through the real executable, as `SeparateRunReportTests` does.
 - **A content retry meets rows that already succeeded.** They are skipped as `already
-  applied`, by a check that runs before `BuildPlan`. Do not turn that check into an
-  exemption from the existence checks in rule 10. `ContentRetryTests` pins the states that
-  only look applied.
+  applied`, by `SplitPlanner.IsAlreadyApplied`, which runs before `BuildPlan`. Do not turn
+  that check into an exemption from the existence checks in rule 10. `ContentRetryTests`
+  pins the states that only look applied. Callers match on the words `already applied`, so
+  do not reword the start of that reason.
+- **The report path is checked before the run, not at the write.** `ReportFile.Prepare`
+  runs before `FileSplitter.Run`. Move it after and an unusable `--report` path is found
+  only once every source file is rewritten, with no record of the run.
 - **Exit codes are 0, 1, 2, 3, and they mean different things.** 0 the run completed with
   no failures, 1 a row is `failed`, 2 the command line was wrong, 3 the run could not
   complete. Skips are not failures, so a run that skips everything exits 0. Read

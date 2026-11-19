@@ -45,7 +45,8 @@ internal sealed class FileSplitter
 
     /// <summary>
     /// Reason recorded when a content run meets a row an earlier content run already applied.
-    /// The words say what was checked and nothing more.
+    /// The words say what was checked and nothing more. The leading <c>already applied</c> is
+    /// published: callers match on it to tell this skip from a refusal, so it must not change.
     /// </summary>
     private const string AlreadyAppliedReason = "already applied: every planned output exists and this file no longer declares the planned types";
 
@@ -94,13 +95,32 @@ internal sealed class FileSplitter
     /// </remarks>
     private IReadOnlyList<FileResult> RunRenames()
     {
-        var results = BuildResolvedPlan();
-        foreach (var result in results.Where(r => r.Status == "split" && r.GitMove))
+        return BuildResolvedPlan().Select(ApplyPlannedRename).ToArray();
+    }
+
+    /// <summary>
+    /// Performs the rename one planned row asks for. A row that asks for none is returned
+    /// as planned. A rename that fails becomes a <c>failed</c> row, for the reason
+    /// <see cref="Process"/> gives: an exception that escapes here would abort the run after
+    /// earlier renames landed, with no report naming them.
+    /// </summary>
+    private FileResult ApplyPlannedRename(FileResult planned)
+    {
+        if (planned.Status != "split" || !planned.GitMove)
         {
-            _writer.ApplyRenameOnly(result.OriginalPath, File.ReadAllBytes(result.OriginalPath), result.KeptPath);
+            return planned;
         }
 
-        return results;
+        try
+        {
+            _writer.ApplyRenameOnly(planned.OriginalPath, File.ReadAllBytes(planned.OriginalPath), planned.KeptPath);
+            return planned;
+        }
+        catch (Exception ex)
+        {
+            // The file is still at its original path, and the rename is still owed.
+            return FileResult.Failed(planned.OriginalPath, planned.OriginalPath, ex.Message) with { GitMove = true };
+        }
     }
 
     /// <summary>Runs the plan for every input path and resolves any cross-file output-name collisions into their qualified form.</summary>
@@ -322,7 +342,7 @@ internal sealed class FileSplitter
         }
 
         var types = TopLevelType.Find(root).ToArray();
-        if (phase == Phase.Content && planned is not null && IsAlreadyApplied(planned, types))
+        if (phase == Phase.Content && planned is not null && SplitPlanner.IsAlreadyApplied(planned, types))
         {
             return FileResult.Skip(originalPath, readPath, AlreadyAppliedReason);
         }
@@ -389,29 +409,6 @@ internal sealed class FileSplitter
         {
             return FileResult.Failed(originalPath, plan.KeptPath, ex.Message);
         }
-    }
-
-    /// <summary>
-    /// True when an earlier content run already applied this planned row. A retry reads the
-    /// same plan again, so it meets the rows that succeeded the first time, and they must be
-    /// a skip the caller can tell apart from a refusal.
-    /// </summary>
-    /// <remarks>
-    /// Both halves are required. Every planned output must exist, and the file read must
-    /// still declare a type while declaring none of the types the plan moved out. A file
-    /// that still declares a planned type beside an existing output is not applied work, it
-    /// is the collision <see cref="SplitPlanner.BuildPlan"/> refuses, and it falls through
-    /// to that refusal. Nothing is written on either path.
-    /// </remarks>
-    private static bool IsAlreadyApplied(FileResult planned, IReadOnlyList<TopLevelType> types)
-    {
-        if (planned.NewFiles.Count == 0 || types.Count == 0)
-        {
-            return false;
-        }
-
-        var movedTypes = planned.NewFiles.Select(f => f.Type).ToHashSet(StringComparer.Ordinal);
-        return !types.Any(t => movedTypes.Contains(t.Key)) && planned.NewFiles.All(f => File.Exists(f.Path));
     }
 
     /// <summary>

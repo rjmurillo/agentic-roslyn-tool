@@ -4,9 +4,9 @@ using Xunit;
 
 namespace AgenticRoslynTool.Tests;
 
-// The content phase rewrites files as it goes and writes the manifest once, at the end. So
+// The content phase rewrites files as it goes and writes its report once, at the end. So
 // anything that escapes the per-file boundary strands every file already rewritten with no
-// record of them, and the manifest is the plan of record an agent applies in batches. These
+// record of them. These
 // tests pin the two states that reach that boundary without being a read, decode, or write
 // failure: an inconsistent rename state, and a manifest edited into a shape the plan phase
 // never produces.

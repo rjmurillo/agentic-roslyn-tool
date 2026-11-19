@@ -55,7 +55,12 @@ public sealed class SeparateRunReportTests
         Assert.Equal(1, content.ExitCode);
         Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
         Assert.Equal("split", Assert.Single(ManifestWriter.Read(manifestPath)).Status);
-        Assert.Equal("failed", Assert.Single(ManifestWriter.Read(reportPath)).Status);
+        var failed = Assert.Single(ManifestWriter.Read(reportPath));
+        Assert.Equal("failed", failed.Status);
+        Assert.Equal(input, failed.OriginalPath);
+        Assert.Equal(input, failed.KeptPath);
+        Assert.False(string.IsNullOrWhiteSpace(failed.Reason));
+        Assert.Empty(failed.NewFiles);
         Assert.Equal(TwoTypes, File.ReadAllText(input));
         Assert.True(Directory.Exists(squatter));
     }
@@ -129,6 +134,12 @@ public sealed class SeparateRunReportTests
         Assert.Equal(1, summary.GetProperty("split").GetInt32());
         Assert.Equal(1, summary.GetProperty("skipped").GetInt32());
         Assert.Equal(0, summary.GetProperty("failed").GetInt32());
+
+        // The report file holds the same rows the JSON document prints under "files".
+        var jsonRows = json.RootElement.GetProperty("files").EnumerateArray()
+            .Select(f => (f.GetProperty("originalPath").GetString(), f.GetProperty("status").GetString(), f.GetProperty("reason").GetString()))
+            .ToArray();
+        Assert.Equal(secondReport.Select(r => ((string?)r.OriginalPath, (string?)r.Status, r.Reason)).ToArray(), jsonRows);
     }
 
     [Fact]
@@ -152,6 +163,33 @@ public sealed class SeparateRunReportTests
         var planBytes = File.ReadAllBytes(manifestPath);
         Assert.Equal(0, Phase("renames", workspace, listPath, manifestPath).ExitCode);
         Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+    }
+
+    [Fact]
+    public void RenameFailure_IsAFailedRowInTheReport()
+    {
+        // The workspace is not a git repository, so the rename the plan asks for cannot
+        // land. That must be a row and exit 1, not an abort that writes no report.
+        using var workspace = new TempWorkspace();
+        var misnamed = workspace.WriteFile("Zed.cs", OtherTwoTypes);
+        var fine = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(misnamed, fine);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var reportPath = Path.Combine(workspace.Root, "plan.report.csv");
+
+        var renames = Phase("renames", workspace, listPath, manifestPath, "--json");
+
+        Assert.Equal(1, renames.ExitCode);
+        var report = ManifestWriter.Read(reportPath);
+        var failed = Assert.Single(report, r => r.OriginalPath == misnamed);
+        Assert.Equal("failed", failed.Status);
+        Assert.Equal(misnamed, failed.KeptPath);
+        Assert.True(failed.GitMove);
+        Assert.Equal("split", Assert.Single(report, r => r.OriginalPath == fine).Status);
+        Assert.True(File.Exists(misnamed));
+
+        using var json = JsonDocument.Parse(renames.StandardOutput);
+        Assert.Equal(reportPath, json.RootElement.GetProperty("report").GetString());
     }
 
     [Fact]
@@ -209,6 +247,141 @@ public sealed class SeparateRunReportTests
         Assert.Contains("error: --report and --manifest cannot name the same file.", content.StandardError, StringComparison.Ordinal);
         Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
         Assert.Equal(TwoTypes, File.ReadAllText(input));
+    }
+
+    [Fact]
+    public void ReportDifferingFromTheManifestOnlyByCase_IsARejectedCommandLine()
+    {
+        // On a case-insensitive volume these are one file, and the tool does not probe the
+        // volume. Refusing costs one exit 2. Accepting costs the plan.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+
+        var content = Phase("content", workspace, listPath, manifestPath, "--report", Path.Combine(workspace.Root, "PLAN.CSV"));
+
+        Assert.Equal(2, content.ExitCode);
+        Assert.Equal(TwoTypes, File.ReadAllText(input));
+    }
+
+    [Fact]
+    public void ReportReachingTheManifestThroughALink_StopsTheRunBeforeAnyWrite()
+    {
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        var planBytes = File.ReadAllBytes(manifestPath);
+        var link = Path.Combine(workspace.Root, "link.csv");
+        try
+        {
+            File.CreateSymbolicLink(link, manifestPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Windows without the symlink privilege. There is no link to guard against.
+            return;
+        }
+
+        var content = Phase("content", workspace, listPath, manifestPath, "--report", link);
+
+        Assert.Equal(3, content.ExitCode);
+        Assert.Contains("reaches the plan manifest", content.StandardError, StringComparison.Ordinal);
+        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+        Assert.Equal(TwoTypes, File.ReadAllText(input));
+    }
+
+    [Fact]
+    public void ReportNamingAnExistingFileThatIsNotAReport_StopsTheRunBeforeAnyWrite()
+    {
+        // The report path is caller supplied, so it could name the input list, a source
+        // file, or a file this run is about to create. None of them may be replaced.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var other = workspace.WriteFile("Solo.cs", "public class Solo { }\n");
+        var listPath = workspace.WriteInputList(input);
+        var listText = File.ReadAllText(listPath);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+
+        foreach (var target in new[] { listPath, other, input })
+        {
+            var content = Phase("content", workspace, listPath, manifestPath, "--report", target, "--json");
+
+            Assert.Equal(3, content.ExitCode);
+            Assert.Equal(string.Empty, content.StandardOutput.Trim());
+            Assert.Contains("Refusing to overwrite", content.StandardError, StringComparison.Ordinal);
+        }
+
+        Assert.Equal(listText, File.ReadAllText(listPath));
+        Assert.Equal("public class Solo { }\n", File.ReadAllText(other));
+        Assert.Equal(TwoTypes, File.ReadAllText(input));
+        Assert.False(File.Exists(Path.Combine(workspace.Root, "Beta.cs")));
+    }
+
+    [Fact]
+    public void UnwritableReportPath_StopsTheRunBeforeAnySourceIsRewritten()
+    {
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        var directory = Path.Combine(workspace.Root, "taken");
+        Directory.CreateDirectory(directory);
+
+        // One target is a directory. The other sits under a file, so its folder cannot exist.
+        foreach (var target in new[] { directory, Path.Combine(listPath, "run.csv") })
+        {
+            var content = Phase("content", workspace, listPath, manifestPath, "--report", target);
+
+            Assert.Equal(3, content.ExitCode);
+            Assert.StartsWith("error: ", content.StandardError, StringComparison.Ordinal);
+            Assert.DoesNotContain("   at ", content.StandardError, StringComparison.Ordinal);
+        }
+
+        Assert.Equal(TwoTypes, File.ReadAllText(input));
+        Assert.False(File.Exists(Path.Combine(workspace.Root, "Beta.cs")));
+    }
+
+    [Fact]
+    public void AbortedRun_LeavesNoReportFromAnEarlierRun()
+    {
+        // A caller reading the report path after an aborted run must not read an earlier
+        // run's rows as this run's.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var reportPath = Path.Combine(workspace.Root, "plan.report.csv");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        Assert.Equal(0, Phase("content", workspace, listPath, manifestPath).ExitCode);
+        Assert.True(File.Exists(reportPath));
+
+        File.Delete(manifestPath);
+        var aborted = Phase("content", workspace, listPath, manifestPath);
+
+        Assert.Equal(3, aborted.ExitCode);
+        Assert.False(File.Exists(reportPath));
+    }
+
+    [Theory]
+    [InlineData("plan.csv", "plan.report.csv")]
+    [InlineData("plan", "plan.report.csv")]
+    [InlineData("x.report.csv", "x.report.report.csv")]
+    [InlineData("sa1402-split-manifest.csv", "sa1402-split-manifest.report.csv")]
+    public void DefaultReportPath_IsBesideTheManifestAndNeverTheManifest(string manifestName, string reportName)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "art-default-report");
+        var manifestPath = Path.Combine(directory, manifestName);
+
+        var reportPath = Options.DefaultReportPath(manifestPath);
+
+        Assert.Equal(Path.Combine(directory, reportName), reportPath);
+        Assert.NotEqual(manifestPath, reportPath, StringComparer.OrdinalIgnoreCase);
     }
 
     [Fact]

@@ -144,11 +144,23 @@ Two CSV files with one format and two jobs.
 - The report defaults to the manifest path with `.report.csv` as its extension, so
   `split-types.csv` pairs with `split-types.report.csv`. The default can never be the
   manifest.
-- `--report` naming the manifest is rejected with exit code 2. So is `--report` with the
-  `plan` phase, where it would do nothing.
-- Each `renames` or `content` run replaces the report. It is not a history.
-- The report holds the same rows `--json` prints under `files`. Verified by
-  `SeparateRunReportTests`, which runs the real executable.
+- `--report` naming the manifest is rejected with exit code 2, compared without regard to
+  case. So is `--report` with the `plan` phase, where it would do nothing.
+- **The report path is checked before the run changes anything.** `ReportFile.Prepare`
+  ends the run with exit code 3, and no source file touched, when the path is a symbolic
+  link to the manifest, is a directory, cannot be created, or names an existing file that
+  is not a report. An existing file counts as a report when it is empty or starts with the
+  `originalPath` column. So `--report` cannot replace the input list or a source file.
+  Hard links, and links in a parent directory, are not followed.
+- Each `renames` or `content` run replaces the report. It is not a history. The earlier
+  report is removed when the run starts, so a run that ends with exit code 3 leaves no
+  report behind. Read the exit code first.
+- If the report write itself fails after the run, the JSON document and the summary still
+  print, `report` is `null`, and the run exits 3 with `error: report not written to ...`.
+- The report holds the same rows `--json` prints under `files`. In `renames` those rows
+  are the recomputed plan, with `failed` on a rename that did not land. They count splits
+  and new files the content phase has yet to create.
+- Verified by `SeparateRunReportTests`, which runs the real executable.
 
 ## Phase contracts
 
@@ -177,7 +189,11 @@ Promises:
 
 - **Neither reads nor writes the manifest.** It recomputes the plan from the files as they
   are, and writes its rows to the report. Run it with no plan on disk and no manifest
-  appears, so `content` still exits 3 until `plan` has run.
+  appears, so `content` still exits 3 until `plan` has run. `--manifest` only anchors the
+  default report path here.
+- **A rename that fails is a `failed` row.** The run continues, writes the report, and
+  exits 1. The row keeps the original path and `gitMove` true, because the rename is still
+  owed.
 
 - Only touches rows the plan marked `split` with `GitMove` true.
 - `FileSplitter.ApplyRenameOnly` re-reads the moved file and throws if `git mv` changed
@@ -185,8 +201,10 @@ Promises:
 - Kept as a separate phase so the rename lands in its own commit. Git then records a
   rename instead of a delete plus an add, and the file history survives.
 
-Requires a real git repository. The test suite avoids this phase by keeping every fixture
-file name equal to its primary type name, so no `git` process ever starts.
+Requires a real git repository. Most of the test suite avoids this phase by keeping every
+fixture file name equal to its primary type name. One test,
+`RenameFailure_IsAFailedRowInTheReport`, asks for a rename outside a repository to pin the
+failed row.
 
 ### content
 
@@ -218,7 +236,11 @@ Promises:
   planned types`. Both halves are checked, and the file must still declare a type.
   Nothing is written. A source that still declares a planned type beside an existing
   output is not applied work. It gets the existing `target path already exists` refusal.
-  Verified by `ContentRetryTests`.
+  Verified by `ContentRetryTests`. Callers may match on the leading `already applied`.
+- **Does not detect an interrupted write.** A process killed between the files of one
+  split can leave a kept file with no planned type and a planned output missing. A retry
+  reports that file as `nothing to split`. This predates the report file. Check
+  `git status` after any run that did not exit normally.
 
 ## Guard contracts
 
@@ -241,7 +263,7 @@ Reason text shown in italics is a template; the run substitutes real values.
 | Anything else that throws while handling one input | failed | the exception message |
 
 The last row is the catch all, and it is deliberate. The content phase rewrites files as it
-goes and writes the manifest once, at the end, so an exception that escapes one input strands
+goes and writes the report once, at the end, so an exception that escapes one input strands
 every file already rewritten in that run with no record of them. Every failure on one input
 therefore becomes a row. Two states reach that catch without being a read, decode, or write
 failure: an inconsistent rename state, where the plan asked for a `git mv` that was never

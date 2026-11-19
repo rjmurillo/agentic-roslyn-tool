@@ -206,10 +206,8 @@ public sealed class InputSourceTests
         // Batch one applies only First.cs. No content run writes the manifest.
         var batchOne = Path.Combine(workspace.Root, "batch1.txt");
         File.WriteAllLines(batchOne, new[] { first });
-        var planBytes = File.ReadAllBytes(manifestPath);
         var firstOutcome = new FileSplitter(new Options(batchOne, manifestPath, workspace.Root, Phase.Content, null)).Run();
         Assert.Equal("split", Assert.Single(firstOutcome, r => string.Equals(Path.GetFileName(r.OriginalPath), "First.cs", StringComparison.Ordinal)).Status);
-        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
 
         // Batch two reads the same plan. Second.cs must still be actionable, or the
         // reviewed plan is destroyed by the act of applying it in pieces.

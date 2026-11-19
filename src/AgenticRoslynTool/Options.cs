@@ -21,7 +21,9 @@ namespace AgenticRoslynTool;
 /// <param name="Json">When true, the run prints a single JSON report to standard output instead of CSV.</param>
 /// <param name="ReportPath">
 /// Absolute path the renames and content phases write their run report to. Null means the
-/// default beside the manifest, see <see cref="DefaultReportPath"/>. Never the manifest path.
+/// default beside the manifest, see <see cref="DefaultReportPath"/>. <see cref="Parse"/> always
+/// fills it and rejects the manifest path. <see cref="ReportFile.Prepare"/> checks it against
+/// the disk before a run, whoever built the options.
 /// </param>
 internal sealed record Options(string InputPath, string ManifestPath, string RepoRoot, Phase Phase, string? RequiredHeader, IReadOnlyList<string>? Excludes = null, bool Json = false, string? ReportPath = null)
 {
@@ -115,7 +117,9 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
         // The report must never land on the plan. That overwrite is the defect the report
         // file exists to remove: a failed row would replace its own plan and block a retry.
         var reportPath = report is null ? DefaultReportPath(manifestPath) : Path.GetFullPath(report);
-        if (PathComparison.Comparer.Equals(reportPath, manifestPath))
+        // Case insensitive on every platform, like the other collision checks. Wrongly
+        // rejecting costs one exit 2. Wrongly accepting costs the plan.
+        if (StringComparer.OrdinalIgnoreCase.Equals(reportPath, manifestPath))
         {
             throw new ArgumentException("--report and --manifest cannot name the same file. The report would overwrite the reviewed plan.");
         }

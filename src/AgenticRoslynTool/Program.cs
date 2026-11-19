@@ -68,23 +68,42 @@ catch (ArgumentException ex)
 
 try
 {
-    var rows = new FileSplitter(options).Run();
-
     // Only the plan phase writes the manifest. It is the reviewed plan, and a later phase
     // that wrote its results there would replace a failed row's plan and block the retry.
     // The renames and content phases record what they did in the report file instead.
+    //
+    // The report path is proven before the run, not after. The report is written once
+    // every source file is rewritten, which is too late to learn the path is unusable.
     string? reportPath = null;
-    if (options.Phase == Phase.Plan)
+    if (options.Phase != Phase.Plan)
+    {
+        reportPath = options.ReportPath ?? Options.DefaultReportPath(options.ManifestPath);
+        ReportFile.Prepare(reportPath, options.ManifestPath);
+    }
+
+    var rows = new FileSplitter(options).Run();
+
+    string? reportFailure = null;
+    if (reportPath is null)
     {
         ManifestWriter.Write(rows, options.ManifestPath);
     }
     else
     {
-        reportPath = options.ReportPath ?? Options.DefaultReportPath(options.ManifestPath);
-        ManifestWriter.Write(rows, reportPath);
+        try
+        {
+            ManifestWriter.Write(rows, reportPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The path was writable a moment ago, so this is a disk filling or a permission
+            // changing mid-run. The rows still go to standard output and the summary still
+            // prints, so the record of a run that changed files is not lost with the file.
+            reportFailure = ex.Message;
+        }
     }
 
-    var report = RunReport.Create(rows, options.Phase, options.ManifestPath, reportPath);
+    var report = RunReport.Create(rows, options.Phase, options.ManifestPath, reportFailure is null ? reportPath : null);
 
     if (options.Json)
     {
@@ -99,12 +118,18 @@ try
     // it straight into a parser. The file paths and the summary are progress reporting,
     // which belongs on standard error.
     Console.Error.WriteLine($"Manifest: {options.ManifestPath}");
-    if (reportPath is not null)
+    if (reportPath is not null && reportFailure is null)
     {
         Console.Error.WriteLine($"Report: {reportPath}");
     }
 
     Console.Error.WriteLine(report.ToSummaryLine());
+    if (reportFailure is not null)
+    {
+        Console.Error.WriteLine($"error: report not written to {reportPath}: {reportFailure}");
+        return 3;
+    }
+
     return report.Summary.Failed > 0 ? 1 : 0;
 }
 // Unfiltered on purpose. This is the process boundary, and the contract an agent depends on
@@ -145,6 +170,7 @@ static void PrintUsage(TextWriter w)
     w.WriteLine("                                   input, or in --repo-root for a directory or stdin input. Only plan writes it.");
     w.WriteLine("  --report <path>                  Where renames and content record what they did. Defaults to the manifest path");
     w.WriteLine("                                   with .report.csv as its extension. Not accepted with the plan phase.");
+    w.WriteLine("                                   Replaces an earlier report. Refuses any other existing file.");
     w.WriteLine("  --phase plan|renames|content     Which phase to run. Defaults to content.");
     w.WriteLine("  --dry-run                        Shorthand for --phase plan. Cannot be combined with --phase.");
     w.WriteLine("  --json                           Print one JSON report to stdout instead of CSV.");
