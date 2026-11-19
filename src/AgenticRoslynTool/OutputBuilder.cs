@@ -26,7 +26,9 @@ internal static class OutputBuilder
     /// <c>Name`N.cs</c> with N its arity, whether or not a sibling shares its name, because
     /// that is the only name SA1649 accepts for it under that convention. Two generic types
     /// with one name and one arity then map to the same file and are refused by the same
-    /// collision check.
+    /// collision check. The parameter defaults to the <c>stylecop</c> convention so a
+    /// call that predates the flag keeps its meaning. <see cref="SplitPlanner"/> always
+    /// passes the convention of the run.
     /// </remarks>
     internal static string GetFileName(TopLevelType type, IReadOnlyList<TopLevelType> allTypes, FileNamingConvention convention = FileNamingConvention.StyleCop)
     {

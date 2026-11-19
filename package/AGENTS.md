@@ -8,7 +8,7 @@ Use `agentic-roslyn-tool split-types` to split top-level types into separate fil
 
 - Save the original C# paths in one list file before running any phase. Use the same list file for every phase.
 - Decide `--file-naming` before the first run. If the repository sets StyleCop `fileNamingConvention` to `metadata`, add `--file-naming metadata` to every command below, the dry run included. Generic files are then named ``Foo`1.cs``. Without the flag a generic file is named `Foo.cs`, or `Foo{T}.cs` when another type in the file shares the name.
-- Never change `--file-naming` between phases. If you did, run the dry run again and review the new plan. Only the content phase detects a mismatch. The renames phase replaces the plan with its own.
+- Never change `--file-naming` between phases. Only the content phase detects a mismatch. The renames phase replaces the plan with its own. If you did change it, run the dry run again and review the new plan. If `git status` shows a rename from an earlier phase, first undo that rename with `git mv`, so the list file names paths that exist. A listed path that no longer exists is skipped with `input file does not exist`.
 - Run `agentic-roslyn-tool split-types --input <list file> --dry-run --json --manifest <path outside the repo>` first. This changes no source file.
 - Exit 0: read `summary`. If `summary.split` is 0, inspect skipped rows and their reasons. No automatic splits are planned. Exit 1: read `reason` on each `failed` row.
 - Exit 2: fix the arguments. Exit 3: read the `error:` line on standard error.

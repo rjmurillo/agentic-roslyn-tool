@@ -186,7 +186,10 @@ agent does not pay again.
   computed before substitution. The renames phase recomputes the plan and its rows replace
   the manifest. So a renames run under another value rewrites the reviewed plan, and the
   content check then compares against the rewritten plan and passes. Changed the flag?
-  Run the plan phase again. See decision 21 and the known issue below.
+  Run the plan phase again. If a rename already landed, a list file still names the old
+  path and the new plan reports `input file does not exist`. Undo the rename with git, or
+  list the file's current path, before you plan again. See decision 21 and the known
+  issue below.
 - **A backtick in a path is escaped in `--json` output.** ``Foo`1.cs`` is written as
   `Foo\u00601.cs`. Parse the JSON before you search it for a file name. The CSV manifest
   holds the character itself.
@@ -265,7 +268,9 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   its kept file to a name another input plans as a new file, the plan shows both as
   `split`. After the rename lands, the content phase skips the second input with
   `target path already exists`. Nothing is overwritten. `--file-naming metadata` makes this
-  easier to reach, because a generic type kept in a plain named file is renamed.
+  easier to reach, because a generic type kept in a plain named file is renamed. Two inputs
+  that plan the same rename target hit the same gap. The renames phase moves the first,
+  then `git mv` fails on the second and the run exits 3.
 - The manifest is both the plan and the run report. `Program` writes each run's rows back
   to the plan path, so a content run that fails a row replaces its `split` plan with
   `failed`, and a retry answers `not present as split in plan manifest`. Recovery is to

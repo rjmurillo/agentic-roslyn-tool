@@ -26,6 +26,10 @@ internal static class SplitPlanner
     /// The qualified fallback form violates StyleCop SA1649 (file name must match
     /// first type). The tool prefers a StyleCop violation over a build break; the
     /// alternative would be to refuse to split, which loses coverage.
+    /// <see cref="BuildPlan"/> depends on the forms this method can produce. In the content
+    /// phase it accepts a manifest path only when it is the computed path or its
+    /// <see cref="GetQualifiedPath"/> form. A third form added here must be added there,
+    /// or the content phase refuses every row that carries it.
     /// </remarks>
     internal static IReadOnlyList<FileResult> ResolvePlannedOutputCollisions(IReadOnlyList<FileResult> results)
     {

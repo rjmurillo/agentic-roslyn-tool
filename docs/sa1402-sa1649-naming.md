@@ -111,15 +111,20 @@ agentic-roslyn-tool split-types --input files.txt --manifest plan.csv --phase co
 ```
 
 Pass the flag to all three phases. It decides file names, so each phase must agree. The
-content phase skips a file whose manifest row was made under the other convention, with
-the reason `content phase plan does not match manifest`, and writes nothing for it. Files
-with no generic type are named the same under both conventions, so they still split. The
-run exits 0 and its rows replace the plan, so run the plan phase again before you retry.
+content phase skips a file whose manifest row the other convention would have planned
+differently, with the reason `content phase plan does not match manifest`, and writes
+nothing for it. A file whose paths come out the same under both conventions still splits.
+That covers every file with no generic type. The run exits 0 and its rows replace the plan,
+so run the plan phase again before you retry.
 
 The renames phase has no such check, because it recomputes the plan instead of replaying
 it. A renames run without the flag applies the `stylecop` renames and rewrites the manifest
 to match. A content run without the flag then agrees with that manifest and writes
 `stylecop` names. If you changed the flag after planning, run the plan phase again.
+
+Planning again after a rename has landed needs one more step. A list file still names the
+old path, and the tool reports `input file does not exist` for it. Undo the rename with
+`git mv`, or put the file's current path in the list, then plan.
 
 With the flag, the rules in the section above change in four ways:
 

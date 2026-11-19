@@ -79,7 +79,7 @@ Use these options to control the operation:
 | `--json` | Prints one JSON report to standard output instead of CSV. |
 | `--require-header <text>` | Prepends `<text>` to every emitted file and fails the split if any output does not start with it. Off by default. |
 | `--exclude <path-substring>` | Skips any input whose path contains `<path-substring>`. Repeatable. Off by default. |
-| `--file-naming stylecop\|metadata` | Chooses the SA1649 convention for generic file names. `stylecop`, the default, gives `Foo{T}.cs`. `metadata` gives ``Foo`1.cs``. Pass the same value to every phase. |
+| `--file-naming stylecop\|metadata` | Chooses the SA1649 convention for generic file names. `stylecop`, the default, gives `Foo.cs`, or `Foo{T}.cs` when another type in the file shares the name. `metadata` gives ``Foo`1.cs``. Pass the same value to every phase. |
 
 ### Driving it from an agent
 
@@ -181,7 +181,9 @@ If you pass `--file-naming metadata` to the plan, pass it to the renames and con
 too. The convention decides file names, so it has to be the same in all three. The content
 phase skips a file whose manifest row was made under the other convention, and writes
 nothing for it. The renames phase has no such check. It rewrites the manifest under the
-value it was given, so run the plan again if you changed the flag.
+value it was given, so run the plan again if you changed the flag. If a rename already
+landed, undo it with Git or list the file's new path first. A list that still names the
+old path plans nothing for that file.
 
 The renames phase recomputes the plan from the current files rather than replaying the
 reviewed manifest, and rewrites the manifest with what it did. Re-run the plan phase and

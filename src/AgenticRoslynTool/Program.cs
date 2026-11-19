@@ -129,8 +129,9 @@ static void PrintUsage(TextWriter w)
     w.WriteLine("  --json                           Print one JSON report to stdout instead of CSV.");
     w.WriteLine("  --require-header <text>          Require and prepend this file header. Off by default.");
     w.WriteLine("  --exclude <path-substring>       Skip inputs whose path contains this substring. Repeatable.");
-    w.WriteLine("  --file-naming stylecop|metadata  SA1649 convention for generic file names. Defaults to stylecop (Foo{T}.cs).");
-    w.WriteLine("                                   metadata names them Foo`1.cs. Pass the same value to every phase.");
+    w.WriteLine("  --file-naming stylecop|metadata  SA1649 convention for generic file names. Defaults to stylecop: Foo.cs,");
+    w.WriteLine("                                   or Foo{T}.cs when a same-name type shares the file. metadata names");
+    w.WriteLine("                                   them Foo`1.cs. Pass the same value to every phase.");
     w.WriteLine("  --help, -h                       Show help.");
     w.WriteLine();
     w.WriteLine("Exit codes: 0 no failures, 1 a file failed, 2 bad command line, 3 the run could not complete.");

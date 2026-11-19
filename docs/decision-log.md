@@ -547,9 +547,11 @@ Under `metadata`, `Box<T>` and `Box<U>` in one file share ``Box`1.cs`` and are r
 `target path collision within split`. Under `stylecop` they split by parameter name.
 
 The content check covers one of two ways to disagree. Plan and renames under one value,
-content under the other: generic files are skipped and nothing is written for them. Files
-with no generic type still split, the run exits 0, and its rows replace the plan, so
-recovery is to run the plan phase again. Renames under a value that differs from the plan
+content under the other: a file the two conventions plan differently is skipped and nothing
+is written for it. A file they plan the same way still splits, which covers every file
+with no generic type. The run exits 0 and its rows replace the plan, so recovery is to run
+the plan phase again, after undoing any rename that landed or listing the renamed path.
+Renames under a value that differs from the plan
 is not caught. The renames phase does not replay the manifest. It runs its own renames
 and rewrites the manifest, and a content run under that same value then applies it at exit
 0. The docs tell the caller to pass the flag to every phase and to plan again after
