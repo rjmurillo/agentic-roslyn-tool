@@ -16,10 +16,9 @@ internal static class CollisionNames
     /// <summary>The skip reason for a type-first name that compilers and analyzers read as generated code.</summary>
     internal const string GeneratedNameReason = "qualified output name would be read as generated code; manual handling required";
 
-    /// <summary>
-    /// File name endings, before the extension, that Roslyn treats as generated code. Taken
-    /// from <c>GeneratedCodeUtilities.IsGeneratedCodeFile</c> in dotnet/roslyn.
-    /// </summary>
+    // Taken from GeneratedCodeUtilities.IsGeneratedCodeFile in dotnet/roslyn.
+
+    /// <summary>File name endings, before the extension, that Roslyn treats as generated code.</summary>
     private static readonly string[] GeneratedCodeSuffixes = [".designer", ".generated", ".g", ".g.i"];
 
     /// <summary>Builds the qualified fallback path used to break same-simple-name collisions across two different source files.</summary>
@@ -44,34 +43,26 @@ internal static class CollisionNames
         return Path.Combine(directory, sourceBaseName + "." + targetFileName);
     }
 
-    internal static bool HasGeneratedCodeName(string path)
-    {
-        var name = Path.GetFileNameWithoutExtension(path);
-        return GeneratedCodeSuffixes.Any(suffix => name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
-    }
+    /// <summary>True when Roslyn would treat a file at <paramref name="path"/> as generated code, going by its name alone.</summary>
+    internal static bool HasGeneratedCodeName(string path) =>
+        GeneratedCodeSuffixes.Any(suffix => Path.GetFileNameWithoutExtension(path).EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Describes a manifest path that the plan phase resolved under the collision naming
     /// this run was not given, or returns null when the path is not one.
     /// </summary>
     /// <remarks>
-    /// <para>
     /// The content phase takes output paths from the manifest and never reruns the collision
     /// pass, so nothing else notices that a plan was made under the other
     /// <c>--collision-naming</c> value.
-    /// </para>
-    /// <para>
     /// Two things must both hold. The path has the other value's qualified form, and the
     /// row's note records that the collision pass chose that path. The note is what tells a
     /// plan made under the other value from a path a reviewer typed into the manifest. A
     /// hand-edited free path, of any shape, is accepted exactly as it was before the flag
     /// existed.
-    /// </para>
-    /// <para>
     /// The two forms can be one string. <c>A.A.cs</c> moving a type <c>A</c> gives
     /// <c>A.A.A.cs</c> either way. A path that is also this run's own form is never a
     /// mismatch, so that case is excluded first.
-    /// </para>
     /// </remarks>
     internal static string? DescribeOtherNamingForm(string originalPath, string computedPath, string plannedPath, string? plannedNote, CollisionNaming collisionNaming)
     {
@@ -89,13 +80,7 @@ internal static class CollisionNames
     }
 
     /// <summary>The text the collision pass writes into a row's note for one resolved output.</summary>
-    internal static string FormatResolution(string originalPath, string resolvedPath)
-    {
-        return $"{originalPath} -> {resolvedPath}";
-    }
+    internal static string FormatResolution(string originalPath, string resolvedPath) => $"{originalPath} -> {resolvedPath}";
 
-    private static string FlagValue(CollisionNaming collisionNaming)
-    {
-        return collisionNaming == CollisionNaming.TypeFirst ? "type-first" : "file-first";
-    }
+    private static string FlagValue(CollisionNaming collisionNaming) => collisionNaming == CollisionNaming.TypeFirst ? "type-first" : "file-first";
 }
