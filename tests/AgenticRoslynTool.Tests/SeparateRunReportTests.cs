@@ -474,6 +474,98 @@ public sealed class SeparateRunReportTests
         Assert.Equal(TwoTypes, File.ReadAllText(input));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReportReachingThePlanThroughALinkWhoseTargetCrossesALinkedDirectory_IsRefused(bool swapRoles)
+    {
+        // real/plans holds the plan. "hop" links to real, and "via" links to hop/plans, so
+        // the target of one link runs through another. Both spellings name one file.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var plans = Path.Combine(workspace.Root, "real", "plans");
+        Directory.CreateDirectory(plans);
+        var direct = Path.Combine(plans, "plan.csv");
+        var hop = Path.Combine(workspace.Root, "hop");
+        var via = Path.Combine(workspace.Root, "via");
+        try
+        {
+            Directory.CreateSymbolicLink(hop, Path.Combine(workspace.Root, "real"));
+            Directory.CreateSymbolicLink(via, Path.Combine(hop, "plans"));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return;
+        }
+
+        var aliased = Path.Combine(via, "plan.csv");
+        var (manifestPath, reportPath) = swapRoles ? (aliased, direct) : (direct, aliased);
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        var planBytes = File.ReadAllBytes(direct);
+        Squat(workspace, "Beta.cs");
+
+        var content = Phase("content", workspace, listPath, manifestPath, "--report", reportPath);
+
+        Assert.Equal(3, content.ExitCode);
+        Assert.Contains("reaches the plan manifest", content.StandardError, StringComparison.Ordinal);
+        Assert.Equal(planBytes, File.ReadAllBytes(direct));
+        Assert.Equal("split", Assert.Single(ManifestWriter.Read(direct)).Status);
+    }
+
+    [Fact]
+    public void ReportPathEndingInASeparator_StopsTheRunBeforeAnyWrite()
+    {
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        var target = Path.Combine(workspace.Root, "newdir") + Path.DirectorySeparatorChar;
+
+        var content = Phase("content", workspace, listPath, manifestPath, "--report", target);
+
+        Assert.Equal(3, content.ExitCode);
+        Assert.Contains("is a directory", content.StandardError, StringComparison.Ordinal);
+        Assert.Equal(TwoTypes, File.ReadAllText(input));
+        Assert.False(Directory.Exists(target));
+    }
+
+    [Fact]
+    public void EmptyExistingFileAtTheReportPath_IsNotAReportAndIsKept()
+    {
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var empty = workspace.WriteFile("Empty.cs", string.Empty);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+
+        var content = Phase("content", workspace, listPath, manifestPath, "--report", empty);
+
+        Assert.Equal(3, content.ExitCode);
+        Assert.Contains("Refusing to overwrite", content.StandardError, StringComparison.Ordinal);
+        Assert.Equal(0, new FileInfo(empty).Length);
+        Assert.Equal(TwoTypes, File.ReadAllText(input));
+    }
+
+    [Fact]
+    public void WriteThatFails_ReturnsTheReasonAndLeavesNoStagingFile()
+    {
+        // The report directory cannot be created, because a file holds its name. This is
+        // the arm a full disk or a changed permission reaches mid-run.
+        using var workspace = new TempWorkspace();
+        var blocker = workspace.WriteFile("blocker", "not a directory");
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var rows = new[] { FileResult.Skip(blocker, blocker, "any row") };
+
+        var reason = ReportFile.Write(rows, Path.Combine(blocker, "run.csv"), manifestPath);
+
+        Assert.False(string.IsNullOrWhiteSpace(reason));
+        Assert.Equal(["blocker"], Directory.GetFileSystemEntries(workspace.Root).Select(Path.GetFileName));
+        Assert.Equal("not a directory", File.ReadAllText(blocker));
+    }
+
     [Fact]
     public void ReportThatIsALinkToAnEarlierReport_IsRefusedAndTheTargetIsKept()
     {

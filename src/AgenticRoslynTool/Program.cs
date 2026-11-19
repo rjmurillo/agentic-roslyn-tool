@@ -94,7 +94,7 @@ try
     }
     else
     {
-        reportFailure = ReportFile.Write(rows, reportPath);
+        reportFailure = ReportFile.Write(rows, reportPath, options.ManifestPath);
     }
 
     var report = RunReport.Create(rows, options.Phase, options.ManifestPath, reportFailure is null ? reportPath : null);
@@ -174,4 +174,5 @@ static void PrintUsage(TextWriter w)
     w.WriteLine();
     w.WriteLine("Exit codes: 0 no failures, 1 a file failed, 2 bad command line, 3 the run could not complete.");
     w.WriteLine("Standard output carries the data (CSV or JSON); a one-line summary goes to standard error.");
+    w.WriteLine("If the report file cannot be written, its rows go to standard output and the run exits 3.");
 }

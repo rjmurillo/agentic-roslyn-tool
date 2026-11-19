@@ -86,6 +86,27 @@ public sealed class ContentRetryTests
     }
 
     [Fact]
+    public void SourceLeftWithNoTypes_IsNotCalledAlreadyApplied()
+    {
+        // The planned output exists and the source declares none of the planned types,
+        // because it declares nothing at all. An applied split always leaves the kept type
+        // behind, so this is not one.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", "public class Alpha { }\npublic class Beta { }\n");
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+
+        ManifestWriter.Write(new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run(), manifestPath);
+        workspace.WriteFile("Beta.cs", "public class Beta { }\n");
+        File.WriteAllText(input, "// emptied by hand\n");
+
+        var row = Assert.Single(new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run());
+
+        Assert.Equal("skipped", row.Status);
+        Assert.Equal("nothing to split: input has 0 top-level type declaration(s)", row.Reason);
+    }
+
+    [Fact]
     public void MissingOutputAfterAnAppliedSplit_IsNotCalledAlreadyApplied()
     {
         // The claim in the reason is that every planned output exists. When one was deleted

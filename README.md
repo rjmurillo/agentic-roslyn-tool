@@ -101,6 +101,8 @@ git diff --name-only --diff-filter=d HEAD~1 |
 
 Standard output carries a parseable document or nothing: the manifest CSV in `plan`, the
 JSON report under `--json`, and nothing at all in `renames` and `content` without `--json`.
+One exception keeps a run's record from being lost: if the report file cannot be written,
+its rows print to standard output and the run exits 3.
 The manifest path, the report path, the one-line summary, and every error go to standard
 error, so a pipe stays clean. The JSON report leads with counts:
 

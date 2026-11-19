@@ -526,8 +526,8 @@ and `content` phases write what they did to a report file in the same CSV format
   manifest. `--report` naming the manifest is rejected with exit code 2. So is `--report`
   with the `plan` phase, where the flag would be a silent no-op.
 - **The report path is proven before the run.** The report is written after every source
-  file is rewritten. A path found unusable at that point costs the record of the run. So
-  `ReportFile.Prepare` runs first and ends the run with exit code 3 when the path reaches
+  file is rewritten. A path found unusable at that point ends a run that already changed
+  files with exit code 3 and no report file. So `ReportFile.Prepare` runs first and ends the run with exit code 3 when the path reaches
   the manifest through a symbolic link, is itself a link or a directory, sits in a
   directory that cannot take a new file, or names an existing file that is not a report.
   The last rule keeps `--report` off the input list and off source files that exist when
@@ -541,9 +541,11 @@ and `content` phases write what they did to a report file in the same CSV format
   file beside the report path, and the report is moved into place. A hard link to the
   manifest cannot be seen by any path comparison. The move makes that harmless, because
   it replaces the directory entry and leaves the manifest's bytes alone.
-- **Standard output is unchanged.** The report is a file. Its path goes to standard error
-  on a `Report:` line beside the `Manifest:` line.
-- **`--json` gains one field.** `report` carries the report path, and is `null` in `plan`.
+- **Standard output is unchanged when the report is written.** The report is a file. Its
+  path goes to standard error on a `Report:` line beside the `Manifest:` line. The one
+  exception is a report that cannot be written, covered below.
+- **`--json` gains one field.** `report` carries the report path. It is `null` in `plan`,
+  and after a report that was not written.
   No existing field changed name or meaning. `manifest` is still the plan path.
 - **Renames keeps recomputing.** It still plans from the files as they are, and it no
   longer writes the manifest. Its rows go to the report. A rename has to follow the file
@@ -586,7 +588,11 @@ apply a plan nobody had reviewed. A caller that read results from the manifest p
 content run against a manifest an older version already rewrote behaves as before: its
 `failed` rows are not `split`, so re-run the plan once.
 
-**Known limits.** The manifest and the report share one format, so the tool cannot tell
+**Known limits.** The report and manifest paths are compared without regard to case on
+every platform, so Linux refuses `plan.csv` beside `PLAN.CSV` although they are two files.
+`ReportFile.Prepare` creates a missing report directory and leaves it when the run then
+ends early. Another process could create a file at the report path between the check at
+the write and the move. The manifest and the report share one format, so the tool cannot tell
 them apart. A second plan manifest passed as `--report` is replaced when the run
 completes. The already
 applied check does not compare the types that remain with the plan, so a source edited

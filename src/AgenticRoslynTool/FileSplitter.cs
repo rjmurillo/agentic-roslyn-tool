@@ -118,8 +118,10 @@ internal sealed class FileSplitter
         }
         catch (Exception ex)
         {
-            // The file is still at its original path, and the rename is still owed.
-            return FileResult.Failed(planned.OriginalPath, planned.OriginalPath, $"rename to {planned.KeptPath} failed: {ex.Message}") with { GitMove = true };
+            // The row says where the file is. That is the original path unless git mv
+            // landed and a later step threw, and either way the plan still asks for the move.
+            var location = File.Exists(planned.OriginalPath) ? planned.OriginalPath : planned.KeptPath;
+            return FileResult.Failed(planned.OriginalPath, location, $"rename to {planned.KeptPath} failed: {ex.Message}") with { GitMove = true };
         }
     }
 

@@ -48,7 +48,9 @@ either position. None of them is recognized in a value position, so `--input hel
 a file named `help`. No arguments, an unrecognized verb, or a bad option prints a one-line
 `error: ...` on standard error, prints usage on standard error too, and exits 2. Any other
 failure during the run prints one `error: ...` line and exits 3. No error path prints a
-stack trace, and no error path writes to standard output.
+stack trace. One error path writes to standard output, and it writes a document: when the
+report file cannot be written, the rows it would have held print there. See "Manifest and
+report".
 
 ## Input sources
 
@@ -150,11 +152,13 @@ Two CSV files with one format and two jobs.
   ends the run with exit code 3, and no source file touched, when the path reaches the
   manifest through a symbolic link in any component, is itself a symbolic link, is a
   directory, sits in a directory that cannot take a new file, or names an existing file
-  that is not a report. An existing file counts as a report when it is empty or starts
-  with the `originalPath` column. So `--report` cannot replace the input list or a source
+  that is not a report. An existing file counts as a report when its first line starts
+  with the `originalPath` column. An empty file does not. A path that ends in a directory
+  separator is refused as a directory. So `--report` cannot replace the input list or a source
   file. A second plan manifest is in that format and would be replaced.
-- **The check changes nothing.** It writes and removes one new file beside the report
-  path. It never opens the report path itself.
+- **The check changes no existing file.** It writes and removes one new file beside the
+  report path, and never opens the report path itself. It creates the report's directory
+  when that is missing, and leaves it there if the run then ends early.
 - **The report is moved into place.** The rows go to a new file beside the report path,
   which then replaces it. A reader never sees half a report. A report path that is a hard
   link to the manifest gets a new file, and the manifest keeps its bytes.
@@ -163,7 +167,7 @@ Two CSV files with one format and two jobs.
   written and the source file is kept.
 - **A report that cannot be written does not take the record with it.** The rows go to
   standard output: the JSON document under `--json`, with `report` set to `null`, and the
-  CSV otherwise. The summary prints, then `error: report not written to ...`, and the run
+  CSV otherwise. So `report` is `null` in `plan`, and after a report that was not written. The summary prints, then `error: report not written to ...`, and the run
   exits 3.
 - Each `renames` or `content` run that completes replaces the report. It is not a history.
   A run that ends with exit code 3 before it starts work leaves an earlier report as it
@@ -203,8 +207,9 @@ Promises:
   appears, so `content` still exits 3 until `plan` has run. `--manifest` only anchors the
   default report path here.
 - **A rename that fails is a `failed` row.** The run continues, writes the report, and
-  exits 1. The row keeps the original path and `gitMove` true, because the rename is still
-  owed. The reason starts with `rename to <kept path> failed:`.
+  exits 1. The row's `keptPath` says where the file is, which is the original path unless
+  `git mv` landed before a later step failed. `gitMove` stays true, because the plan still
+  asks for the move. The reason starts with `rename to <kept path> failed:`.
 
 - Only touches rows the plan marked `split` with `GitMove` true.
 - `FileSplitter.ApplyRenameOnly` re-reads the moved file and throws if `git mv` changed

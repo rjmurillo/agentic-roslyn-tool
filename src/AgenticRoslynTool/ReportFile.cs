@@ -8,9 +8,10 @@ namespace AgenticRoslynTool;
 /// <remarks>
 /// <para>
 /// The report is written once, after every source file is rewritten. A path that turns out
-/// to be unusable at that point costs the record of the whole run, so <see cref="Prepare"/>
-/// refuses first. The report path is also caller supplied, which makes it the one write in
-/// the tool that could land on a file the caller cares about.
+/// to be unusable at that point ends a run that already changed files with exit code 3 and
+/// no report file, so <see cref="Prepare"/> refuses first. The report path is also caller
+/// supplied, which makes it the one write in the tool that could land on a file the caller
+/// cares about.
 /// </para>
 /// <para>
 /// Two rules keep that write safe. Nothing here opens an existing file for writing: the
@@ -26,8 +27,9 @@ internal static class ReportFile
     private const string FirstColumn = "originalPath";
 
     /// <summary>
-    /// Refuses a report path the run could not safely write to. Changes nothing the caller
-    /// owns: an earlier report stays where it is until <see cref="Write"/> replaces it.
+    /// Refuses a report path the run could not safely write to. Changes no existing file:
+    /// an earlier report stays where it is until <see cref="Write"/> replaces it. It does
+    /// create the report's directory when that is missing, and leaves it.
     /// </summary>
     /// <param name="reportPath">Absolute path the run will write its report to.</param>
     /// <param name="manifestPath">Absolute path of the plan manifest.</param>
@@ -36,15 +38,7 @@ internal static class ReportFile
     {
         try
         {
-            // Collision checks are case insensitive on every platform, like the others in
-            // this tool. Wrongly refusing costs one failed start. Wrongly allowing costs
-            // the plan.
-            if (StringComparer.OrdinalIgnoreCase.Equals(RealPath(reportPath), RealPath(manifestPath)))
-            {
-                throw new InvalidOperationException($"The report path {reportPath} reaches the plan manifest. The report would overwrite the reviewed plan. Pass a different --report path.");
-            }
-
-            var refusal = Refusal(reportPath);
+            var refusal = Refusal(reportPath, manifestPath);
             if (refusal is not null)
             {
                 throw new InvalidOperationException(refusal);
@@ -73,15 +67,16 @@ internal static class ReportFile
     /// </summary>
     /// <param name="rows">The rows describing what the run did.</param>
     /// <param name="reportPath">Absolute path of the report.</param>
+    /// <param name="manifestPath">Absolute path of the plan manifest.</param>
     /// <returns>Null when the report was written. Otherwise the reason it was not, and nothing at the report path has changed.</returns>
-    public static string? Write(IReadOnlyList<FileResult> rows, string reportPath)
+    public static string? Write(IReadOnlyList<FileResult> rows, string reportPath, string manifestPath)
     {
         var staged = SiblingPath(reportPath);
         try
         {
             // Asked again on purpose. The run has written files since Prepare, and one of
             // them may now sit at this path.
-            var refusal = Refusal(reportPath);
+            var refusal = Refusal(reportPath, manifestPath);
             if (refusal is not null)
             {
                 return refusal;
@@ -109,12 +104,19 @@ internal static class ReportFile
 
     /// <summary>
     /// Says why the report must not be written at <paramref name="reportPath"/>, or returns
-    /// null when it may. A path nothing occupies is fine. So is an empty file, and a file
-    /// in the manifest and report format, which is what an earlier report is.
+    /// null when it may. A path nothing occupies is fine. So is a file in the manifest and
+    /// report format, which is what an earlier report is.
     /// </summary>
-    private static string? Refusal(string reportPath)
+    private static string? Refusal(string reportPath, string manifestPath)
     {
-        if (Directory.Exists(reportPath))
+        // Collision checks are case insensitive on every platform, like the others in this
+        // tool. Wrongly refusing costs one failed start. Wrongly allowing costs the plan.
+        if (StringComparer.OrdinalIgnoreCase.Equals(RealPath(reportPath), RealPath(manifestPath)))
+        {
+            return $"The report path {reportPath} reaches the plan manifest. The report would overwrite the reviewed plan. Pass a different --report path.";
+        }
+
+        if (Path.EndsInDirectorySeparator(reportPath) || Directory.Exists(reportPath))
         {
             return $"The report path {reportPath} is a directory. Pass a file path to --report.";
         }
@@ -136,9 +138,7 @@ internal static class ReportFile
     private static bool IsReportFormat(string path)
     {
         var firstLine = File.ReadLines(path).FirstOrDefault();
-        return firstLine is null
-            || firstLine.StartsWith(FirstColumn + ",", StringComparison.Ordinal)
-            || firstLine.StartsWith("\"" + FirstColumn + "\",", StringComparison.Ordinal);
+        return firstLine is not null && firstLine.StartsWith(FirstColumn + ",", StringComparison.Ordinal);
     }
 
     /// <summary>A path beside the report that nothing else uses.</summary>
@@ -150,21 +150,55 @@ internal static class ReportFile
     /// not resolved, and do not need to be: <see cref="Write"/> replaces the directory
     /// entry at the report path and never writes through it.
     /// </summary>
+    /// <remarks>
+    /// One link is replaced per pass, and the result is resolved again from the root. A
+    /// link's target can itself run through a linked directory, and an earlier version that
+    /// took each target as final let such a path reach the manifest unseen.
+    /// </remarks>
     private static string RealPath(string path)
     {
-        var full = Path.GetFullPath(path);
-        var root = Path.GetPathRoot(full) ?? string.Empty;
-        var current = root;
-        foreach (var part in full[root.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        var current = Path.GetFullPath(path);
+        for (var hop = 0; hop < MaxLinkHops; hop++)
         {
-            current = Path.Combine(current, part);
-            FileSystemInfo info = Directory.Exists(current) ? new DirectoryInfo(current) : new FileInfo(current);
-            if (info.LinkTarget is not null)
+            var next = ReplaceFirstLink(current);
+            if (next is null)
             {
-                current = info.ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? current;
+                return current;
             }
+
+            current = next;
         }
 
-        return current;
+        throw new IOException($"Too many levels of symbolic links: {path}");
+    }
+
+    /// <summary>The usual operating system bound on links followed while resolving one path.</summary>
+    private const int MaxLinkHops = 40;
+
+    /// <summary>
+    /// Returns <paramref name="fullPath"/> with its first linked component replaced by that
+    /// link's own target, or null when no component is a link.
+    /// </summary>
+    private static string? ReplaceFirstLink(string fullPath)
+    {
+        var root = Path.GetPathRoot(fullPath) ?? string.Empty;
+        var parts = fullPath[root.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+        var resolved = root;
+        for (var i = 0; i < parts.Length; i++)
+        {
+            var candidate = Path.Combine(resolved, parts[i]);
+            FileSystemInfo info = Directory.Exists(candidate) ? new DirectoryInfo(candidate) : new FileInfo(candidate);
+            if (info.LinkTarget is { } target)
+            {
+                // A relative target is relative to the directory holding the link, and every
+                // component of that directory is already link free.
+                var rest = Path.Combine(parts[(i + 1)..]);
+                return Path.GetFullPath(Path.Combine(Path.GetFullPath(target, resolved), rest));
+            }
+
+            resolved = candidate;
+        }
+
+        return null;
     }
 }

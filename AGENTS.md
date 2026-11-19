@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 29 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 123 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 129 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -74,7 +74,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 123 passed, 0 failed
+dotnet test  -c Release      # must be 129 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -182,6 +182,10 @@ agent does not pay again.
   only once every source file is rewritten. `ReportFile.Write` asks again, because the run
   may have created a source file at that path. Drop the second check and `--report
   src/Beta.cs` replaces a type the run just split out, at exit code 0.
+- **Resolving a path through symbolic links takes more than one pass.** A link's target
+  can itself run through a linked directory. `ReportFile.RealPath` replaces one link and
+  starts again from the root. A version that took each target as final let `--report`
+  reach the manifest through two links and replace the plan.
 - **Nothing in `ReportFile` opens an existing file for writing.** The probe and the report
   both go to a new sibling file. An earlier version probed with `FileMode.Create` on the
   report path. That truncated a plan reached through a hard link, at exit code 0.
@@ -191,9 +195,10 @@ agent does not pay again.
   `summary` from `--json`, or the summary line on standard error, to learn whether work
   happened.
 - **Standard output is one document or nothing, standard error is everything else.** The
-  manifest path, the summary line, and every `error:` message go to standard error so a
-  caller can pipe standard output straight into a parser. Do not add chatter to standard
-  output.
+  manifest path, the report path, the summary line, and every `error:` message go to
+  standard error so a caller can pipe standard output straight into a parser. Do not add
+  chatter to standard output. When the report file cannot be written, its rows print to
+  standard output as that one document, and the run exits 3.
 - **Standard input is read once per process.** A `plan` run and a `content` run are two
   processes, so a pipe has to be repeated. Reusing one `FileSplitter` instance for both
   phases in a test would see an empty stream on the second pass; use a list file there.
