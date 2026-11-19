@@ -518,7 +518,9 @@ raised SA1649 and had to be renamed by hand.
 **Decision.** `--file-naming stylecop|metadata`, default `stylecop`. Under `metadata` a
 generic type or delegate is named ``Name`N.cs`` with N its arity, and a type that is not
 generic keeps `Name.cs`. That matches `FileNameHelpers.GetConventionalFileName` in
-StyleCop.Analyzers, read at commit `45026329`. Two planner rules follow from the name. The
+StyleCop.Analyzers, read at commit `45026329`. A build with `1.2.0-beta.556` confirmed
+it. The delegate case is newer than `1.1.118`, whose `FileNameHelpers` source has none.
+Two planner rules follow from the name. The
 kept type is the one whose arity name matches the file, so `Foo<T>` stays in ``Foo`1.cs``.
 A generic type kept in a plain named file is renamed, so `Foo.cs` becomes ``Foo`1.cs``.
 
@@ -541,7 +543,10 @@ a moved file's name, so it passed and was applied. Each substituted path must no
 path computed before substitution, or its cross-file qualified form. Those are the only two
 paths an unedited plan can hold. A manifest edited to send a type to some other free path
 used to be applied and is now skipped as a mismatch. The existence and uniqueness checks
-still run first, so `ManifestPathTamperingTests` reports the same reasons.
+still run first, so `ManifestPathTamperingTests` reports the same reasons. The mismatch
+reason names the manifest path and the computed path. The skipped row replaces the plan
+row, so the reason is the only place that manifest path survives. It still cannot name the
+convention, because the manifest does not record one.
 
 Under `metadata`, `Box<T>` and `Box<U>` in one file share ``Box`1.cs`` and are refused as
 `target path collision within split`. Under `stylecop` they split by parameter name.
@@ -556,6 +561,12 @@ is not caught. The renames phase does not replay the manifest. It runs its own r
 and rewrites the manifest, and a content run under that same value then applies it at exit
 0. The docs tell the caller to pass the flag to every phase and to plan again after
 changing it. `AGENTS.md` lists this as a known issue.
+
+`metadata` also renames more kept files, which makes an older gap easier to reach. A kept
+file's rename target is not part of the cross-file collision pass. Two inputs that plan the
+same rename target both show as `split`. The renames phase moves the first, `git mv` fails
+on the second, and the run exits 3 with one rename landed. Nothing is overwritten.
+`AGENTS.md` lists this as a known issue too.
 
 **Reversal warning.** Remove the computed path comparison and a content run whose flag
 differs from the manifest it was handed applies that manifest at exit 0, with names from

@@ -276,14 +276,17 @@ public enum WidgetKind
 
 To keep such a file as it is, pass `--exclude` with part of its path, or leave it out of
 the list file. Do this for the plan and for every later phase. Do not edit the manifest by
-hand to drop a row: the content phase recomputes the plan and refuses a file whose plan
-does not match.
+hand, to drop a row or to change a path: the content phase recomputes the plan and refuses
+a file whose plan does not match.
 
 ## File naming and SA1649
 
 The tool names each new file after its type. A generic type gets its type parameter names
 in braces only when it shares a name with another type in the same file, as in `Name.cs`
-and `Name{T}.cs`. When two source files in the same folder would each create the same new
+and `Name{T}.cs`. If your repository sets the SA1649 `metadata` convention, pass
+`--file-naming metadata` to every phase and a generic type is named ``Name`1.cs`` instead.
+See [the metadata section](sa1402-sa1649-naming.md#if-you-use-the-metadata-convention)
+before you plan. When two source files in the same folder would each create the same new
 file, the tool names both `SourceFile.TypeName.cs`. That form conflicts with SA1649 unless
 the type is `partial`, since SA1649 reports nothing when the first type in a file is
 partial. Fix just those files rather than disabling SA1649 for the whole repository: rename

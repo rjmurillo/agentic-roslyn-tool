@@ -102,6 +102,14 @@ Under `metadata`, SA1649 expects ``Foo`1.cs`` for `Foo<T>` and rejects both `Foo
 ``Pair`2.cs``. A type that is not generic keeps its plain name, `Foo.cs`, under both
 conventions. A generic delegate follows the same rule as a generic class.
 
+The results in this section come from a separate build: StyleCop.Analyzers
+`1.2.0-beta.556` on .NET SDK 11.0.100, with `fileNamingConvention` set to `metadata`. It
+accepted ``Foo`1.cs``, ``Pair`2.cs``, a generic delegate in ``Make`1.cs``, and a plain
+`Plain.cs`. It reported SA1649 for `Foo<T>` in `Foo.cs`, for `Foo<T>` in `Foo{T}.cs`, for a
+generic delegate in a plain named file, and for ``A.Shared`1.cs``. The delegate rule
+depends on the StyleCop version. The `1.1.118` source has no delegate case in
+`FileNameHelpers`, so check a generic delegate against the version you build with.
+
 The tool does not read your StyleCop settings. Tell it with `--file-naming metadata`, on
 each of the three runs:
 
@@ -111,8 +119,9 @@ each of the three runs:
 
 Pass the flag to all three phases. It decides file names, so each phase must agree. The
 content phase skips a file whose manifest row the other convention would have planned
-differently, with the reason `content phase plan does not match manifest`, and writes
-nothing for it. A file whose paths come out the same under both conventions still splits.
+differently and writes nothing for it. The reason starts with
+`content phase plan does not match manifest` and then names the manifest path and the path
+this run computes. A file whose paths come out the same under both conventions still splits.
 That covers every file with no generic type. The run exits 0 and its rows replace the plan,
 so run the plan phase again before you retry.
 

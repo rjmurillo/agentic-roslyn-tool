@@ -16,6 +16,12 @@ namespace AgenticRoslynTool;
 internal static class SplitPlanner
 {
     /// <summary>
+    /// The skip reason for a content phase row whose manifest disagrees with this run's
+    /// plan. A drifted path appends the two paths after it, so match it as a prefix.
+    /// </summary>
+    private const string PlanMismatchReason = "content phase plan does not match manifest";
+
+    /// <summary>
     /// Cross-file collision pass. If two different source files would each emit an
     /// output file with the same simple name (for example both emitting <c>Foo.cs</c>),
     /// each is qualified as <c>OriginalFileName.TypeName.cs</c>. If the qualified form
@@ -249,55 +255,90 @@ internal static class SplitPlanner
         var files = paths.Select(kvp => new PlannedFile(kvp.Key, kvp.Value, ReferenceEquals(kvp.Value, keep))).ToArray();
         if (planned is not null)
         {
-            var computedByType = files.Where(f => !f.IsKept).ToDictionary(f => f.Type.Key, f => f.Path, StringComparer.Ordinal);
-            var plannedByType = planned.NewFiles.ToDictionary(f => f.Type, f => f.Path, StringComparer.Ordinal);
-            files = files.Select(file =>
+            var (substituted, refusal) = ApplyManifestPaths(originalPath, files, planned, keptPath, gitMove);
+            if (refusal is not null)
             {
-                if (file.IsKept)
-                {
-                    return file;
-                }
-
-                return plannedByType.TryGetValue(file.Type.Key, out var plannedPath) ? file with { Path = plannedPath } : file;
-            }).ToArray();
-
-            // The path written is the substituted one, so it needs its own existence check.
-            // No originalPath or readPath exemption here: a legitimate planned path never
-            // equals either, so exempting them only lets an edited manifest aim a write at
-            // the file being read.
-            var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { keptPath };
-            foreach (var file in files.Where(f => !f.IsKept))
-            {
-                if (File.Exists(file.Path))
-                {
-                    return new SplitPlan(keep, keptPath, gitMove, note, $"target path already exists: {file.Path}", Array.Empty<PlannedFile>());
-                }
-
-                if (!claimed.Add(file.Path))
-                {
-                    return new SplitPlan(keep, keptPath, gitMove, note, $"target path collision within split: {file.Path}", Array.Empty<PlannedFile>());
-                }
+                return new SplitPlan(keep, keptPath, gitMove, note, refusal, Array.Empty<PlannedFile>());
             }
 
-            var plannedNewFiles = planned.NewFiles.Select(f => f.Path).Order(StringComparer.OrdinalIgnoreCase).ToArray();
-            var actualNewFiles = files.Where(f => !f.IsKept).Select(f => f.Path).Order(StringComparer.OrdinalIgnoreCase).ToArray();
-
-            // The path set comparison runs after substitution, so on its own it compares the
-            // manifest's new file paths with themselves. An unedited plan can only hold the
-            // path this run computes or its cross-file qualified form. Anything else means
-            // the plan was made under other rules, such as a different --file-naming, or was
-            // edited after review.
-            var driftedPath = files.Any(file => !file.IsKept
-                && !StringComparer.OrdinalIgnoreCase.Equals(file.Path, computedByType[file.Type.Key])
-                && !StringComparer.OrdinalIgnoreCase.Equals(file.Path, GetQualifiedPath(originalPath, computedByType[file.Type.Key])));
-            if (!StringComparer.OrdinalIgnoreCase.Equals(planned.KeptPath, keptPath) || planned.GitMove != gitMove || !plannedNewFiles.SequenceEqual(actualNewFiles, StringComparer.OrdinalIgnoreCase) || driftedPath)
-            {
-                return new SplitPlan(keep, keptPath, gitMove, note, "content phase plan does not match manifest", Array.Empty<PlannedFile>());
-            }
+            files = substituted;
         }
 
         note = CombineNotes(note, directiveNote);
         return new SplitPlan(keep, keptPath, gitMove, note, null, files);
+    }
+
+    /// <summary>
+    /// Replaces each computed new file path with the path the plan manifest recorded, and
+    /// refuses when the manifest could not have come from this run's own plan.
+    /// </summary>
+    /// <remarks>
+    /// The order is load-bearing. Existence and uniqueness of the substituted paths are
+    /// checked first, then the plan shape, then each manifest path against the computed
+    /// one. A drifted path is reported with both paths, because the row that reports it
+    /// replaces the plan row that held the manifest path.
+    /// </remarks>
+    /// <param name="originalPath">The input path the plan row is keyed by.</param>
+    /// <param name="files">The files this run computed, before any manifest path is used.</param>
+    /// <param name="planned">The plan manifest row for this input.</param>
+    /// <param name="keptPath">The kept path this run computed.</param>
+    /// <param name="gitMove">Whether this run plans a rename of the kept file.</param>
+    /// <returns>The files with manifest paths applied, or a refusal reason and nothing to write.</returns>
+    private static (PlannedFile[] Files, string? Refusal) ApplyManifestPaths(string originalPath, PlannedFile[] files, FileResult planned, string keptPath, bool gitMove)
+    {
+        var computedByType = files.Where(f => !f.IsKept).ToDictionary(f => f.Type.Key, f => f.Path, StringComparer.Ordinal);
+        var plannedByType = planned.NewFiles.ToDictionary(f => f.Type, f => f.Path, StringComparer.Ordinal);
+        var substituted = files.Select(file =>
+        {
+            if (file.IsKept)
+            {
+                return file;
+            }
+
+            return plannedByType.TryGetValue(file.Type.Key, out var plannedPath) ? file with { Path = plannedPath } : file;
+        }).ToArray();
+
+        // The path written is the substituted one, so it needs its own existence check.
+        // No originalPath or readPath exemption here: a legitimate planned path never
+        // equals either, so exempting them only lets an edited manifest aim a write at
+        // the file being read.
+        var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { keptPath };
+        foreach (var file in substituted.Where(f => !f.IsKept))
+        {
+            if (File.Exists(file.Path))
+            {
+                return (Array.Empty<PlannedFile>(), $"target path already exists: {file.Path}");
+            }
+
+            if (!claimed.Add(file.Path))
+            {
+                return (Array.Empty<PlannedFile>(), $"target path collision within split: {file.Path}");
+            }
+        }
+
+        var plannedNewFiles = planned.NewFiles.Select(f => f.Path).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+        var actualNewFiles = substituted.Where(f => !f.IsKept).Select(f => f.Path).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (!StringComparer.OrdinalIgnoreCase.Equals(planned.KeptPath, keptPath) || planned.GitMove != gitMove || !plannedNewFiles.SequenceEqual(actualNewFiles, StringComparer.OrdinalIgnoreCase))
+        {
+            return (Array.Empty<PlannedFile>(), PlanMismatchReason);
+        }
+
+        // The path set comparison above runs after substitution, so on its own it compares
+        // the manifest's new file paths with themselves. An unedited plan can only hold the
+        // path this run computes or its cross-file qualified form. Anything else means the
+        // plan was made under other rules, such as a different --file-naming, or was edited
+        // after review.
+        foreach (var file in substituted.Where(f => !f.IsKept))
+        {
+            var computed = computedByType[file.Type.Key];
+            if (!StringComparer.OrdinalIgnoreCase.Equals(file.Path, computed)
+                && !StringComparer.OrdinalIgnoreCase.Equals(file.Path, GetQualifiedPath(originalPath, computed)))
+            {
+                return (Array.Empty<PlannedFile>(), $"{PlanMismatchReason}: manifest has {file.Path}, this run computes {computed}");
+            }
+        }
+
+        return (substituted, null);
     }
 
 

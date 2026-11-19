@@ -10,9 +10,9 @@ namespace AgenticRoslynTool.Tests;
 public sealed class FileNamingAgreementTests
 {
     [Theory]
-    [InlineData(FileNamingConvention.Metadata, FileNamingConvention.StyleCop)]
-    [InlineData(FileNamingConvention.StyleCop, FileNamingConvention.Metadata)]
-    public void ContentPhase_RefusesAPlanMadeUnderTheOtherConvention(object planNaming, object contentNaming)
+    [InlineData(FileNamingConvention.Metadata, FileNamingConvention.StyleCop, "Foo`1.cs", "Foo.cs")]
+    [InlineData(FileNamingConvention.StyleCop, FileNamingConvention.Metadata, "Foo.cs", "Foo`1.cs")]
+    public void ContentPhase_RefusesAPlanMadeUnderTheOtherConvention(object planNaming, object contentNaming, string manifestName, string computedName)
     {
         // Only the moved file's name differs here; the kept path and the git move flag
         // agree. The content phase substitutes manifest paths before it compares, so this
@@ -23,8 +23,12 @@ public sealed class FileNamingAgreementTests
 
         var result = Assert.Single(FileNamingRuns.RunPlanThenContent(ws, listPath, Path.Combine(ws.Root, "m.csv"), (FileNamingConvention)planNaming, (FileNamingConvention)contentNaming));
 
+        // The reason names both paths. The skipped row replaces the plan row, so the reason
+        // is the only place the disagreeing manifest path survives.
         Assert.Equal("skipped", result.Status);
-        Assert.Equal("content phase plan does not match manifest", result.Reason);
+        Assert.Equal(
+            $"content phase plan does not match manifest: manifest has {Path.Combine(ws.Root, manifestName)}, this run computes {Path.Combine(ws.Root, computedName)}",
+            result.Reason);
         Assert.Equal(FileNamingRuns.AWithGenericFoo, File.ReadAllText(source));
         Assert.Equal(new[] { "A.cs" }, FileNamingRuns.CsFiles(ws));
     }
@@ -46,7 +50,9 @@ public sealed class FileNamingAgreementTests
         var result = Assert.Single(FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Content, FileNamingConvention.StyleCop));
 
         Assert.Equal("skipped", result.Status);
-        Assert.Equal("content phase plan does not match manifest", result.Reason);
+        Assert.Equal(
+            $"content phase plan does not match manifest: manifest has {elsewhere}, this run computes {Path.Combine(ws.Root, "Foo.cs")}",
+            result.Reason);
         Assert.Equal(new[] { "A.cs" }, FileNamingRuns.CsFiles(ws));
     }
 
