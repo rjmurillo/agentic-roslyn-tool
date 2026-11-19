@@ -24,7 +24,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 30 files. |
+| `src/AgenticRoslynTool/` | The entire product. 31 files. |
 | `tests/AgenticRoslynTool.Tests/` | xUnit tests. 146 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
@@ -36,7 +36,7 @@ Every source file, so you do not have to open one to find out whether it matters
 
 | File | Responsibility |
 |---|---|
-| `FileSplitter.cs` | The orchestrator. Runs a phase over the inputs and turns one input into one result row. Delegates the actual work to the six types below it. Read this first. |
+| `FileSplitter.cs` | The orchestrator. Runs a phase over the inputs and turns one input into one result row. Delegates the actual work to the six types below it, and the plan binding to `PlanBinding.cs`. Read this first. |
 | `InputSource.cs` | Turns whatever the caller supplied, a directory, a list file, a manifest, standard input, into an ordered list of absolute paths. |
 | `SplitPlanner.cs` | Decides what a split would do: which type stays, where each moved type lands, which inputs collide, which path a phase reads. Does not act. |
 | `DirectiveAnalyzer.cs` | Decides whether preprocessor directives make a split unsafe. Returns a verdict, never acts on one. |
@@ -65,6 +65,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `NewFileResult.cs` | One created file inside a manifest row. |
 | `ManifestWriter.cs` | Reads and writes the CSV manifest that carries state between phases. |
 | `ContentHash.cs` | Computes and compares the `sha256:` content hash a manifest row carries for its input. Owns the `stale plan:` refusal text. |
+| `PlanBinding.cs` | Binds the rows renames and content write to the plan manifest they read. Carries the planned hash and refuses a stale file. Decides, never acts. |
 | `CsvFieldReader.cs` | Quote aware CSV field parsing for the manifest and for CSV inputs. |
 
 The tool splits itself cleanly. Running it over `src/AgenticRoslynTool/` reports every file
