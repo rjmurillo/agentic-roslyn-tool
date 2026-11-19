@@ -163,6 +163,10 @@ Promises:
 - Kept as a separate phase so the rename lands in its own commit. Git then records a
   rename instead of a delete plus an add, and the file history survives.
 
+Recomputes the plan and reads no manifest. So it cannot notice a `--collision-naming`
+value that differs from the plan run. Renames touch only kept files, never a qualified
+output, so the value does not change what this phase moves.
+
 Requires a real git repository. The test suite avoids this phase by keeping every fixture
 file name equal to its primary type name, so no `git` process ever starts.
 
@@ -184,7 +188,9 @@ Promises:
   one ends the whole run, not just the file.
 - Refuses a file when the recomputed plan disagrees with the manifest it was handed. The
   comparison is structural: it covers the kept path, the git move flag, and the set of
-  output paths. The manifest carries no content hash, so an edit that leaves type names
+  output paths. It also refuses a row whose output path is the qualified collision name of
+  the `--collision-naming` value this run was not given. The content phase never reruns
+  the collision pass, so this is the only thing that keeps the flag in step with the plan. The manifest carries no content hash, so an edit that leaves type names
   and paths alone passes this check. Treat it as drift detection on the plan shape, not as
   proof the source is unchanged.
 - Writes its own manifest to the same default path, which **overwrites the plan
@@ -348,7 +354,11 @@ The things that would surprise a reader who only skimmed the signatures.
 4. **The content phase can overwrite the plan manifest.** Same default path.
 5. **A cross file name collision is usually resolved to `FileName.TypeName.cs`**, which
    satisfies SA1402 but violates SA1649, so those files need a human decision afterwards.
-   When the qualified names collide too, the tool gives up and skips every input involved
-   with `qualified output path collision requires manual handling`.
+   `--collision-naming type-first` resolves it to `TypeName.FileName.cs` instead, which
+   passes SA1649. Under either value, when the qualified names collide too, the tool gives
+   up and skips every input involved with
+   `qualified output path collision requires manual handling`. The plan does not probe the
+   disk for a qualified name. The content phase does, and refuses with
+   `target path already exists`.
 6. **The tool trusts the plan manifest as a review artifact**, and refuses to proceed when
    reality has drifted from it. That refusal is a feature.

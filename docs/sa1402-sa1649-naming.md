@@ -130,7 +130,8 @@ internal class Shared
 
 `B.cs` is the same, with `namespace Demo.Two` and `class B`. Each file wants to emit
 `Shared.cs` into the same folder. The tool detects the collision and qualifies both
-outputs as `<OriginalFileName>.<TypeName>.cs`. The plan says so in the `note` column:
+outputs. By default the form is `<OriginalFileName>.<TypeName>.cs`. The plan says so in
+the `note` column:
 
 ```csv
 originalPath,keptPath,gitMove,status,reason,note,newFilePath,type
@@ -143,11 +144,44 @@ If the qualified names collide as well, both inputs are skipped with
 `qualified output path collision requires manual handling`.
 
 SA1402 is now satisfied, but SA1649 flags both new files. It reads `A.Shared.cs` as `A`,
-and the first type in that file is `Shared`. Pick one of these fixes:
+and the first type in that file is `Shared`.
+
+### Let the tool pick a name SA1649 accepts
+
+Pass `--collision-naming type-first` and the tool swaps the two parts of the qualified
+name. It emits `<TypeName>.<OriginalFileName>.cs`:
+
+```csv
+originalPath,keptPath,gitMove,status,reason,note,newFilePath,type
+"src/A.cs","src/A.cs",false,"split","","resolved output path collision: src/A.cs -> src/Shared.A.cs; src/B.cs -> src/Shared.B.cs","src/Shared.A.cs","Shared"
+"src/B.cs","src/B.cs",false,"split","","resolved output path collision: src/A.cs -> src/Shared.A.cs; src/B.cs -> src/Shared.B.cs","src/Shared.B.cs","Shared"
+```
+
+SA1649 reads both names as `Shared`, so both files pass. The flag is opt-in, and the
+default stays `file-first`, so existing plans do not change. Four things to know:
+
+* **Pass the flag to every phase.** The value changes planned paths. A content run whose
+  flag differs from the one the plan used skips each affected file with
+  `content phase plan does not match manifest` and writes nothing for it. The renames
+  phase reads no manifest and cannot check, so give it the same value.
+* **A generic type keeps its braces.** When `Shared<T>` collides too, the output is
+  `Shared{T}.A.cs`. SA1649 reads that as `Shared{T}`. It passes under the `stylecop`
+  convention and raises SA1649 under `metadata`, the same as `Shared{T}.cs` would. A build
+  with StyleCop.Analyzers `1.2.0-beta.556` on .NET SDK 10.0.404 confirmed both results.
+* **The tool still never writes over a file.** If `Shared.A.cs` already exists, the
+  content phase skips that input with `target path already exists`. If two inputs get the
+  same qualified name, both are skipped with
+  `qualified output path collision requires manual handling`.
+* **The tool does not read your StyleCop settings.** It cannot tell that a repository
+  enforces SA1649, so you choose the form on the command line.
+
+### Fix files that were already split
+
+If you ran the split with the default naming, pick one of these fixes:
 
 * **Rename by hand to `Shared.A.cs` and `Shared.B.cs`.** SA1649 reads both as `Shared`, so
-  they pass. This is the best choice when only a few files collided. The tool does not
-  produce this form; it is a manual step after the content phase.
+  they pass. This is the best choice when only a few files collided. It is the same form
+  `--collision-naming type-first` produces.
 * **Move each type into a folder named for its namespace**, such as `One/Shared.cs` and
   `Two/Shared.cs`. Both pass SA1649. The tool does not move files into folders, so this is
   manual too.
@@ -237,6 +271,7 @@ Yes. It compares only the part of the file name before the first dot.
 
 **Why does `A.Shared.cs` raise SA1649?**
 SA1649 reads the name as `A`, which does not match the type `Shared`. `Shared.A.cs` passes.
+Pass `--collision-naming type-first` to make the tool emit that form.
 
 **Does SA1649 check partial classes?**
 No. When the first type in the file is `partial`, the rule reports nothing.

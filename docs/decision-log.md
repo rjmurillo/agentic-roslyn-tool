@@ -508,6 +508,45 @@ Turn code owner review back on while there is one owner and the maintainer's own
 requests cannot merge. Removing Renovate's release age lets a freshly published,
 possibly compromised version merge itself within minutes.
 
+### Decision 21. Collision naming is a flag, and the default keeps the SA1649 violation
+
+**Context.** Two inputs in one folder can each emit `Shared.cs`. The collision pass
+qualifies both as `<OriginalFileName>.<TypeName>.cs`, such as `A.Shared.cs`. SA1649 reads
+a file name up to its first dot, so it reads `A` and reports the file. The naming guide
+told readers to rename by hand to `Shared.A.cs`. That is mechanical work the tool can do.
+The StyleCop source confirms the rule: `FileNameHelpers.GetFileNameAndSuffix` cuts the
+name at the first dot, read at commit `4502632`. A real build confirmed the result.
+
+**Decision.** `--collision-naming file-first|type-first` selects the qualified form.
+`file-first` is the default and is today's behavior. `type-first` emits
+`<TypeName>.<OriginalFileName>.cs`. Both forms are built from the target file name the
+plan already chose, so a generic keeps its braces: `Shared{T}.A.cs`. The content phase
+refuses a row whose manifest path is the other value's qualified form, with
+`content phase plan does not match manifest`.
+
+**Rejected.** Changing the default to `type-first`. Every plan with a collision would get
+new paths, and a manifest reviewed before the upgrade would stop matching. Reading
+`stylecop.json` or `.editorconfig` to choose was also rejected. That is the defect in
+decisions 9 and 14: the tool guessing at one repository's setup. Recording the value in
+the manifest was rejected too. It adds a column to the manifest CSV, which is a larger
+contract change than one flag.
+
+**Consequences.** The value must be passed to every phase. The renames phase reads no
+manifest, so it cannot check the value, and it does not need to: it moves kept files only.
+The content check is per row. A row with no collision has the same paths under both
+values and still applies. One default behavior changed, on purpose. A default content run
+now refuses a manifest path of the exact form `<TypeName>.<OriginalFileName>.cs` for a
+type that file would emit. Before, it wrote that path. Any other hand-edited free path is
+still accepted. Under the `metadata` convention `Shared{T}.A.cs` still raises SA1649,
+for the same reason `Shared{T}.cs` does.
+
+**Reversal warning.** Remove the content check and the flag stops meaning anything in the
+content phase. That phase takes paths from the manifest and never reruns the collision
+pass, so it would write whichever form the manifest holds and report `split`. Widen the
+check to "every manifest path must be one this run computes" and every hand-edited path is
+refused, which breaks reviewed plans that work today. Flip the default and every existing
+plan with a collision goes stale at once.
+
 ## Unrecorded decisions
 
 Recorded so nobody assumes these were considered.

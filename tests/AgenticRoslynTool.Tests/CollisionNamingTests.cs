@@ -1,0 +1,215 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Xunit;
+
+namespace AgenticRoslynTool.Tests;
+
+// Covers --collision-naming. The default form is pinned by FilenameCollisionTests, which
+// this file leaves alone on purpose: those tests must keep passing with no flag at all.
+public sealed class CollisionNamingTests
+{
+    private const string MismatchReason = "content phase plan does not match manifest";
+
+    [Fact]
+    public void Parse_DefaultsToFileFirst_AndReadsBothValues()
+    {
+        Assert.Equal(CollisionNaming.FileFirst, Options.Parse(["--input", "list.txt"]).CollisionNaming);
+        Assert.Equal(CollisionNaming.FileFirst, Options.Parse(["--input", "list.txt", "--collision-naming", "file-first"]).CollisionNaming);
+        Assert.Equal(CollisionNaming.TypeFirst, Options.Parse(["--input", "list.txt", "--collision-naming", "type-first"]).CollisionNaming);
+        Assert.Equal(CollisionNaming.TypeFirst, Options.Parse(["--input", "list.txt", "--collision-naming", "Type-First"]).CollisionNaming);
+    }
+
+    [Fact]
+    public void Parse_RejectsAnUnknownOrMissingValue()
+    {
+        var unknown = Assert.Throws<ArgumentException>(() => Options.Parse(["--input", "list.txt", "--collision-naming", "typefirst"]));
+        Assert.Contains("Unknown collision naming: typefirst", unknown.Message, StringComparison.Ordinal);
+        Assert.Throws<ArgumentException>(() => Options.Parse(["--input", "list.txt", "--collision-naming"]));
+
+        // The token after the flag is its value, so it is never read as a request for help.
+        Assert.False(Options.HasMetaOption(["--collision-naming", "--help"], "--help"));
+    }
+
+    [Fact]
+    public void TypeFirst_PutsTheTypeNameBeforeTheSourceFileName()
+    {
+        using var ws = new TempWorkspace();
+        var (aPath, bPath, listPath) = WriteSharedPair(ws, sharedTypes: "public class Shared { }\n");
+        var manifestPath = Path.Combine(ws.Root, "m.csv");
+
+        var plan = RunPhase(ws, listPath, manifestPath, Phase.Plan, CollisionNaming.TypeFirst);
+        Assert.All(plan, r => Assert.Equal("split", r.Status));
+        Assert.Equal(Path.Combine(ws.Root, "Shared.A.cs"), Assert.Single(plan.Single(r => r.OriginalPath == aPath).NewFiles).Path);
+        Assert.Equal(Path.Combine(ws.Root, "Shared.B.cs"), Assert.Single(plan.Single(r => r.OriginalPath == bPath).NewFiles).Path);
+        Assert.All(plan, r => Assert.Contains("Shared.A.cs", r.Note ?? string.Empty, StringComparison.Ordinal));
+
+        ManifestWriter.Write(plan, manifestPath);
+        var content = RunPhase(ws, listPath, manifestPath, Phase.Content, CollisionNaming.TypeFirst);
+
+        Assert.All(content, r => Assert.Equal("split", r.Status));
+        Assert.Equal(
+            new[] { "A.cs", "B.cs", "Shared.A.cs", "Shared.B.cs" },
+            CsFiles(ws));
+        Assert.Contains("namespace Sample.One;", File.ReadAllText(Path.Combine(ws.Root, "Shared.A.cs")), StringComparison.Ordinal);
+        Assert.Contains("namespace Sample.Two;", File.ReadAllText(Path.Combine(ws.Root, "Shared.B.cs")), StringComparison.Ordinal);
+        Assert.DoesNotContain("class Shared", File.ReadAllText(aPath), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TypeFirst_KeepsTheGenericPartOfTheFileName()
+    {
+        // The qualified name is built from the file name the plan already chose, so the
+        // braces that tell Shared<T> from Shared stay in front of the first dot.
+        using var ws = new TempWorkspace();
+        var (_, _, listPath) = WriteSharedPair(ws, sharedTypes: "public class Shared { }\n\npublic class Shared<T> { }\n");
+        var manifestPath = Path.Combine(ws.Root, "m.csv");
+
+        var plan = RunPhase(ws, listPath, manifestPath, Phase.Plan, CollisionNaming.TypeFirst);
+        ManifestWriter.Write(plan, manifestPath);
+        var content = RunPhase(ws, listPath, manifestPath, Phase.Content, CollisionNaming.TypeFirst);
+
+        Assert.All(content, r => Assert.Equal("split", r.Status));
+        Assert.Equal(
+            new[] { "A.cs", "B.cs", "Shared.A.cs", "Shared.B.cs", "Shared{T}.A.cs", "Shared{T}.B.cs" },
+            CsFiles(ws));
+        Assert.Contains("class Shared<T>", File.ReadAllText(Path.Combine(ws.Root, "Shared{T}.A.cs")), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("type-first", "file-first")]
+    [InlineData("file-first", "type-first")]
+    public void ContentPhase_RefusesAManifestPlannedUnderTheOtherNaming(string plannedValue, string appliedValue)
+    {
+        // Strings, not the enum: the enum is internal and a public test method cannot take it.
+        var planned = Options.Parse(["--input", "list.txt", "--collision-naming", plannedValue]).CollisionNaming;
+        var applied = Options.Parse(["--input", "list.txt", "--collision-naming", appliedValue]).CollisionNaming;
+
+        // The content phase never reruns the collision pass. Without its own check it
+        // would write whatever names the manifest carries, whatever this run was told.
+        using var ws = new TempWorkspace();
+        var (aPath, bPath, listPath) = WriteSharedPair(ws, sharedTypes: "public class Shared { }\n");
+        var aBefore = File.ReadAllBytes(aPath);
+        var bBefore = File.ReadAllBytes(bPath);
+        var manifestPath = Path.Combine(ws.Root, "m.csv");
+
+        ManifestWriter.Write(RunPhase(ws, listPath, manifestPath, Phase.Plan, planned), manifestPath);
+        var content = RunPhase(ws, listPath, manifestPath, Phase.Content, applied);
+
+        Assert.Equal(2, content.Count);
+        Assert.All(content, r => Assert.Equal("skipped", r.Status));
+        Assert.All(content, r => Assert.Equal(MismatchReason, r.Reason));
+        Assert.Equal(new[] { "A.cs", "B.cs" }, CsFiles(ws));
+        Assert.Equal(aBefore, File.ReadAllBytes(aPath));
+        Assert.Equal(bBefore, File.ReadAllBytes(bPath));
+    }
+
+    [Fact]
+    public void ContentPhase_StillAcceptsAHandEditedFreePath()
+    {
+        // The naming check refuses one shape only: the other naming's qualified form. A
+        // reviewer who renames an output in the manifest to a free path is still obeyed.
+        using var ws = new TempWorkspace();
+        var (aPath, _, listPath) = WriteSharedPair(ws, sharedTypes: "public class Shared { }\n");
+        var manifestPath = Path.Combine(ws.Root, "m.csv");
+
+        var plan = RunPhase(ws, listPath, manifestPath, Phase.Plan, CollisionNaming.FileFirst);
+        var edited = plan
+            .Select(r => r.OriginalPath == aPath
+                ? r with { NewFiles = r.NewFiles.Select(f => f with { Path = Path.Combine(ws.Root, "SharedOne.cs") }).ToArray() }
+                : r)
+            .ToArray();
+        ManifestWriter.Write(edited, manifestPath);
+
+        var content = RunPhase(ws, listPath, manifestPath, Phase.Content, CollisionNaming.FileFirst);
+
+        Assert.All(content, r => Assert.Equal("split", r.Status));
+        Assert.Equal(new[] { "A.cs", "B.Shared.cs", "B.cs", "SharedOne.cs" }, CsFiles(ws));
+    }
+
+    [Fact]
+    public void TypeFirst_RefusesWhenTheQualifiedPathAlreadyExists()
+    {
+        // The plan pass does not probe the disk for a qualified path, so the content phase
+        // is where an occupied name is caught. It must refuse, never overwrite.
+        using var ws = new TempWorkspace();
+        var (aPath, _, listPath) = WriteSharedPair(ws, sharedTypes: "public class Shared { }\n");
+        var aBefore = File.ReadAllBytes(aPath);
+        var manifestPath = Path.Combine(ws.Root, "m.csv");
+
+        ManifestWriter.Write(RunPhase(ws, listPath, manifestPath, Phase.Plan, CollisionNaming.TypeFirst), manifestPath);
+        var occupied = ws.WriteFile("Shared.A.cs", "// already here\n");
+
+        var content = RunPhase(ws, listPath, manifestPath, Phase.Content, CollisionNaming.TypeFirst);
+
+        var a = content.Single(r => r.OriginalPath == aPath);
+        Assert.Equal("skipped", a.Status);
+        Assert.Equal($"target path already exists: {occupied}", a.Reason);
+        Assert.Equal("// already here\n", File.ReadAllText(occupied));
+        Assert.Equal(aBefore, File.ReadAllBytes(aPath));
+        Assert.Equal("split", content.Single(r => r.OriginalPath != aPath).Status);
+        Assert.True(File.Exists(Path.Combine(ws.Root, "Shared.B.cs")));
+    }
+
+    [Fact]
+    public void TypeFirst_SkipsBothInputsWhenTheQualifiedNamesCollide()
+    {
+        // Two inputs with one base name, in different folders, both aiming at one output.
+        // Either naming qualifies them to the same path, so neither may be written.
+        var root = Path.Combine(Path.GetTempPath(), "art-collision-naming");
+        var target = Path.Combine(root, "Shared.cs");
+        var results = new[]
+        {
+            Split(Path.Combine(root, "one", "A.cs"), target),
+            Split(Path.Combine(root, "two", "A.cs"), target),
+        };
+
+        var resolved = SplitPlanner.ResolvePlannedOutputCollisions(results, CollisionNaming.TypeFirst);
+
+        Assert.All(resolved, r => Assert.Equal("skipped", r.Status));
+        Assert.All(resolved, r => Assert.Equal("qualified output path collision requires manual handling", r.Reason));
+    }
+
+    [Fact]
+    public void TypeFirst_TreatsQualifiedNamesThatDifferOnlyByCaseAsColliding()
+    {
+        // Shared.Foo.cs and Shared.foo.cs are one file on Windows and macOS. The collision
+        // key ignores case everywhere, so a plan made on Linux is safe to apply anywhere.
+        var root = Path.Combine(Path.GetTempPath(), "art-collision-naming");
+        var target = Path.Combine(root, "Shared.cs");
+        var results = new[]
+        {
+            Split(Path.Combine(root, "one", "Foo.cs"), target),
+            Split(Path.Combine(root, "two", "foo.cs"), target),
+        };
+
+        var resolved = SplitPlanner.ResolvePlannedOutputCollisions(results, CollisionNaming.TypeFirst);
+
+        Assert.All(resolved, r => Assert.Equal("skipped", r.Status));
+        Assert.All(resolved, r => Assert.Equal("qualified output path collision requires manual handling", r.Reason));
+    }
+
+    private static (string APath, string BPath, string ListPath) WriteSharedPair(TempWorkspace ws, string sharedTypes)
+    {
+        var aPath = ws.WriteFile("A.cs", TestHeader.Copyright + "\nnamespace Sample.One;\n\npublic class A { }\n\n" + sharedTypes);
+        var bPath = ws.WriteFile("B.cs", TestHeader.Copyright + "\nnamespace Sample.Two;\n\npublic class B { }\n\n" + sharedTypes);
+        return (aPath, bPath, ws.WriteInputList(aPath, bPath));
+    }
+
+    private static IReadOnlyList<FileResult> RunPhase(TempWorkspace ws, string listPath, string manifestPath, Phase phase, CollisionNaming naming)
+    {
+        var options = new Options(listPath, manifestPath, ws.Root, phase, null, CollisionNaming: naming);
+        return new FileSplitter(options).Run().ReportRows;
+    }
+
+    private static string[] CsFiles(TempWorkspace ws)
+    {
+        return Directory.GetFiles(ws.Root, "*.cs").Select(f => Path.GetFileName(f)!).Order(StringComparer.Ordinal).ToArray();
+    }
+
+    private static FileResult Split(string original, string output)
+    {
+        return FileResult.Split(original, original, gitMove: false, note: null, new[] { new NewFileResult(output, "Shared") });
+    }
+}

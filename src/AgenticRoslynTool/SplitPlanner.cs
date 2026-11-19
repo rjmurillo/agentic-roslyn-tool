@@ -18,20 +18,26 @@ internal static class SplitPlanner
     /// <summary>
     /// Cross-file collision pass. If two different source files would each emit an
     /// output file with the same simple name (for example both emitting <c>Foo.cs</c>),
-    /// each is qualified as <c>OriginalFileName.TypeName.cs</c>. If the qualified form
-    /// still collides, the affected inputs are converted to skips with a manual-handling
-    /// reason.
+    /// each is qualified in the form <paramref name="collisionNaming"/> selects. If the
+    /// qualified form still collides, the affected inputs are converted to skips with a
+    /// manual-handling reason.
     /// </summary>
     /// <remarks>
-    /// The qualified fallback form violates StyleCop SA1649 (file name must match
-    /// first type). The tool prefers a StyleCop violation over a build break; the
-    /// alternative would be to refuse to split, which loses coverage.
+    /// The default form, <c>OriginalFileName.TypeName.cs</c>, violates StyleCop SA1649
+    /// (file name must match first type). The tool prefers a StyleCop violation over a
+    /// build break; the alternative would be to refuse to split, which loses coverage.
+    /// <see cref="CollisionNaming.TypeFirst"/> swaps the two parts so SA1649 passes. It is
+    /// opt-in because it changes planned paths, and a plan and its content run must agree.
+    /// This pass does not probe the disk for the qualified path. The content phase does,
+    /// in <see cref="BuildPlan"/>, before anything is written.
     /// </remarks>
-    internal static IReadOnlyList<FileResult> ResolvePlannedOutputCollisions(IReadOnlyList<FileResult> results)
+    /// <param name="results">One row per input, as the plan phase computed them.</param>
+    /// <param name="collisionNaming">Which qualified form to use for a colliding output.</param>
+    internal static IReadOnlyList<FileResult> ResolvePlannedOutputCollisions(IReadOnlyList<FileResult> results, CollisionNaming collisionNaming = CollisionNaming.FileFirst)
     {
         var entries = results
             .Where(r => r.Status == "split")
-            .SelectMany(r => r.NewFiles.Select(f => new PlannedOutputEntry(r.OriginalPath, f.Type, f.Path, GetQualifiedPath(r.OriginalPath, f.Path))))
+            .SelectMany(r => r.NewFiles.Select(f => new PlannedOutputEntry(r.OriginalPath, f.Type, f.Path, GetQualifiedPath(r.OriginalPath, f.Path, collisionNaming))))
             .ToArray();
         // Two comparers, on purpose. Grouping by output path asks "could these two writes
         // hit the same file", which stays ignore-case so a same-name-different-case pair is
@@ -91,12 +97,45 @@ internal static class SplitPlanner
     }
 
     /// <summary>Builds the qualified fallback path used to break same-simple-name collisions across two different source files.</summary>
-    internal static string GetQualifiedPath(string originalPath, string targetPath)
+    /// <remarks>
+    /// Both forms are built from the target file name the plan already chose, never from the
+    /// type again. So whatever naming produced <paramref name="targetPath"/>, such as
+    /// <c>Foo{T}.cs</c>, carries through: type-first gives <c>Foo{T}.A.cs</c>.
+    /// </remarks>
+    /// <param name="originalPath">The input file the output is carved from.</param>
+    /// <param name="targetPath">The simple-name output path that collided.</param>
+    /// <param name="collisionNaming">Which of the two name parts comes first.</param>
+    internal static string GetQualifiedPath(string originalPath, string targetPath, CollisionNaming collisionNaming = CollisionNaming.FileFirst)
     {
         var directory = Path.GetDirectoryName(targetPath) ?? ".";
         var sourceBaseName = Path.GetFileNameWithoutExtension(originalPath);
         var targetFileName = Path.GetFileName(targetPath);
+        if (collisionNaming == CollisionNaming.TypeFirst)
+        {
+            return Path.Combine(directory, Path.GetFileNameWithoutExtension(targetFileName) + "." + sourceBaseName + Path.GetExtension(targetFileName));
+        }
+
         return Path.Combine(directory, sourceBaseName + "." + targetFileName);
+    }
+
+    /// <summary>
+    /// True when a manifest path is the qualified form of the collision naming this run was
+    /// not given, and is not a path this run could have planned itself.
+    /// </summary>
+    /// <remarks>
+    /// The content phase takes output paths from the manifest and never reruns the collision
+    /// pass, so nothing else notices that a plan was made under the other
+    /// <c>--collision-naming</c> value. The test is this narrow on purpose. Requiring every
+    /// manifest path to be one the run would compute would refuse any hand-edited path, which
+    /// the content phase has always accepted when the path is free.
+    /// </remarks>
+    private static bool IsOtherCollisionNamingForm(string originalPath, string computedPath, string plannedPath, CollisionNaming collisionNaming)
+    {
+        var other = collisionNaming == CollisionNaming.FileFirst ? CollisionNaming.TypeFirst : CollisionNaming.FileFirst;
+        var comparer = StringComparer.OrdinalIgnoreCase;
+        return comparer.Equals(plannedPath, GetQualifiedPath(originalPath, computedPath, other))
+            && !comparer.Equals(plannedPath, computedPath)
+            && !comparer.Equals(plannedPath, GetQualifiedPath(originalPath, computedPath, collisionNaming));
     }
 
     /// <summary>
@@ -175,9 +214,12 @@ internal static class SplitPlanner
     /// already exists on disk (except when it happens to be the current input file),
     /// and refuses when the recomputed plan does not match the manifest handed to the
     /// content phase. Together these are what make the plan-then-apply workflow safe.
+    /// The mismatch refusal also covers a manifest planned under the other
+    /// <c>--collision-naming</c> value, so a content run cannot apply names the caller did
+    /// not ask this run for.
     /// </remarks>
     /// <returns>A <see cref="SplitPlan"/>; a non-null <see cref="SplitPlan.SkipReason"/> means the split was refused.</returns>
-    internal static SplitPlan BuildPlan(string originalPath, string readPath, IReadOnlyList<TopLevelType> types, FileResult? planned, string? directiveNote)
+    internal static SplitPlan BuildPlan(string originalPath, string readPath, IReadOnlyList<TopLevelType> types, FileResult? planned, string? directiveNote, CollisionNaming collisionNaming = CollisionNaming.FileFirst)
     {
         var directory = Path.GetDirectoryName(readPath) ?? ".";
         var baseName = Path.GetFileNameWithoutExtension(originalPath);
@@ -235,6 +277,7 @@ internal static class SplitPlanner
         if (planned is not null)
         {
             var plannedByType = planned.NewFiles.ToDictionary(f => f.Type, f => f.Path, StringComparer.Ordinal);
+            var computedFiles = files;
             files = files.Select(file =>
             {
                 if (file.IsKept)
@@ -260,6 +303,18 @@ internal static class SplitPlanner
                 if (!claimed.Add(file.Path))
                 {
                     return new SplitPlan(keep, keptPath, gitMove, note, $"target path collision within split: {file.Path}", Array.Empty<PlannedFile>());
+                }
+            }
+
+            // The collision pass does not run in this phase, so the manifest is the only place
+            // a collision name can come from. One built under the other --collision-naming
+            // value is a plan this run was not asked to apply. This runs after the existence
+            // and uniqueness checks so those keep their own, more specific reasons.
+            for (var i = 0; i < files.Length; i++)
+            {
+                if (!files[i].IsKept && IsOtherCollisionNamingForm(originalPath, computedFiles[i].Path, files[i].Path, collisionNaming))
+                {
+                    return new SplitPlan(keep, keptPath, gitMove, note, "content phase plan does not match manifest", Array.Empty<PlannedFile>());
                 }
             }
 
