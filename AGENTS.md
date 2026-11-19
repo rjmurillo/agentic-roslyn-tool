@@ -24,8 +24,8 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 29 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 93 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 28 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 107 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -43,10 +43,9 @@ Every source file, so you do not have to open one to find out whether it matters
 | `OutputBuilder.cs` | Renders the text of every output file: name, carved source, required header, trailing newline. |
 | `OutputVerifier.cs` | The correctness checks, run against in-memory outputs before anything is written. A failure here means nothing reaches disk. |
 | `WorkspaceWriter.cs` | The only place the tool touches the working tree. Every rename runs through `git mv`; every write preserves encoding and byte order mark. |
-| `Program.cs` | Top level statements. Verb dispatch, error handling, exit codes, output selection. Declares no type. |
+| `Program.cs` | Top level statements. Verb dispatch, error handling, exit codes, output selection. Decides which file a run writes: the manifest in `plan`, the report otherwise. Declares no type. |
 | `Options.cs` | Command line parsing and the option record. Add a new flag here. |
-| `RunReport.cs` | Builds the `--json` report and the one-line summary from the report rows. |
-| `RunOutcome.cs` | Splits a run into manifest rows and report rows. They differ only in the content phase. Read this before changing what the content phase writes. |
+| `RunReport.cs` | Builds the `--json` report and the one-line summary from the rows a run returned. |
 | `RunSummary.cs` | The aggregate counts inside that report. |
 | `FileReport.cs` | One manifest row in JSON form. Field names mirror the CSV columns. |
 | `NewFileReport.cs` | One created file inside a `FileReport`, carrying its path and type name. |
@@ -63,7 +62,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `DirectiveSafety.cs` | Verdict on whether directives make a file unsafe to split. |
 | `FileResult.cs` | One manifest row. Owns the `split`, `skipped`, `failed` status vocabulary. |
 | `NewFileResult.cs` | One created file inside a manifest row. |
-| `ManifestWriter.cs` | Reads and writes the CSV manifest that carries state between phases. |
+| `ManifestWriter.cs` | Reads and writes the CSV format shared by the plan manifest and the run report. |
 | `CsvFieldReader.cs` | Quote aware CSV field parsing for the manifest and for CSV inputs. |
 
 The tool splits itself cleanly. Running it over `src/AgenticRoslynTool/` reports every file
@@ -74,7 +73,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 93 passed, 0 failed
+dotnet test  -c Release      # must be 107 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -168,8 +167,14 @@ agent does not pay again.
 - **A comment placed above a `using` is not the first type's trivia.** Roslyn attaches it
   to the `using` token, so it correctly appears in every output. To test that a comment
   travels with its type, put the comment immediately above the type declaration.
-- **The content phase overwrites the plan manifest** when both use the default path. Pass
-  an explicit `--manifest` if you want to keep the plan for comparison.
+- **Only the plan phase writes the manifest.** `renames` and `content` write the report
+  file, by default the manifest path with `.report.csv` as its extension. A test that calls
+  `FileSplitter` directly cannot see this, because the choice of file lives in
+  `Program.cs`. Test it through the real executable, as `SeparateRunReportTests` does.
+- **A content retry meets rows that already succeeded.** They are skipped as `already
+  applied`, by a check that runs before `BuildPlan`. Do not turn that check into an
+  exemption from the existence checks in rule 10. `ContentRetryTests` pins the states that
+  only look applied.
 - **Exit codes are 0, 1, 2, 3, and they mean different things.** 0 the run completed with
   no failures, 1 a row is `failed`, 2 the command line was wrong, 3 the run could not
   complete. Skips are not failures, so a run that skips everything exits 0. Read
@@ -243,10 +248,6 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   loosely would need a line-by-line comparer, which is not worth it until a real file hits
   this.
 
-- The manifest is both the plan and the run report. `Program` writes each run's rows back
-  to the plan path, so a content run that fails a row replaces its `split` plan with
-  `failed`, and a retry answers `not present as split in plan manifest`. Recovery is to
-  re-run the plan phase. See the decision log for why this waits on a decision.
 - `CsvFieldReader` exists, but not for the reason previously recorded here. The claim was
   that `Microsoft.VisualBasic.FileIO.TextFieldParser` forces a Windows only target. That
   was tested on this machine and is false: it compiles and parses quoted commas correctly

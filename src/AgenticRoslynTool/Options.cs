@@ -8,7 +8,7 @@ namespace AgenticRoslynTool;
 /// Absolute path to a directory to scan, a CSV (with a <c>file</c> column), or a
 /// newline-delimited path list. The literal <c>-</c> reads the list from standard input.
 /// </param>
-/// <param name="ManifestPath">Absolute path to the CSV manifest. Defaults to <c>sa1402-split-manifest.csv</c> next to the input.</param>
+/// <param name="ManifestPath">Absolute path to the CSV plan manifest. Defaults to <c>sa1402-split-manifest.csv</c> next to the input. Only the plan phase writes it.</param>
 /// <param name="RepoRoot">Absolute repository root used as the working directory for <c>git mv</c> calls.</param>
 /// <param name="Phase">Which of the <see cref="AgenticRoslynTool.Phase"/> stages to execute.</param>
 /// <param name="RequiredHeader">Optional file header to require and prepend to every output file.</param>
@@ -19,7 +19,11 @@ namespace AgenticRoslynTool;
 /// Empty by default: the tool ships with no opinion about which directories are generated.
 /// </param>
 /// <param name="Json">When true, the run prints a single JSON report to standard output instead of CSV.</param>
-internal sealed record Options(string InputPath, string ManifestPath, string RepoRoot, Phase Phase, string? RequiredHeader, IReadOnlyList<string>? Excludes = null, bool Json = false)
+/// <param name="ReportPath">
+/// Absolute path the renames and content phases write their run report to. Null means the
+/// default beside the manifest, see <see cref="DefaultReportPath"/>. Never the manifest path.
+/// </param>
+internal sealed record Options(string InputPath, string ManifestPath, string RepoRoot, Phase Phase, string? RequiredHeader, IReadOnlyList<string>? Excludes = null, bool Json = false, string? ReportPath = null)
 {
     /// <summary>
     /// Parses the raw argument array into an <see cref="Options"/> instance, resolving
@@ -33,6 +37,7 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
     {
         string? input = null;
         string? manifest = null;
+        string? report = null;
         string? requiredHeader = null;
         var excludes = new List<string>();
         var json = false;
@@ -50,6 +55,9 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
                     break;
                 case "--manifest":
                     manifest = RequireValue(args, ref i, "--manifest");
+                    break;
+                case "--report":
+                    report = RequireValue(args, ref i, "--report");
                     break;
                 case "--repo-root":
                     repoRoot = RequireValue(args, ref i, "--repo-root");
@@ -94,15 +102,41 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
 
         var inputPath = input == StdinPath ? StdinPath : Path.GetFullPath(input);
         manifest ??= Path.Combine(DefaultManifestDirectory(inputPath, repoRoot), "sa1402-split-manifest.csv");
-        return new Options(inputPath, Path.GetFullPath(manifest), Path.GetFullPath(repoRoot), phase, requiredHeader, excludes, json);
+        var manifestPath = Path.GetFullPath(manifest);
+
+        // The plan phase writes the manifest and no report, so the flag would do nothing
+        // there. A flag that is accepted and ignored reads as success to a caller that
+        // cannot see the screen.
+        if (report is not null && phase == Phase.Plan)
+        {
+            throw new ArgumentException("--report applies to the renames and content phases. The plan phase writes the manifest.");
+        }
+
+        // The report must never land on the plan. That overwrite is the defect the report
+        // file exists to remove: a failed row would replace its own plan and block a retry.
+        var reportPath = report is null ? DefaultReportPath(manifestPath) : Path.GetFullPath(report);
+        if (PathComparison.Comparer.Equals(reportPath, manifestPath))
+        {
+            throw new ArgumentException("--report and --manifest cannot name the same file. The report would overwrite the reviewed plan.");
+        }
+
+        return new Options(inputPath, manifestPath, Path.GetFullPath(repoRoot), phase, requiredHeader, excludes, json, reportPath);
     }
+
+    /// <summary>
+    /// Where the run report lands when <c>--report</c> is absent: beside the manifest, with
+    /// <c>.report.csv</c> in place of the manifest's extension. Deriving it from the manifest
+    /// name means the default can never be the manifest itself.
+    /// </summary>
+    /// <param name="manifestPath">Absolute path of the plan manifest.</param>
+    public static string DefaultReportPath(string manifestPath) => Path.ChangeExtension(manifestPath, ".report.csv");
 
     /// <summary>The <c>--input</c> value that means "read newline-delimited paths from standard input".</summary>
     public const string StdinPath = "-";
 
     /// <summary>Options that consume the token after them, so that token is a value and never a flag.</summary>
     private static readonly string[] ValueOptions =
-        ["--input", "--manifest", "--repo-root", "--phase", "--require-header", "--exclude"];
+        ["--input", "--manifest", "--report", "--repo-root", "--phase", "--require-header", "--exclude"];
 
     /// <summary>
     /// True when any of <paramref name="names"/> appears in an option position.

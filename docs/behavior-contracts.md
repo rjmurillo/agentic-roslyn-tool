@@ -30,11 +30,11 @@ agentic-roslyn-tool split-types --input <dir|file.cs|csv|list|-> [options]
 
 | Contract | Value |
 |---|---|
-| Idempotency | Yes for `plan`. Yes for `content` once a file is already split, because a single type file is skipped. |
-| Side effects | `plan` writes only the manifest. `renames` runs `git mv`. `content` writes source files. |
+| Idempotency | Yes for `plan`. Yes for `content`: it never writes the plan it reads, and a row an earlier run applied is skipped as `already applied`. |
+| Side effects | `plan` writes only the manifest. `renames` runs `git mv` and writes the report. `content` writes source files and the report. Neither of the last two writes the manifest. |
 | Failure mode | Per file. An unexpected exception while reading, parsing, planning, or writing becomes a `failed` row and the run continues. So does a verification failure. Only a throw before the read path is resolved, or a missing content manifest, ends the run. |
 | Exit code | 0 no failures, 1 at least one row `failed`, 2 the command line was wrong, 3 the run could not complete. Skips are not failures. |
-| Streams | Standard output carries a parseable document or nothing: the manifest CSV in `plan`, the JSON report under `--json`, and nothing in `renames` and `content` without `--json`. The manifest path, the one-line summary, and every error go to standard error. |
+| Streams | Standard output carries a parseable document or nothing: the manifest CSV in `plan`, the JSON report under `--json`, and nothing in `renames` and `content` without `--json`. The manifest path, the report path, the one-line summary, and every error go to standard error. |
 | Performance | Syntax parse only, no semantic model and no MSBuild load. A 7,818 file run completed in a single pass, measured outside this repository. |
 | Data sensitivity | Reads and rewrites source files in place. No network calls. |
 | Ordering | `plan` must run before `content`. `renames`, when used, belongs between them and must be committed first. |
@@ -85,16 +85,13 @@ found nothing to do. Pass a list file when you need to scan around an unreadable
 `--dry-run` and `--phase` both set the phase, so supplying both is rejected with exit code
 2 rather than letting argument order decide between writing a manifest and rewriting source.
 
-A plan row the content phase's input never supplied stays in the rewritten manifest
-verbatim, still `split` and still actionable, and appears in the run report as `skipped`
-with the reason `planned as split but not supplied to the content phase input`. The
-content phase overwrites the manifest it read, so applying a plan in batches would
-otherwise destroy the reviewed plan for every batch after the first.
+A `split` row the content phase's input never supplied appears in the run report as
+`skipped` with the reason `planned as split but not supplied to the content phase input`.
+The content phase never writes the manifest, so the row is still `split` and still
+actionable for the next batch.
 
-The mirror case behaves the opposite way. An input the plan never covered is reported as
-`skipped` with the reason `not present as split in plan manifest`, and is left out of the
-manifest. The manifest is the plan of record and must not grow a tail of rows the plan
-phase never produced. So `summary.total` counts what this run reported, which in the
+An input the plan never covered is reported as `skipped` with the reason `not present as
+split in plan manifest`. So `summary.total` counts what this run reported, which in the
 content phase can exceed the number of paths supplied.
 
 A file symlink whose target is also inside the scanned tree is de-duplicated by symlink
@@ -113,6 +110,7 @@ its status vocabulary match the CSV manifest, so the two formats are one contrac
 {
   "phase": "plan",
   "manifest": "C:\\repo\\sa1402-split-manifest.csv",
+  "report": null,
   "summary": { "total": 2, "split": 1, "skipped": 1, "failed": 0, "newFiles": 1 },
   "files": [
     {
@@ -130,7 +128,27 @@ its status vocabulary match the CSV manifest, so the two formats are one contrac
 
 The CSV repeats the row once per new file; the JSON nests them under `newFiles` instead.
 Both carry the same values. `summary` exists so a caller never has to tally rows to learn
-whether work happened. `total` counts manifest rows, which is one per distinct input path.
+whether work happened. `total` counts the rows this run reported. In `plan` that is one per
+distinct input path. `manifest` is the plan manifest path in every phase. `report` is the
+report file the run wrote, and is `null` in `plan`, which writes none.
+
+## Manifest and report
+
+Two CSV files with one format and two jobs.
+
+| File | Written by | Read by | Holds |
+|---|---|---|---|
+| Manifest, `--manifest` | `plan` only | `content` | The reviewed plan. |
+| Report, `--report` | `renames`, `content` | Nobody. It is for the caller. | What the last run did. |
+
+- The report defaults to the manifest path with `.report.csv` as its extension, so
+  `split-types.csv` pairs with `split-types.report.csv`. The default can never be the
+  manifest.
+- `--report` naming the manifest is rejected with exit code 2. So is `--report` with the
+  `plan` phase, where it would do nothing.
+- Each `renames` or `content` run replaces the report. It is not a history.
+- The report holds the same rows `--json` prints under `files`. Verified by
+  `SeparateRunReportTests`, which runs the real executable.
 
 ## Phase contracts
 
@@ -156,6 +174,10 @@ a human or an agent can inspect the whole change before a single byte moves.
 Runs `git mv` for files whose name does not match their primary type.
 
 Promises:
+
+- **Neither reads nor writes the manifest.** It recomputes the plan from the files as they
+  are, and writes its rows to the report. Run it with no plan on disk and no manifest
+  appears, so `content` still exits 3 until `plan` has run.
 
 - Only touches rows the plan marked `split` with `GitMove` true.
 - `FileSplitter.ApplyRenameOnly` re-reads the moved file and throws if `git mv` changed
@@ -187,8 +209,16 @@ Promises:
   output paths. The manifest carries no content hash, so an edit that leaves type names
   and paths alone passes this check. Treat it as drift detection on the plan shape, not as
   proof the source is unchanged.
-- Writes its own manifest to the same default path, which **overwrites the plan
-  manifest**. Pass an explicit `--manifest` when you want to keep both.
+- **Never writes the manifest.** The plan is byte identical before and after a content
+  run, whether rows succeed or fail. Results go to the report.
+- **Can be retried against the same plan.** A row that failed is still `split` in the
+  plan, so the next run applies it once the cause is fixed.
+- **Skips a row an earlier run already applied.** The row is `skipped` with the reason
+  `already applied: every planned output exists and this file no longer declares the
+  planned types`. Both halves are checked, and the file must still declare a type.
+  Nothing is written. A source that still declares a planned type beside an existing
+  output is not applied work. It gets the existing `target path already exists` refusal.
+  Verified by `ContentRetryTests`.
 
 ## Guard contracts
 
@@ -345,7 +375,8 @@ The things that would surprise a reader who only skimmed the signatures.
 3. **Skips are not failures.** A run where every file is skipped exits 0. Read the
    `summary` counts (from `--json`, or the summary line on standard error) rather than the
    exit code alone when you care whether work happened.
-4. **The content phase can overwrite the plan manifest.** Same default path.
+4. **Only the plan phase writes the manifest.** `renames` and `content` write the report,
+   so a failed content row can be retried against the plan that was reviewed.
 5. **A cross file name collision is usually resolved to `FileName.TypeName.cs`**, which
    satisfies SA1402 but violates SA1649, so those files need a human decision afterwards.
    When the qualified names collide too, the tool gives up and skips every input involved

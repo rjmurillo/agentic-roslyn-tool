@@ -354,10 +354,11 @@ instead of using `EnumerationOptions.AttributesToSkip`, whose reparse-point filt
 applies to files and would have silently dropped a symlinked source file. A `.cs` path is
 now the file to split rather than a list of paths, `--dry-run` combined with `--phase` is
 rejected instead of letting argument order pick. A plan row the content phase never
-received stays in the rewritten manifest verbatim while appearing in the report as a skip,
-which is why `Run` returns a `RunOutcome` with separate manifest and report views: an
-earlier version rewrote the row as `skipped`, which destroyed the reviewed plan as soon as
-an agent applied content in batches. A file symlink discovered alongside its target is
+received appears in the report as a skip and stays `split` in the plan. An earlier version
+rewrote the row as `skipped`, which destroyed the reviewed plan as soon as an agent applied
+content in batches. A second version carried the row forward through a `RunOutcome` with
+separate manifest and report views. Decision 21 removed that type along with the rewrite it
+existed to make safe. A file symlink discovered alongside its target is
 de-duplicated by physical identity so one file is never split twice. Case sensitivity is
 taken from the operating system, not probed per volume; a case-sensitive volume mounted on
 Windows or macOS is a stated limitation rather than a filesystem write on every run.
@@ -374,16 +375,16 @@ that cannot see the screen. Knowing which tokens are values lives beside the par
 in `Options`, since a new value-taking option has to update both or the scan drifts.
 
 The same argument runs one level down, at the per-file boundary. The content phase rewrites
-source as it goes and writes the manifest once at the end, so an exception escaping one
-input strands every file already rewritten with no record of them, and the manifest is what
-an agent applies in batches. Three review rounds each found another site inside `Process`
+source as it goes and writes its record once at the end, so an exception escaping one
+input strands every file already rewritten with no record of them. That record was the
+manifest when this was written, and is the report since decision 21. Three review rounds each found another site inside `Process`
 that threw past the write: enumeration of a lazy input list, `File.ReadAllBytes` on a file
 `File.Exists` had just approved, `GetReadPath` on a rename the operator never applied, and
 `BuildPlan` on a manifest carrying two rows for one type. Guarding them one at a time was
 losing to the same pattern as a filtered catch, so the guard moved to the boundary:
 `Process` wraps `ProcessCore` and turns anything that escapes into a failed row. The cost is
 that a genuine bug in the tool now reports as a failed row and exit 1 rather than exit 3.
-That is the better trade here, because exit 1 comes with a manifest naming the input that
+That is the better trade here, because exit 1 comes with a row naming the input that
 failed, and exit 3 came with nothing.
 
 ## 17. FileSplitter was decomposed by responsibility, not by pattern
@@ -508,19 +509,64 @@ Turn code owner review back on while there is one owner and the maintainer's own
 requests cannot merge. Removing Renovate's release age lets a freshly published,
 possibly compromised version merge itself within minutes.
 
-## Unrecorded decisions
+### Decision 21. Only the plan phase writes the manifest, and runs report to their own file
 
-Recorded so nobody assumes these were considered.
+**Context.** `Program` wrote every run's rows back to the plan path. A content run that
+failed a row replaced that row's `split` plan with `failed`. The retry then answered `not
+present as split in plan manifest`, and the only recovery was to re-run the plan phase.
+The file was both the reviewed plan and the run report, and those two jobs disagree as
+soon as a row fails. The maintainer chose the separate report file on 2026-11-19.
 
-### The manifest is both the plan and the run report
+**Decision.** The manifest is the plan, and only the `plan` phase writes it. The `renames`
+and `content` phases write what they did to a report file in the same CSV format.
 
-Found while settling the above, not fixed. `Program` writes the run's manifest rows back
-to the plan path after every phase, so a content run that fails a row replaces that row's
-`split` plan with `failed`. Re-running content then answers `not present as split in
-plan manifest`, and the only recovery is to re-run the plan phase. Making a failed row keep
-its plan would restore the retry, at the cost of a manifest that claims `split` for work
-that did not happen. That is a decision about what the file means, not a patch, so it waits
-for one.
+- **Where the report goes.** `--report <path>` names it. The default is the manifest path
+  with `.report.csv` as its extension, so `split-types.csv` pairs with
+  `split-types.report.csv`. A default derived from the manifest name can never be the
+  manifest. `--report` naming the manifest is rejected with exit code 2. So is `--report`
+  with the `plan` phase, where the flag would be a silent no-op.
+- **Standard output is unchanged.** The report is a file. Its path goes to standard error
+  on a `Report:` line beside the `Manifest:` line.
+- **`--json` gains one field.** `report` carries the report path, and is `null` in `plan`.
+  No existing field changed name or meaning. `manifest` is still the plan path.
+- **Renames keeps recomputing.** It still plans from the files as they are, and it no
+  longer writes the manifest. Its rows go to the report. A rename has to follow the file
+  as it is now, and the content phase already refuses a row whose rename state disagrees
+  with the plan, so nothing downstream depended on the rewrite. Decision 19 needs the
+  kept path of each `split` row, and the plan phase already records it.
+- **A retry skips what is already done.** A row whose planned outputs all exist, and whose
+  file still declares a type but none of the planned ones, is `skipped` with the reason
+  `already applied: every planned output exists and this file no longer declares the
+  planned types`. The check runs before `BuildPlan` and writes nothing.
+- **`RunOutcome` is gone.** It split a run into manifest rows and report rows so a content
+  run could rewrite the manifest without losing unapplied rows. With no rewrite there is
+  one view, and `FileSplitter.Run` returns it.
+
+**Rejected.** Keeping one file and letting a failed row stay `split`. That restores the
+retry, and leaves a file that claims `split` for work that did not happen.
+
+**Rejected.** Having the renames phase replay the manifest instead of recomputing. It is a
+defensible design, and it is a second behavior change on a phase this decision did not
+need to touch. It can be taken up on its own.
+
+**Rejected.** Treating `target path already exists` as success on a retry. An existing
+output proves nothing about who wrote it. The already applied check asks a narrower
+question, and a file that fails it still reaches every existence check with no exemption.
+
+**Consequences.** Two files instead of one, and the report is replaced on every run, so it
+describes the last run only. `renames` followed by `content` with no `plan` run now exits
+3, because the renames phase no longer leaves a manifest behind. That sequence used to
+apply a plan nobody had reviewed. A caller that read results from the manifest path after
+`content` now reads the unchanged plan, and must read the report or `--json` instead. A
+content run against a manifest an older version already rewrote behaves as before: its
+`failed` rows are not `split`, so re-run the plan once.
+
+**Reversal warning.** Write a later phase's rows back to the manifest and a failed row
+erases its own plan again. The retry then reports the file as not planned, at exit code 0.
+Remove the already applied check and a retry still exits 0, but every applied row reads
+`nothing to split`, which a caller cannot tell from a file that never needed splitting.
+Widen that check into an exemption from the existence checks and an edited manifest can
+aim a write at an existing file, which rule 10 forbids.
 
 ## Credit
 

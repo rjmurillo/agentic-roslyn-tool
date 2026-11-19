@@ -12,5 +12,7 @@ Use `agentic-roslyn-tool split-types` to split top-level types into separate fil
 - Exit 2: fix the arguments. Exit 3: read the `error:` line on standard error.
 - Run `--phase renames` with the same input and manifest, then commit the renames.
 - Run `--phase content` with the same input and manifest, then build and test.
+- Only the plan phase writes the manifest. Renames and content write a report beside it, at the manifest path with `.report.csv` as its extension, or at `--report <path>`.
+- If content exits 1, fix the cause and run the same content command again. Do not re-run the plan. Rows already applied come back `skipped` with a reason starting `already applied`.
 
 See the [recommended workflow](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/README.md#recommended-workflow) for complete commands.

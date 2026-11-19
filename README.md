@@ -75,7 +75,8 @@ Use these options to control the operation:
 | `--dry-run` | Runs the `plan` phase without changing source files. |
 | `--input <dir\|file\|csv\|list\|->` | Supplies the required file list. |
 | `--repo-root <path>` | Sets the repository root. |
-| `--manifest <path>` | Sets the CSV manifest path. |
+| `--manifest <path>` | Sets the CSV plan manifest path. Only the `plan` phase writes it. |
+| `--report <path>` | Sets where `renames` and `content` record what they did. Defaults to the manifest path with `.report.csv` as its extension. Rejected with the `plan` phase, and rejected when it names the manifest. |
 | `--json` | Prints one JSON report to standard output instead of CSV. |
 | `--require-header <text>` | Prepends `<text>` to every emitted file and fails the split if any output does not start with it. Off by default. |
 | `--exclude <path-substring>` | Skips any input whose path contains `<path-substring>`. Repeatable. Off by default. |
@@ -100,17 +101,21 @@ git diff --name-only --diff-filter=d HEAD~1 |
 
 Standard output carries a parseable document or nothing: the manifest CSV in `plan`, the
 JSON report under `--json`, and nothing at all in `renames` and `content` without `--json`.
-The manifest path, the one-line summary, and every error go to standard error, so a pipe
-stays clean. The JSON report leads with counts:
+The manifest path, the report path, the one-line summary, and every error go to standard
+error, so a pipe stays clean. The JSON report leads with counts:
 
 ```json
 {
   "phase": "plan",
   "manifest": "C:\\repo\\sa1402-split-manifest.csv",
+  "report": null,
   "summary": { "total": 2, "split": 1, "skipped": 1, "failed": 0, "newFiles": 1 },
   "files": [ ... ]
 }
 ```
+
+`report` is the path of the report file the run wrote. It is `null` in the `plan` phase,
+which writes the manifest and no report.
 
 Exit codes are distinct so a caller can branch without parsing anything:
 
@@ -176,9 +181,9 @@ git commit -m "Rename C# files to match primary types"
 
 Keep renames in their own commit. Git can then record renames instead of delete-and-add pairs, preserving file history.
 
-The renames phase recomputes the plan from the current files rather than replaying the
-reviewed manifest, and rewrites the manifest with what it did. Re-run the plan phase and
-review it again if the tree changed since your last plan.
+The renames phase recomputes the plan from the current files. It neither reads nor writes
+the manifest, and records what it did in the report file, `split-types.report.csv` here.
+Re-run the plan phase and review it again if the tree changed since your last plan.
 
 Finally, split files and review the result:
 
@@ -193,9 +198,14 @@ dotnet build
 git diff --check
 ```
 
-The content phase exits 3 if no plan manifest exists at `--manifest`, and overwrites that
-manifest with its results. Copy the reviewed plan to a second path first when you want to
-keep it for comparison.
+The content phase exits 3 if no plan manifest exists at `--manifest`. It never writes the
+manifest. It records what it did in the report file, which is `split-types.report.csv`
+here, or the path you pass with `--report`. Each run replaces the previous report.
+
+Because the plan stays as you reviewed it, a content run can be repeated. When a row
+fails, fix the cause and run the same command again. The retry applies the rows that
+failed. A row an earlier run already applied is reported as `skipped` with a reason that
+starts with `already applied`, and its files are not written again.
 
 The content phase moves each non-primary top-level type into its own file. Each type keeps its owned XML comments, attributes, and ordinary comments. Every emitted file also receives the source using directives and namespace declaration.
 
@@ -212,7 +222,7 @@ How each check works, what it proves, and what it does not:
 [docs/verification.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/verification.md).
 
 Every check for a given file runs before anything is written for that file. A file that
-fails a check is left untouched on disk and recorded as `failed` in the manifest, with the
+fails a check is left untouched on disk and recorded as `failed` in the run report, with the
 reason. If a write fails partway through a file set, the tool deletes the files it created
 and restores the original from the bytes it read. The process exits non-zero when any file
 fails.

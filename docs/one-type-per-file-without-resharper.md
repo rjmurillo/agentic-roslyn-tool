@@ -107,6 +107,10 @@ agentic-roslyn-tool split-types --phase content --input ../files.txt --manifest 
 dotnet build
 ```
 
+The `renames` and `content` phases never change `split-plan.csv`. They record what they
+did in `split-plan.report.csv` beside it. If `content` fails a file, fix the cause and run
+the same command again.
+
 Review the plan before you go on. Commit the renames on their own, so git records each
 one as a rename and the file keeps its history. Review the diff after the `content` phase
 and build to confirm the result.
@@ -220,7 +224,7 @@ uses them. If yours does, leave those files out of the input list.
 
 ## What it leaves alone
 
-The tool skips a file and records the reason in the manifest when it cannot split the
+The tool skips a file and records the reason in the manifest and the report when it cannot split the
 file safely. The common cases:
 
 - The file has top-level statements.
@@ -247,7 +251,7 @@ is split like any other type.
 ## Running it in CI or from an AI agent
 
 Add `--json` to get one JSON report on standard output instead of CSV. The manifest path,
-the summary line, and every error go to standard error, so standard output stays
+the report path, the summary line, and every error go to standard error, so standard output stays
 parseable. The report leads with counts. This excerpt shows only the `summary` object:
 
 ```json

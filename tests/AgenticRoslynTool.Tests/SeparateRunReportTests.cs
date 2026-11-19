@@ -1,0 +1,261 @@
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+using Xunit;
+
+namespace AgenticRoslynTool.Tests;
+
+// The plan manifest is the reviewed artifact, so only the plan phase may write it. The
+// renames and content phases record what they did in a separate report file. These run the
+// real executable, because which file a run writes is decided in Program.cs.
+public sealed class SeparateRunReportTests
+{
+    private const string TwoTypes = "public class Alpha { }\npublic class Beta { }\n";
+
+    private const string OtherTwoTypes = "public class Gamma { }\npublic class Delta { }\n";
+
+    [Fact]
+    public void ContentSuccess_LeavesThePlanByteIdenticalAndWritesTheReport()
+    {
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var reportPath = Path.Combine(workspace.Root, "plan.report.csv");
+
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        Assert.False(File.Exists(reportPath));
+        var planBytes = File.ReadAllBytes(manifestPath);
+
+        var content = Phase("content", workspace, listPath, manifestPath);
+
+        Assert.Equal(0, content.ExitCode);
+        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+        Assert.Contains($"Report: {reportPath}", content.StandardError, StringComparison.Ordinal);
+        var row = Assert.Single(ManifestWriter.Read(reportPath));
+        Assert.Equal("split", row.Status);
+        Assert.Equal(Path.Combine(workspace.Root, "Beta.cs"), Assert.Single(row.NewFiles).Path);
+    }
+
+    [Fact]
+    public void ContentFailure_LeavesThePlanByteIdenticalAndReportsTheFailure()
+    {
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var reportPath = Path.Combine(workspace.Root, "plan.report.csv");
+
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        var planBytes = File.ReadAllBytes(manifestPath);
+        var squatter = Squat(workspace, "Beta.cs");
+
+        var content = Phase("content", workspace, listPath, manifestPath);
+
+        Assert.Equal(1, content.ExitCode);
+        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+        Assert.Equal("split", Assert.Single(ManifestWriter.Read(manifestPath)).Status);
+        Assert.Equal("failed", Assert.Single(ManifestWriter.Read(reportPath)).Status);
+        Assert.Equal(TwoTypes, File.ReadAllText(input));
+        Assert.True(Directory.Exists(squatter));
+    }
+
+    [Fact]
+    public void FailedRow_IsAppliedByARetryOfTheSamePlan()
+    {
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var reportPath = Path.Combine(workspace.Root, "plan.report.csv");
+
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        var planBytes = File.ReadAllBytes(manifestPath);
+        var squatter = Squat(workspace, "Beta.cs");
+        Assert.Equal(1, Phase("content", workspace, listPath, manifestPath).ExitCode);
+
+        // The operator clears the obstacle and runs the same command again. No plan run.
+        Directory.Delete(squatter);
+        var retry = Phase("content", workspace, listPath, manifestPath);
+
+        Assert.Equal(0, retry.ExitCode);
+        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+        Assert.Equal("split", Assert.Single(ManifestWriter.Read(reportPath)).Status);
+        Assert.Equal("public class Alpha { }\n", File.ReadAllText(input));
+        Assert.Equal("public class Beta { }\n", File.ReadAllText(Path.Combine(workspace.Root, "Beta.cs")));
+    }
+
+    [Fact]
+    public void MixedRetry_SkipsTheAppliedRowAndAppliesTheFailedOne()
+    {
+        using var workspace = new TempWorkspace();
+        var applied = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var failing = workspace.WriteFile("Gamma.cs", OtherTwoTypes);
+        var listPath = workspace.WriteInputList(applied, failing);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var reportPath = Path.Combine(workspace.Root, "plan.report.csv");
+        var beta = Path.Combine(workspace.Root, "Beta.cs");
+
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        var planBytes = File.ReadAllBytes(manifestPath);
+        var squatter = Squat(workspace, "Delta.cs");
+
+        Assert.Equal(1, Phase("content", workspace, listPath, manifestPath).ExitCode);
+        var firstReport = ManifestWriter.Read(reportPath);
+        Assert.Equal("split", Assert.Single(firstReport, r => r.OriginalPath == applied).Status);
+        Assert.Equal("failed", Assert.Single(firstReport, r => r.OriginalPath == failing).Status);
+        var appliedBytes = File.ReadAllBytes(applied);
+        var betaBytes = File.ReadAllBytes(beta);
+
+        Directory.Delete(squatter);
+        var retry = Phase("content", workspace, listPath, manifestPath, "--json");
+
+        // The applied row is a skip with its own reason. It is not a failure that would hide
+        // the real retry behind exit 1, and its outputs are not written a second time.
+        Assert.Equal(0, retry.ExitCode);
+        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+        Assert.Equal(appliedBytes, File.ReadAllBytes(applied));
+        Assert.Equal(betaBytes, File.ReadAllBytes(beta));
+
+        var secondReport = ManifestWriter.Read(reportPath);
+        var skipped = Assert.Single(secondReport, r => r.OriginalPath == applied);
+        Assert.Equal("skipped", skipped.Status);
+        Assert.StartsWith("already applied", skipped.Reason, StringComparison.Ordinal);
+        Assert.Equal("split", Assert.Single(secondReport, r => r.OriginalPath == failing).Status);
+        Assert.Equal("public class Delta { }\n", File.ReadAllText(Path.Combine(workspace.Root, "Delta.cs")));
+
+        using var json = JsonDocument.Parse(retry.StandardOutput);
+        var summary = json.RootElement.GetProperty("summary");
+        Assert.Equal(1, summary.GetProperty("split").GetInt32());
+        Assert.Equal(1, summary.GetProperty("skipped").GetInt32());
+        Assert.Equal(0, summary.GetProperty("failed").GetInt32());
+    }
+
+    [Fact]
+    public void Renames_WritesTheReportAndNeverTheManifest()
+    {
+        // File names match their primary types, so no git process starts.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var reportPath = Path.Combine(workspace.Root, "plan.report.csv");
+
+        // With no plan on disk, the renames phase must not create one. A manifest nobody
+        // reviewed would let the content phase run against it.
+        Assert.Equal(0, Phase("renames", workspace, listPath, manifestPath).ExitCode);
+        Assert.False(File.Exists(manifestPath));
+        Assert.Equal("split", Assert.Single(ManifestWriter.Read(reportPath)).Status);
+        Assert.Equal(3, Phase("content", workspace, listPath, manifestPath).ExitCode);
+
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        var planBytes = File.ReadAllBytes(manifestPath);
+        Assert.Equal(0, Phase("renames", workspace, listPath, manifestPath).ExitCode);
+        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+    }
+
+    [Fact]
+    public void ReportFlag_ChoosesWhereTheReportGoes()
+    {
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var reportPath = Path.Combine(workspace.Root, "out", "run.csv");
+
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        var content = Phase("content", workspace, listPath, manifestPath, "--report", reportPath, "--json");
+
+        Assert.Equal(0, content.ExitCode);
+        Assert.False(File.Exists(Path.Combine(workspace.Root, "plan.report.csv")));
+        Assert.Equal("split", Assert.Single(ManifestWriter.Read(reportPath)).Status);
+
+        using var json = JsonDocument.Parse(content.StandardOutput);
+        Assert.Equal(manifestPath, json.RootElement.GetProperty("manifest").GetString());
+        Assert.Equal(reportPath, json.RootElement.GetProperty("report").GetString());
+    }
+
+    [Fact]
+    public void PlanJson_CarriesANullReport()
+    {
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+
+        var plan = Phase("plan", workspace, listPath, manifestPath, "--json");
+
+        Assert.Equal(0, plan.ExitCode);
+        using var json = JsonDocument.Parse(plan.StandardOutput);
+        Assert.Equal(JsonValueKind.Null, json.RootElement.GetProperty("report").ValueKind);
+        Assert.DoesNotContain("Report:", plan.StandardError, StringComparison.Ordinal);
+        Assert.Equal(["inputs.txt", "plan.csv"], Directory.GetFiles(workspace.Root, "*.csv").Concat(Directory.GetFiles(workspace.Root, "*.txt")).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void ReportAtTheManifestPath_IsARejectedCommandLine()
+    {
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        var planBytes = File.ReadAllBytes(manifestPath);
+
+        var content = Phase("content", workspace, listPath, manifestPath, "--report", manifestPath);
+
+        Assert.Equal(2, content.ExitCode);
+        Assert.Equal(string.Empty, content.StandardOutput.Trim());
+        Assert.Contains("error: --report and --manifest cannot name the same file.", content.StandardError, StringComparison.Ordinal);
+        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+        Assert.Equal(TwoTypes, File.ReadAllText(input));
+    }
+
+    [Fact]
+    public void ReportWithThePlanPhase_IsARejectedCommandLine()
+    {
+        // The plan phase writes the manifest and no report. Accepting the flag there would
+        // be a silent no-op for a caller that cannot see the screen.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var reportPath = Path.Combine(workspace.Root, "run.csv");
+
+        foreach (var planFlags in new[] { new[] { "--phase", "plan" }, ["--dry-run"] })
+        {
+            string[] args = ["split-types", "--input", listPath, "--repo-root", workspace.Root, "--manifest", manifestPath, "--report", reportPath, .. planFlags];
+            var result = CliRunner.Run(args);
+
+            Assert.Equal(2, result.ExitCode);
+            Assert.Contains("error: --report applies to the renames and content phases.", result.StandardError, StringComparison.Ordinal);
+            Assert.False(File.Exists(manifestPath));
+            Assert.False(File.Exists(reportPath));
+        }
+    }
+
+    [Fact]
+    public void HelpAfterReport_IsTreatedAsAValue()
+    {
+        // --report takes a value, so the token after it is a path and never a meta option.
+        var result = CliRunner.Run("split-types", "--report", "--help");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Contains("error: Missing --input.", result.StandardError, StringComparison.Ordinal);
+    }
+
+    private static CliResult Phase(string phase, TempWorkspace workspace, string listPath, string manifestPath, params string[] extra)
+    {
+        string[] args = ["split-types", "--phase", phase, "--input", listPath, "--repo-root", workspace.Root, "--manifest", manifestPath, .. extra];
+        return CliRunner.Run(args);
+    }
+
+    // A directory squatting on a planned output makes the content write throw, and leaves
+    // the source bytes exactly as the plan saw them.
+    private static string Squat(TempWorkspace workspace, string name)
+    {
+        var path = Path.Combine(workspace.Root, name);
+        Directory.CreateDirectory(path);
+        return path;
+    }
+}

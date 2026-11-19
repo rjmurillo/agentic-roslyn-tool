@@ -121,9 +121,14 @@ Feed every phase the same list file. After the renames phase, `Shapes.cs` is gon
 content phase where that file went. A directory input works too: the content phase finds
 `Circle.cs` and maps it back to the plan row for `Shapes.cs` through its planned kept path.
 
-Each phase rewrites the manifest at `--manifest` with what it did. Copy the plan aside
-first if you want to keep it for comparison. Do not point the content phase at a new,
-empty path: it needs the plan.
+Only the plan phase writes the manifest at `--manifest`. The renames and content phases
+leave it exactly as you reviewed it, and record what they did in a report file beside it,
+`../split-types.report.csv` here. Pass `--report` to put it somewhere else. Do not point
+the content phase at a new, empty manifest path: it needs the plan.
+
+If a content run fails a file, fix the cause and run the same content command again. The
+plan still lists that file as `split`. Files the first run already split are reported as
+`skipped` with a reason that starts with `already applied`.
 
 ### What the split looks like
 
@@ -191,7 +196,8 @@ comes from the plan for the sample above, with paths shortened:
 }
 ```
 
-The full document also carries `manifest`, the path of the manifest it wrote. A one-line
+The full document also carries `manifest`, the path of the plan manifest, and `report`,
+the path of the report file a renames or content run wrote. A one-line
 summary goes to standard error:
 
 ```text

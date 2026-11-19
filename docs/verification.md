@@ -150,7 +150,8 @@ base types, or constraints. The repository scan below covers those.
 ## What happens when a check fails
 
 - The file is left untouched on disk.
-- The manifest row is `failed`, and the `reason` column holds the message shown above.
+- The row in the run report is `failed`, and the `reason` column holds the message shown
+  above. The plan manifest is not changed, so the file can be retried.
 - The process exits with code 1 when any row is `failed`.
 - Other files keep going. There is no run level transaction, so files processed before the
   failure stay rewritten. Each file is all or nothing, and the run is not.
