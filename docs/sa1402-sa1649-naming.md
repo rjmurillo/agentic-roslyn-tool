@@ -175,8 +175,9 @@ to know:
   again with the value you want before you retry.
 * **The check reads the plan's own note.** The content phase refuses a path only when the
   `note` column records that the plan chose it under the other value. A path you typed
-  into the manifest by hand is still accepted when it is free, whatever its shape. Do not
-  edit the note of a row you want this check to protect.
+  into the manifest by hand is still accepted when it is free, whatever its shape. Leave
+  the note alone when you edit a path. A row with no note is not checked, and a row whose
+  note you rewrote to name a type-first path is refused without the flag.
 * **Some source names are refused.** Roslyn treats a file as generated code when its name
   ends in `.g`, `.g.i`, `.designer`, or `.generated` before the extension. Analyzers skip
   such a file and nullable annotations switch off in it. Type-first puts the source file

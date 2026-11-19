@@ -199,7 +199,8 @@ Promises:
   the same `content phase plan does not match manifest`, and the skipped row's note names
   the path and both values. The content phase never reruns the collision pass, so this
   check is the only thing that keeps the flag in step with the plan. A path typed into the
-  manifest by hand has no such note and is accepted as before. The skipped row replaces
+  manifest by hand has no such note and is accepted as before. An edit that rewrites the
+  note to name the new path as well is refused, because it then reads as the plan's own. The skipped row replaces
   the `split` row when the manifest is written back, so recovery is to run the plan phase
   again.
 - Writes its own manifest to the same default path, which **overwrites the plan

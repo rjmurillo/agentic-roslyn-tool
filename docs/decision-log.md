@@ -541,12 +541,14 @@ plan. A renames run with a different value replaces the reviewed collision names
 content check then agrees with the new manifest. Closing that gap means teaching renames
 to read the manifest, which is a larger change than this flag. The content check
 reads the plan's value from the path and the note together. It is per row. A row with no
-collision has the same paths under both values and still applies. No default behavior
-changed. A run without the flag plans the same paths as before, and it still accepts a
-free path typed into the manifest by hand, including one shaped like `Shared.A.cs`. Such
-a row's note does not name that path, so the check does not fire. The cost is a
-dependency on the note text: strip or rewrite the note and the check goes quiet for that
-row. Under the `metadata` convention `Shared{T}.A.cs` still raises SA1649,
+collision has the same paths under both values and still applies. A run without the flag
+plans the same paths as before, and it still accepts a free path typed into the manifest
+by hand, including one shaped like `Shared.A.cs`. Such a row's note does not name that
+path, so the check does not fire. The cost is a dependency on the note text, and it cuts
+both ways. Strip the note and the check goes quiet for that row. Rewrite the note as well
+as the path, for example with a replace-all of `A.Shared.cs` to `Shared.A.cs`, and a run
+without the flag refuses that row. That one hand edit is the only default behavior that
+changed. Under the `metadata` convention `Shared{T}.A.cs` still raises SA1649,
 for the same reason `Shared{T}.cs` does.
 
 A forgotten flag is the likely mistake, and it is not free. The mismatched rows are
@@ -565,8 +567,8 @@ type is named `G`. It is left alone so default plans stay identical.
 **Reversal warning.** Remove the content check and the flag stops meaning anything in the
 content phase. That phase takes paths from the manifest and never reruns the collision
 pass, so it would write whichever form the manifest holds and report `split`. Drop the
-note half of the check and a default run starts refusing a hand-edited `Shared.A.cs`,
-which it has always written. Change the note text the collision pass writes without
+note half of the check and a default run starts refusing every hand-edited
+`Shared.A.cs`, not only one whose note was rewritten to match. Change the note text the collision pass writes without
 changing `FormatResolution` and the check stops matching. Widen the check to "every
 manifest path must be one this run computes" and every hand-edited path is refused.
 Flip the default and every existing plan with a collision goes stale at once. The flag
