@@ -567,13 +567,13 @@ type is named `G`. It is left alone so default plans stay identical.
 **Reversal warning.** Remove the content check and the flag stops meaning anything in the
 content phase. That phase takes paths from the manifest and never reruns the collision
 pass, so it would write whichever form the manifest holds and report `split`. Drop the
-note half of the check and a default run starts refusing every hand-edited
-`Shared.A.cs`, not only one whose note was rewritten to match. Change the note text the collision pass writes without
-changing `FormatResolution` and the check stops matching. Widen the check to "every
-manifest path must be one this run computes" and every hand-edited path is refused.
-Flip the default and every existing plan with a collision goes stale at once. The flag
-name and its two values are now command line contract. Rename or remove one and every
-script that passes it exits 2.
+note half of the check and a default run starts refusing every hand-edited `Shared.A.cs`,
+not only one whose note was rewritten to match. The pass that writes the note and the
+check that reads it both call `CollisionNames.FormatResolution`. Give either its own
+format and the check stops matching. Widen the check to "every manifest path must be one
+this run computes" and every hand-edited path is refused. Flip the default and every
+existing plan with a collision goes stale at once. The flag name and its two values are
+now command line contract. Rename or remove one and every script that passes it exits 2.
 
 ## Unrecorded decisions
 
