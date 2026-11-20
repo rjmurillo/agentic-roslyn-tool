@@ -158,11 +158,14 @@ Two CSV files with one format and two jobs.
 - **A manifest path that is a symbolic link is refused in `renames` and `content`.** The
   run ends with exit code 3 before any work. Pass the path of the file the link names.
   The `plan` phase still accepts a linked manifest path and writes through it.
+- **A path that cannot be examined is refused.** The checks tell "nothing is there" from
+  "the look failed", for example on a path longer than the operating system allows. A
+  failed look ends the run with exit code 3. It is never read as an absent file.
 - **Whether the report path is the manifest is observed, not derived.** The check creates
   a file beside the report path and looks for it in the manifest's directory. It is there
   exactly when the two are one directory, whatever linked directories either path runs
-  through. The path is refused when the directory is the same and the file names match
-  without regard to case. Neither path is itself a link by then, so nothing is resolved by
+  through. The path is refused when the file names match without regard to case, unless
+  the look proves the directories differ. A look that fails counts as the same directory. Neither path is itself a link by then, so nothing is resolved by
   hand.
 - **The check changes no existing file.** It writes and removes one new file beside the
   report path, and never opens the report path for writing. It reads the first line of an
@@ -213,8 +216,11 @@ Promises:
 
 - **Neither reads nor writes the manifest.** It recomputes the plan from the files as they
   are, and writes its rows to the report. Run it with no plan on disk and no manifest
-  appears, so `content` still exits 3 until `plan` has run. `--manifest` only anchors the
-  default report path here.
+  appears, so `content` still exits 3 until `plan` has run. `--manifest` anchors the default
+  report path here. It is still checked: a linked manifest path is refused, and so is a
+  report path that names the same file.
+- **A rename onto a directory is a `failed` row.** `git mv` would move the file into a
+  directory that sits at the destination, so the phase refuses before it asks git.
 - **A rename that fails is a `failed` row.** The run continues, writes the report, and
   exits 1. The row's `keptPath` says where the file is, which is the original path unless
   `git mv` landed before a later step failed. `gitMove` stays true, because the plan still

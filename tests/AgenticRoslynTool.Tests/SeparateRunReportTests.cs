@@ -752,6 +752,116 @@ public sealed class SeparateRunReportTests
     }
 
     [Fact]
+    public void ManifestDirectoryTooLongToLookUp_FailsClosedAndThePlanIsKept()
+    {
+        // The plan sits in a directory whose path is so long that the plan's own name
+        // fits under the path limit and the longer probe name does not. The report reaches
+        // the same directory through a short link. Looking for the probe under the long
+        // spelling fails, and a failed look must not read as "a different directory".
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var deep = workspace.Root;
+        const int target = 4075;
+        string manifestPath;
+        var alias = Path.Combine(workspace.Root, "s");
+        try
+        {
+            while (deep.Length < target)
+            {
+                deep = Path.Combine(deep, new string('d', Math.Min(200, target - deep.Length - 1)));
+            }
+
+            Directory.CreateDirectory(deep);
+            manifestPath = Path.Combine(deep, "p.csv");
+            ManifestWriter.Write([FileResult.Split(input, input, false, null, [new NewFileResult(Path.Combine(workspace.Root, "Beta.cs"), "Beta")])], manifestPath);
+            Directory.CreateSymbolicLink(alias, deep);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // A platform whose path limit is lower cannot build the layout at all.
+            return;
+        }
+
+        Assert.Equal(target, deep.Length);
+        var planBytes = File.ReadAllBytes(manifestPath);
+        Squat(workspace, "Beta.cs");
+
+        foreach (var phase in new[] { "content", "renames" })
+        {
+            var run = Phase(phase, workspace, listPath, manifestPath, "--report", Path.Combine(alias, "p.csv"));
+
+            Assert.Equal(3, run.ExitCode);
+            Assert.Contains("is the plan manifest under another name", run.StandardError, StringComparison.Ordinal);
+            Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+        }
+
+        Assert.Equal(["p.csv"], Directory.GetFiles(deep).Select(Path.GetFileName));
+    }
+
+    [Fact]
+    public void ReportNameTheFileSystemRejects_StopsTheRunBeforeAnyWrite()
+    {
+        // The directory is fine and the name is too long, so the look at the report path
+        // fails. That must stop the run before a source file changes.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", TwoTypes);
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+
+        var content = Phase("content", workspace, listPath, manifestPath, "--report", Path.Combine(workspace.Root, new string('r', 300) + ".csv"));
+
+        Assert.Equal(3, content.ExitCode);
+        Assert.Equal(string.Empty, content.StandardOutput.Trim());
+        Assert.Equal(TwoTypes, File.ReadAllText(input));
+        Assert.False(File.Exists(Path.Combine(workspace.Root, "Beta.cs")));
+        Assert.Equal(["Alpha.cs", "inputs.txt", "plan.csv"], Directory.GetFiles(workspace.Root).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void PathThatCannotBeExamined_IsRefusedNotTreatedAsAbsent()
+    {
+        // A path the operating system will not look up is neither present nor absent.
+        using var workspace = new TempWorkspace();
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var reportPath = Path.Combine(workspace.Root, "run.csv");
+        var unreadable = Path.Combine(workspace.Root, "bad\0name.csv");
+        var rows = new[] { FileResult.Skip(manifestPath, manifestPath, "any row") };
+
+        var badManifest = Assert.Throws<InvalidOperationException>(() => ReportFile.Prepare(reportPath, unreadable));
+        Assert.Contains("Cannot examine the manifest path", badManifest.Message, StringComparison.Ordinal);
+        var badReport = Assert.Throws<InvalidOperationException>(() => ReportFile.Prepare(unreadable, manifestPath));
+        Assert.Contains("Cannot examine the report path", badReport.Message, StringComparison.Ordinal);
+        Assert.Contains("Cannot examine the report path", ReportFile.Write(rows, unreadable, manifestPath), StringComparison.Ordinal);
+        Assert.Contains("Cannot examine the manifest path", ReportFile.Write(rows, reportPath, unreadable), StringComparison.Ordinal);
+        Assert.Empty(Directory.GetFileSystemEntries(workspace.Root));
+    }
+
+    [Fact]
+    public void RenameOntoADirectory_IsAFailedRowAndTheFileStaysPut()
+    {
+        // git mv would move the file into the directory. The row must not claim the file
+        // is at a path that holds a directory.
+        using var workspace = new TempWorkspace();
+        var misnamed = workspace.WriteFile("Zed.cs", OtherTwoTypes);
+        var listPath = workspace.WriteInputList(misnamed);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var destination = Squat(workspace, "Gamma.cs");
+
+        var renames = Phase("renames", workspace, listPath, manifestPath);
+
+        Assert.Equal(1, renames.ExitCode);
+        var row = Assert.Single(ManifestWriter.Read(Path.Combine(workspace.Root, "plan.report.csv")));
+        Assert.Equal("failed", row.Status);
+        Assert.Equal(misnamed, row.KeptPath);
+        Assert.True(row.GitMove);
+        Assert.Equal($"rename to {destination} failed: a directory is at that path", row.Reason);
+        Assert.Equal(OtherTwoTypes, File.ReadAllText(misnamed));
+        Assert.Empty(Directory.GetFileSystemEntries(destination));
+    }
+
+    [Fact]
     public void ReportPathEndingInASeparator_StopsTheRunBeforeAnyWrite()
     {
         using var workspace = new TempWorkspace();

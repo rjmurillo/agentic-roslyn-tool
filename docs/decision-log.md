@@ -608,6 +608,11 @@ and `content` phases write what they did to a report file in the same CSV format
   collapsed `..` as text. One observed the report side and still resolved a linked
   manifest path with a library call that collapses `..` the same way. Each let a report
   path reach the manifest and replace the plan.
+- **The checks fail closed.** Every look at a path has three answers: something is there,
+  nothing is there, or the look failed. A fourth version asked `File.Exists`, which
+  answers false for the last two. A manifest directory about 4,060 characters long made
+  the look for the probe fail, that read as a different directory, and the report
+  replaced the plan. Only a look that proves absence counts as absence now.
 - **A linked manifest path is refused in `renames` and `content`.** That removes the last
   path the tool had to resolve. A report path that is a link was already refused. The
   directories either path runs through are followed by the operating system, never by
@@ -667,7 +672,10 @@ apply a plan nobody had reviewed. A caller that read results from the manifest p
 content run against a manifest an older version already rewrote behaves as before: its
 `failed` rows are not `split`, so re-run the plan once.
 
-**Known limits.** A manifest reached through a symbolic link must be passed by its real
+**Known limits.** The file system can give one file two names in one directory, such as
+a Windows short name or a second Unicode spelling on macOS. A report path that uses the
+other name is not seen as the manifest. A named pipe at the report path makes the format
+check wait for a writer. A manifest reached through a symbolic link must be passed by its real
 path to `renames` and `content`. The `plan` phase does not apply that rule. The report and
 manifest paths are compared without regard to case on
 every platform, so Linux refuses `plan.csv` beside `PLAN.CSV` although they are two files.
@@ -687,7 +695,9 @@ erases its own plan again. The retry then reports the file as not planned, at ex
 Remove the already applied check and a retry still exits 0, but every applied row reads
 `nothing to split`, which a caller cannot tell from a file that never needed splitting.
 Widen that check into an exemption from the existence checks and an edited manifest can
-aim a write at an existing file, which rule 10 forbids. Open the report path directly,
+aim a write at an existing file, which rule 10 forbids. Replace a three way look with
+`File.Exists` and a path the system cannot look up reads as absent, which is how the
+report last reached the plan. Open the report path directly,
 to probe it or to write it, and a report path that is a hard link to the manifest empties
 the plan. Drop the check at the write and a report can replace a source file the run just
 created.

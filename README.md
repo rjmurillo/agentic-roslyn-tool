@@ -76,7 +76,7 @@ Use these options to control the operation:
 | `--input <dir\|file\|csv\|list\|->` | Supplies the required file list. |
 | `--repo-root <path>` | Sets the repository root. |
 | `--manifest <path>` | Sets the CSV plan manifest path. Only the `plan` phase writes it. |
-| `--report <path>` | Sets where `renames` and `content` record what they did. Defaults to the manifest path with `.report.csv` as its extension. Rejected with the `plan` phase, and rejected when it names the manifest. Replaces an earlier report, and refuses any other existing file. |
+| `--report <path>` | Sets where `renames` and `content` record what they did. Defaults to the manifest path with `.report.csv` as its extension. Rejected with the `plan` phase, and rejected when it names the manifest. Replaces an existing file in the report format, and refuses any other existing file. |
 | `--json` | Prints one JSON report to standard output instead of CSV. |
 | `--require-header <text>` | Prepends `<text>` to every emitted file and fails the split if any output does not start with it. Off by default. |
 | `--exclude <path-substring>` | Skips any input whose path contains `<path-substring>`. Repeatable. Off by default. |

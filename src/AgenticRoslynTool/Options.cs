@@ -20,10 +20,11 @@ namespace AgenticRoslynTool;
 /// </param>
 /// <param name="Json">When true, the run prints a single JSON report to standard output instead of CSV.</param>
 /// <param name="ReportPath">
-/// Absolute path the renames and content phases write their run report to. Null means the
-/// default beside the manifest, see <see cref="DefaultReportPath"/>. <see cref="Parse"/> always
-/// fills it and rejects the manifest path. <see cref="ReportFile.Prepare"/> tests it against
-/// the disk before a run, whoever built the options.
+/// Absolute path the renames and content phases write their run report to. <see cref="Parse"/>
+/// always fills it and rejects the manifest path. Code that builds the record directly may
+/// leave it null, which means the default beside the manifest, see
+/// <see cref="DefaultReportPath"/>. <see cref="ReportFile.Prepare"/> tests it against the
+/// disk before a run, whoever built the options.
 /// </param>
 /// <param name="CollisionNaming">
 /// How two outputs that collide across input files are qualified. Changes planned paths, so

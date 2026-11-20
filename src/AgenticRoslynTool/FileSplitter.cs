@@ -112,6 +112,13 @@ internal sealed class FileSplitter
             return planned;
         }
 
+        // git mv moves a file into a directory that sits at its destination. The plan only
+        // asked whether a file was there, so this is checked before git is asked.
+        if (Directory.Exists(planned.KeptPath))
+        {
+            return FileResult.Failed(planned.OriginalPath, planned.OriginalPath, $"rename to {planned.KeptPath} failed: a directory is at that path") with { GitMove = true };
+        }
+
         try
         {
             _writer.ApplyRenameOnly(planned.OriginalPath, File.ReadAllBytes(planned.OriginalPath), planned.KeptPath);

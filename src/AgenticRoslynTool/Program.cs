@@ -165,7 +165,7 @@ static void PrintUsage(TextWriter w)
     w.WriteLine("                                   renames and content refuse a manifest path that is a symbolic link.");
     w.WriteLine("  --report <path>                  Where renames and content record what they did. Defaults to the manifest path");
     w.WriteLine("                                   with .report.csv as its extension. Not accepted with the plan phase.");
-    w.WriteLine("                                   Replaces an earlier report. Refuses any other existing file.");
+    w.WriteLine("                                   Replaces a file in the report format. Refuses any other existing file.");
     w.WriteLine("  --phase plan|renames|content     Which phase to run. Defaults to content.");
     w.WriteLine("  --dry-run                        Shorthand for --phase plan. Cannot be combined with --phase.");
     w.WriteLine("  --json                           Print one JSON report to stdout instead of CSV.");

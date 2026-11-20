@@ -105,13 +105,16 @@ internal static class ReportFile
             File.Move(staged, reportPath, overwrite: true);
             return null;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        // Unfiltered on purpose. The source files are already rewritten, and the caller
+        // prints the rows when this returns a reason. An exception that escaped instead
+        // would end the run with no record of it.
+        catch (Exception ex)
         {
             try
             {
                 File.Delete(staged);
             }
-            catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException)
+            catch (Exception)
             {
                 // The staged file is a leftover beside the report. It is not worth hiding
                 // the failure that matters behind a second one.
@@ -130,29 +133,78 @@ internal static class ReportFile
     {
         // A linked manifest names a file somewhere else, and finding that somewhere means
         // resolving the link by hand. Three versions of this type did that and each got a
-        // case wrong. Refusing the link leaves nothing to resolve. Also true of a dangling
-        // link, which File.Exists reports as absent.
-        if (new FileInfo(manifestPath).LinkTarget is not null)
+        // case wrong. Refusing the link leaves nothing to resolve.
+        var manifest = Look(manifestPath);
+        if (manifest == Seen.Unknown)
+        {
+            return $"Cannot examine the manifest path {manifestPath}, so the report cannot be shown to miss it. Pass a shorter or readable --manifest path.";
+        }
+
+        if (manifest == Seen.Link)
         {
             return $"The manifest path {manifestPath} is a symbolic link. Pass the path of the file it names to --manifest.";
         }
 
-        if (Path.EndsInDirectorySeparator(reportPath) || Directory.Exists(reportPath))
+        var report = Path.EndsInDirectorySeparator(reportPath) ? Seen.Directory : Look(reportPath);
+        return report switch
         {
-            return $"The report path {reportPath} is a directory. Pass a file path to --report.";
-        }
+            Seen.Unknown => $"Cannot examine the report path {reportPath}. Pass a shorter or readable --report path.",
+            Seen.Directory => $"The report path {reportPath} is a directory. Pass a file path to --report.",
+            Seen.Link => $"The report path {reportPath} is a symbolic link. Pass the path of a regular file to --report.",
+            Seen.File when !IsReportFormat(reportPath) => $"Refusing to overwrite {reportPath}. It exists and is not a report from an earlier run. Pass a different --report path.",
+            _ => null,
+        };
+    }
 
-        if (new FileInfo(reportPath).LinkTarget is not null)
+    /// <summary>What one look at a path showed.</summary>
+    private enum Seen
+    {
+        /// <summary>Nothing is there. The operating system said so.</summary>
+        Absent,
+
+        /// <summary>A file that is not a link.</summary>
+        File,
+
+        /// <summary>A directory that is not a link.</summary>
+        Directory,
+
+        /// <summary>A symbolic link or another reparse point, dangling or not.</summary>
+        Link,
+
+        /// <summary>The look failed. The path may or may not hold something.</summary>
+        Unknown,
+    }
+
+    /// <summary>
+    /// Looks at a path without following a link at its end, and keeps "not there" apart
+    /// from "could not tell".
+    /// </summary>
+    /// <remarks>
+    /// <c>File.Exists</c> answers false for both. An earlier version of this type trusted
+    /// that answer, and a path too long to look up read as an absent file, which let the
+    /// report replace the plan. Every caller here treats <see cref="Seen.Unknown"/> as the
+    /// unsafe case.
+    /// </remarks>
+    private static Seen Look(string path)
+    {
+        try
         {
-            return $"The report path {reportPath} is a symbolic link. Pass the path of a regular file to --report.";
-        }
+            var attributes = File.GetAttributes(path);
+            if (attributes.HasFlag(FileAttributes.ReparsePoint))
+            {
+                return Seen.Link;
+            }
 
-        if (File.Exists(reportPath) && !IsReportFormat(reportPath))
+            return attributes.HasFlag(FileAttributes.Directory) ? Seen.Directory : Seen.File;
+        }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
         {
-            return $"Refusing to overwrite {reportPath}. It exists and is not a report from an earlier run. Pass a different --report path.";
+            return Seen.Absent;
         }
-
-        return null;
+        catch (Exception)
+        {
+            return Seen.Unknown;
+        }
     }
 
     private static string ManifestRefusal(string reportPath) =>
@@ -166,10 +218,11 @@ internal static class ReportFile
     /// Whether two paths name one directory is observed, not worked out. A file this run
     /// just created beside the report path is visible under the manifest's directory
     /// exactly when the two are the same directory, whatever links either path runs
-    /// through. Two earlier versions resolved the links by hand, and each missed a chain
-    /// the operating system follows. The name comparison ignores case on every platform,
-    /// like the other collision checks: wrongly refusing costs one failed start, and
-    /// wrongly allowing costs the plan. A hard link to the manifest is a different
+    /// through. Three earlier versions resolved links by hand, and each missed a case the
+    /// operating system follows. The answer fails closed: only a look that proves the file
+    /// is absent counts as a different directory. The name comparison ignores case on every
+    /// platform, like the other collision checks: wrongly refusing costs one failed start,
+    /// and wrongly allowing costs the plan. A hard link to the manifest is a different
     /// directory entry, and replacing it leaves the manifest alone.
     /// </remarks>
     /// <param name="reportPath">Absolute path of the report. Never a link, see <see cref="Refusal"/>.</param>
@@ -177,11 +230,15 @@ internal static class ReportFile
     /// <param name="manifestPath">Absolute path of the plan manifest. Never a link, see <see cref="Refusal"/>.</param>
     private static bool ReachesManifest(string reportPath, string sibling, string manifestPath)
     {
+        if (!StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(reportPath), Path.GetFileName(manifestPath)))
+        {
+            return false;
+        }
+
         // Neither path is resolved here. The operating system follows the manifest's
         // directory as typed when it looks for the sibling.
         var manifestDirectory = Path.GetDirectoryName(manifestPath) ?? ".";
-        return File.Exists(Path.Combine(manifestDirectory, Path.GetFileName(sibling)))
-            && StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(reportPath), Path.GetFileName(manifestPath));
+        return Look(Path.Combine(manifestDirectory, Path.GetFileName(sibling))) != Seen.Absent;
     }
 
     private static bool IsReportFormat(string path)
