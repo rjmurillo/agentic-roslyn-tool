@@ -1151,6 +1151,29 @@ Drop the workflow from `AGENTS.md` and NuGet MCP users lose it. Delete
 `PackagedAgentDocsTests` and the next renamed flag leaves both documents giving commands
 that exit 2.
 
+### Decision 29. Nested namespaces are walked to any depth
+
+**Context.** `TopLevelType.Find` looked one namespace down and no deeper. A type in a
+nested block namespace was never a split candidate. Each output kept the nested block as
+shared text, so the type was declared once per output. The build then failed with a
+duplicate type. The verifier did not catch it, because it compares outputs against the
+same list of found types, and text outside every found type counts as shared.
+
+**Decision.** `Find` walks nested namespaces to any depth, in document order. A nested
+type is placed like any other type, and every guard now sees it.
+
+**Consequences.** Some inputs that were skipped as `nothing to split` now split. One is a
+file with one outer type and one nested type. Another is a file whose only namespace
+holds a nested namespace with two types. The emptied nested block stays in each other
+output, which matches how a sibling namespace block is already left. When two types at
+two depths get one file name, the plan skips that input as a collision. Which pairs do
+depends on `--file-naming`. Under `stylecop` the name and type parameter names must
+match, so `Box<T>` and `Box<U>` split. Under `metadata` the name and arity must match,
+so the same pair collides on ``Box`1.cs``. `NestedNamespaceTests` pins all of this.
+
+**Reversal warning.** Stop the walk at one level and nested types are copied into every
+output again, at exit code 0, with no guard to stop it.
+
 ## Credit
 
 The approach owes a debt to Lizzy Gallagher's write up on Roslyn refactoring,

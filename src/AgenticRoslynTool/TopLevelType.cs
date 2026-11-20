@@ -6,8 +6,8 @@ namespace AgenticRoslynTool;
 
 /// <summary>
 /// Represents one top-level type declaration in a compilation unit. "Top-level" here
-/// means the type sits directly in the compilation unit or inside its (single) namespace,
-/// which is what SA1402 partitions files on. Also tracks each type's owned leading
+/// means the type is not nested in another type. It sits directly in the compilation
+/// unit or inside a namespace at any depth, which is what SA1402 partitions files on. Also tracks each type's owned leading
 /// trivia range, which is how doc comments, attributes, and ordinary comments travel
 /// with the type they belong to instead of being stranded when the file is split.
 /// </summary>
@@ -48,8 +48,10 @@ internal sealed class TopLevelType
     public string Key => TypeParameters.Count == 0 ? Name : Name + "<" + string.Join(",", TypeParameters) + ">";
 
     /// <summary>
-    /// Enumerates every top-level type declared in the compilation unit, whether declared
-    /// at the root or inside the (single) namespace declaration.
+    /// Enumerates every top-level type declared in the compilation unit, in document
+    /// order, whether declared at the root or inside a namespace. Nested namespaces are
+    /// walked to any depth, so a type in <c>namespace A { namespace B { } }</c> is found.
+    /// A type nested inside another type is not top-level and is not returned.
     /// </summary>
     /// <param name="root">The compilation unit to walk.</param>
     /// <returns>One <see cref="TopLevelType"/> per class, struct, record, interface, enum, or delegate found.</returns>
@@ -76,7 +78,7 @@ internal sealed class TopLevelType
         {
             foreach (var child in namespaceDeclaration.Members)
             {
-                if (Create(child) is { } nestedType)
+                foreach (var nestedType in FromMember(child))
                 {
                     yield return nestedType;
                 }

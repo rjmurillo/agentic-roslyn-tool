@@ -468,6 +468,24 @@ Promises:
 These run in order inside `FileSplitter.Process`, and all of them run before any write for
 that file.
 
+### What counts as a top level type
+
+A top level type is any class, struct, record, interface, enum, or delegate that is not
+declared inside another type. It can sit at the root of the file, or inside a namespace
+at any depth. A type in `namespace A { namespace B { class Deep { } } }` is a split
+candidate like any other, and lands in exactly one output. The nested namespace block it
+sat in stays in every other output, empty, the way a sibling namespace block does.
+
+Two types at different depths can map to the same output file. The plan then skips the
+input with `target path collision within split`, and nothing is written. Which pairs
+collide depends on `--file-naming`:
+
+| Pair | `stylecop` | `metadata` |
+|---|---|---|
+| `Foo` and `Foo` | collision | collision |
+| `Box<T>` and `Box<U>` | splits, `Box{U}.cs` | collision on ``Box`1.cs`` |
+| `Foo` and `Foo<T>` | splits, `Foo{T}.cs` | splits, ``Foo`1.cs`` |
+
 ### Input rejection, before parsing
 
 Reason text shown in italics is a template; the run substitutes real values.
