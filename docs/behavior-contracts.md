@@ -118,6 +118,7 @@ its status vocabulary match the CSV manifest, so the two formats are one contrac
 {
   "phase": "plan",
   "manifest": "C:\\repo\\sa1402-split-manifest.csv",
+  "collisionNaming": "file-first",
   "summary": { "total": 2, "split": 1, "skipped": 1, "failed": 0, "newFiles": 1 },
   "files": [
     {
@@ -147,6 +148,13 @@ and content phases copy it from the manifest row they replace and never write th
 so a `stale plan:` row still shows the planned hash and names the hash it found in its
 reason. New columns are appended, never inserted.
 
+`collisionNaming` is the CSV column after `contentHash`, and a top level JSON field. It is
+`file-first` or `type-first`: the value this run used, after resolving the flag against
+the manifest. It is one value for the whole run. CSV has no place for a file level value,
+so the CSV repeats it on every row, and every row must agree. JSON carries it once, at the
+top, because a per-file copy would invite a reader to expect per-file differences. This
+is the one place the two formats differ in shape. See decision 24.
+
 ## Phase contracts
 
 ### plan
@@ -164,6 +172,10 @@ Promises:
 - The manifest round trips through `ManifestWriter.Read`.
 - Every row for a file the run read carries that file's `contentHash`. Verified by
   `ContentHashPlanTests`.
+- Every row carries the run's `collisionNaming`: the flag's value, or `file-first` when
+  the flag is absent. A plan never reads the value from an existing manifest, because a
+  plan starts afresh. Verified by `CollisionNamingRecordedTests`.
+- Runs when `--phase` is absent. See decision 23.
 
 You can run `plan` as many times as you like. It is the review step, and it is the reason
 a human or an agent can inspect the whole change before a single byte moves.
@@ -204,13 +216,20 @@ Promises:
   rename instead of a delete plus an add, and the file history survives.
 
 Recomputes the plan and writes the manifest again with its own rows. It reads the manifest
-on disk only to hold each file to its recorded hash and status, never to its paths. So it
-does not compare the `--collision-naming` value with the plan run, and a different value
-replaces the reviewed collision names with the other form. A file the plan skipped under
-one value that renames would split under the other gets a `stale plan:` reason, because
-the manifest does not mark it `split`. The content check then
-sees a manifest that agrees with whatever renames was given. Pass the same value here as
-in the plan run.
+on disk to hold each file to its recorded hash and status, and to take the plan's
+`collisionNaming` value. It never holds a file to its recorded paths. So the collision pass
+it reruns names collisions the way the plan did:
+
+- With `--collision-naming` absent, it uses the value the manifest records.
+- With a value that matches the manifest, it runs as usual.
+- With a value that contradicts the manifest, it ends the run with exit code 3 before any
+  rename. The error names both values and says to omit the flag or re-run the plan.
+- A manifest with no `collisionNaming` column, or with a blank, unknown, or mixed value,
+  also ends the run with exit code 3. See decision 24.
+- With no manifest on disk, an absent flag means `file-first`.
+
+Before the column existed, a renames run with a different value replaced the reviewed
+collision names with the other form, and the content check then agreed with it.
 
 Requires a real git repository to rename. Most of the test suite avoids this phase by
 keeping every fixture file name equal to its primary type name. `ContentHashRenamesTests`
@@ -219,7 +238,7 @@ and then run this phase for real.
 
 ### content
 
-The default. Reads the plan manifest and performs the split.
+Runs only when `--phase content` is given. Reads the plan manifest and performs the split.
 
 Promises:
 
@@ -237,6 +256,11 @@ Promises:
   wrote it. The message says to re-run the plan phase. This also ends the whole run, with
   exit code 3, before any source file is read. There is no fallback to the structural check
   alone.
+- **Takes `--collision-naming` from the manifest.** The rules are the ones renames follows,
+  listed above: an absent flag uses the recorded value, and a contradicting flag, a missing
+  column, or a blank, unknown, or mixed value ends the run with exit code 3 before any
+  source file is read. The `contentHash` check runs first, so a manifest from version 0.1.1
+  reports the `contentHash` error, which gives the same advice.
 - **Refuses a file whose bytes differ from the planned `contentHash`.** The comparison
   runs straight after the file is read, ahead of parsing and every guard that follows it. The row is `skipped`,
   the reason starts with `stale plan:` and names both hashes, and nothing is written for
@@ -259,16 +283,18 @@ Promises:
   comparison is structural: it covers the kept path, the git move flag, and the set of
   output paths. With the hash in front of it, this check now guards the other side: the
   source is proven unchanged, so a disagreement here means the manifest was edited.
-- Refuses a row the plan phase resolved under the `--collision-naming` value this run
-  was not given. Two things must hold: the output path has the other value's qualified
+- Refuses a row the plan phase resolved under the other `--collision-naming` value from
+  the one this run resolved. Since decision 24 the run takes its value from the manifest,
+  so this fires only when someone edited the `collisionNaming` column and left the paths
+  and notes alone. Two things must hold: the output path has the other value's qualified
   form, and the row's note records that the collision pass chose that path. The reason is
   the same `content phase plan does not match manifest`, and the skipped row's note names
   the path and both values. The content phase never reruns the collision pass, so this
-  check is the only thing that keeps the flag in step with the plan. A path typed into the
-  manifest by hand has no such note and is accepted as before. An edit that rewrites the
-  note to name the new path as well is refused, because it then reads as the plan's own. The skipped row replaces
-  the `split` row when the manifest is written back, so recovery is to run the plan phase
-  again.
+  check is the last guard between an edited column and names nobody reviewed. A path
+  typed into the manifest by hand has no such note and is accepted as before. An edit that
+  rewrites the note to name the new path as well is refused, because it then reads as the
+  plan's own. The skipped row replaces the `split` row when the manifest is written back,
+  so recovery is to run the plan phase again.
 - Writes its own manifest to the same default path, which **overwrites the plan
   manifest**. Pass an explicit `--manifest` when you want to keep both.
 

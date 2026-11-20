@@ -510,6 +510,10 @@ possibly compromised version merge itself within minutes.
 
 ### Decision 21. Collision naming is a flag, and the default keeps the SA1649 violation
 
+**Superseded in part by decision 24.** The plan now records the value in the manifest.
+The rejection of a column below, and the consequences of a forgotten flag, describe the
+behavior before that change. The note dependency and the per-row content check still hold.
+
 **Context.** Two inputs in one folder can each emit `Shared.cs`. The collision pass
 qualifies both as `<OriginalFileName>.<TypeName>.cs`, such as `A.Shared.cs`. SA1649 reads
 a file name up to its first dot, so it reads `A` and reports the file. The naming guide
@@ -695,6 +699,57 @@ means the same on version 0.1.1 and on later versions.
 
 **Reversal warning.** Restore `content` as the default and the first bare call from an
 agent rewrites source before anyone has reviewed a plan.
+
+### Decision 24. The plan records `--collision-naming` in the manifest
+
+**Context.** Decision 21 made the value a flag that every phase had to repeat, and it
+rejected a manifest column because the column "changes the manifest CSV for every caller,
+to serve one flag." Two facts changed. Decision 22 then added `contentHash`, so the CSV
+already changed for every caller, and no released version writes that column. And the
+forgotten flag was the trap decision 21 predicted. A content run that forgot it skipped the
+collided rows, exited 0, and overwrote their reviewed plan. A renames run that forgot it
+silently replaced the reviewed names. Exit 0 reads as "nothing to do", and economical
+models stop there. The maintainer chose to make the break.
+
+**Decision.** Every manifest row carries `collisionNaming`, `file-first` or `type-first`,
+appended after `contentHash`. The JSON report carries the same value once, as a top level
+field. The rules, all in `CollisionNames.Resolve` and `ManifestWriter.ReadCollisionNaming`:
+
+- The plan phase uses the flag, or `file-first` when it is absent, and records that.
+  It never reads an existing manifest's value.
+- Renames, when a manifest exists, and content use the recorded value when the flag is
+  absent. A flag that matches is accepted.
+- A flag that contradicts the recorded value ends the run with exit code 3, before any
+  file is read or moved. The error names both values and says what to do.
+- A missing column, or a blank, unknown, or mixed value, ends the run with exit code 3.
+  Each of those means the file was edited or written by an older build. Both are cases
+  decision 22 settled: no silent fallback.
+- `ManifestWriter.Write` and `ToCsv` take the value as a required parameter. An optional
+  one could be forgotten by the next caller, and the column would then carry a default
+  nobody chose.
+- `Options.CollisionNaming` is nullable. Null means "absent", which is not `file-first`
+  once a manifest exists.
+
+**Rejected.** Inferring the value from the paths and notes the plan wrote. A manifest with
+no collision carries no evidence either way, and the inference would depend on note text,
+which decision 21 already calls a cost. A sidecar file beside the manifest was rejected:
+two files that must travel together will be separated. Keeping the per-row skip for a
+contradicting flag was rejected for the exit 0 reason above.
+
+**Consequences.** Breaking, for the manifest and the JSON. A manifest written before this
+change cannot drive renames or content: it lacks the column, and the run says to re-run
+the plan. The `contentHash` check runs first, so a 0.1.1 manifest reports that error,
+which gives the same advice. A reader that rejects unknown columns or JSON fields needs an
+update. The per-row check from decision 21 stays. It is now reachable only when someone
+edits the column and leaves the paths and notes alone, and
+`CollisionNamingContentTests` pins it through exactly that edit. `CollisionNamingRecordedTests`
+runs plan, renames, and content through the real executable with the flag only on the plan.
+
+**Reversal warning.** Drop the column and every phase must be told the value again, with
+the exit 0 trap back in place. Let `Write` default the value and a future caller records
+`file-first` for a type-first plan. Resolve a contradiction by preferring the flag and a
+renames run rewrites reviewed names. Accept a blank value as "not recorded" and an edited
+manifest silently falls back to the flag.
 
 ## Unrecorded decisions
 

@@ -152,32 +152,31 @@ Pass `--collision-naming type-first` and the tool swaps the two parts of the qua
 name. It emits `<TypeName>.<OriginalFileName>.cs`:
 
 ```csv
-originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash
-"src/A.cs","src/A.cs",false,"split","","resolved output path collision: src/A.cs -> src/Shared.A.cs; src/B.cs -> src/Shared.B.cs","src/Shared.A.cs","Shared","sha256:41d7..."
-"src/B.cs","src/B.cs",false,"split","","resolved output path collision: src/A.cs -> src/Shared.A.cs; src/B.cs -> src/Shared.B.cs","src/Shared.B.cs","Shared","sha256:b94d..."
+originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash,collisionNaming
+"src/A.cs","src/A.cs",false,"split","","resolved output path collision: src/A.cs -> src/Shared.A.cs; src/B.cs -> src/Shared.B.cs","src/Shared.A.cs","Shared","sha256:41d7...","type-first"
+"src/B.cs","src/B.cs",false,"split","","resolved output path collision: src/A.cs -> src/Shared.A.cs; src/B.cs -> src/Shared.B.cs","src/Shared.B.cs","Shared","sha256:b94d...","type-first"
 ```
 
 SA1649 reads both names as `Shared`, so both files pass. The flag is opt-in, and the
 default stays `file-first`, so a run without the flag behaves as it did before. What
 to know:
 
-* **Pass the flag to every phase.** The value changes planned paths. A content run whose
-  flag differs from the one the plan used skips each affected file with
-  `content phase plan does not match manifest` and writes no source for it. The `note`
-  column names the path and both values.
-* **The renames phase writes the manifest again.** It recomputes the plan under the value
-  it is given and replaces the manifest with the result. A renames run with a different
-  value therefore swaps the reviewed names for the other form. Give it the same value as
-  the plan run.
-* **A mismatched content run uses up the plan.** Skips are not failures, so the run exits
-  0, and files with no collision are still split. The content phase then writes its rows
-  back to the manifest, so the skipped files lose their `split` rows. Run the plan phase
-  again with the value you want before you retry.
-* **The check reads the plan's own note.** The content phase refuses a path only when the
-  `note` column records that the plan chose it under the other value. A path you typed
-  into the manifest by hand is still accepted when it is free, whatever its shape. Leave
-  the note alone when you edit a path. A row with no note is not checked, and a row whose
-  note you rewrote to name a type-first path is refused without the flag.
+* **Pass the flag to the plan phase only.** The plan records the value in the manifest's
+  `collisionNaming` column. The renames and content phases read it from there when the flag
+  is absent. Passing the same value again is harmless. Version 0.1.1 has no column, so
+  there you must pass the flag to every phase.
+* **A different value on a later phase stops the run.** Renames or content given a value
+  that contradicts the manifest exits 3 before touching any file, with an `error:` line
+  naming both values. Omit the flag, or re-run the plan with the value you want.
+* **Do not edit the `collisionNaming` column.** A blank, unknown, or mixed value exits 3.
+  A column edited to the other value, with paths and notes left alone, reaches the per-row
+  check below.
+* **The per-row check reads the plan's own note.** The content phase refuses a path only
+  when the `note` column records that the plan chose it under the other value. That
+  happens only after the column edit described above. A path you typed into the manifest
+  by hand is still accepted when it is free, whatever its shape. Leave the note alone when
+  you edit a path. A row with no note is not checked, and a row whose note you rewrote to
+  name a type-first path is refused under `file-first`.
 * **Some source names are refused.** Roslyn treats a file as generated code when its name
   ends in `.g`, `.g.i`, `.designer`, or `.generated` before the extension. Analyzers skip
   such a file and nullable annotations switch off in it. Type-first puts the source file

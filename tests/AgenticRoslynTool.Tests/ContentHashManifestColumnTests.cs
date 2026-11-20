@@ -63,7 +63,7 @@ public sealed class ContentHashManifestColumnTests : ContentHashTestBase
 
         // "UPPERCASE" stands for the real hash in uppercase: right digits, wrong form.
         var tampered = hash == "UPPERCASE" ? "sha256:" + planned[0].ContentHash![7..].ToUpperInvariant() : hash;
-        ManifestWriter.Write(planned.Select(r => r with { ContentHash = tampered }).ToArray(), ManifestPath);
+        ManifestWriter.Write(planned.Select(r => r with { ContentHash = tampered }).ToArray(), ManifestPath, CollisionNaming.FileFirst);
 
         var row = Assert.Single(Content(source).ReportRows);
 
@@ -92,15 +92,16 @@ public sealed class ContentHashManifestColumnTests : ContentHashTestBase
             FileResult.Skip("/r/F.cs", "/r/F.cs", "input file does not exist"),
         ];
 
-        ManifestWriter.Write(rows, ManifestPath);
+        ManifestWriter.Write(rows, ManifestPath, CollisionNaming.FileFirst);
         var read = ManifestWriter.Read(ManifestPath, requireContentHash: true);
 
         Assert.Equal([hashA, hashB, hashC, null], read.Select(r => r.ContentHash));
         Assert.Equal(2, read[0].NewFiles.Count);
 
         var lines = File.ReadAllLines(ManifestPath);
-        Assert.Equal("originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash", lines[0]);
+        // contentHash stays the ninth column. Decision 24 appended collisionNaming after it.
+        Assert.Equal("originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash,collisionNaming", lines[0]);
         Assert.Equal(6, lines.Length);
-        Assert.All(lines.Skip(1).Take(2), line => Assert.EndsWith($",\"{hashA}\"", line, StringComparison.Ordinal));
+        Assert.All(lines.Skip(1).Take(2), line => Assert.EndsWith($",\"{hashA}\",\"file-first\"", line, StringComparison.Ordinal));
     }
 }

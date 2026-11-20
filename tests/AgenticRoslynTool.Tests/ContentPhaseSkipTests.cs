@@ -58,7 +58,7 @@ public sealed class ContentPhaseSkipTests
         var manifestPath = Path.Combine(ws.Root, "m.csv");
 
         var planOptions = new Options(ws.WriteInputList(splittable, solo), manifestPath, ws.Root, Phase.Plan, null);
-        ManifestWriter.Write(new FileSplitter(planOptions).Run().ManifestRows, manifestPath);
+        ManifestWriter.Write(new FileSplitter(planOptions).Run().ManifestRows, manifestPath, CollisionNaming.FileFirst);
         var plannedSolo = Assert.Single(ManifestWriter.Read(manifestPath), r => IsSolo(r.OriginalPath));
         Assert.Equal("skipped", plannedSolo.Status);
 
@@ -69,7 +69,7 @@ public sealed class ContentPhaseSkipTests
         var carried = Assert.Single(first.ManifestRows, r => IsSolo(r.OriginalPath));
         Assert.Equal("skipped", carried.Status);
         Assert.Equal(plannedSolo.Reason, carried.Reason);
-        ManifestWriter.Write(first.ManifestRows, manifestPath);
+        ManifestWriter.Write(first.ManifestRows, manifestPath, CollisionNaming.FileFirst);
 
         // Route two: Solo.cs is supplied, but the plan never marked it split.
         var withSolo = Path.Combine(ws.Root, "batch2.txt");

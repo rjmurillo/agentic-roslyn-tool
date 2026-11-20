@@ -62,7 +62,7 @@ public sealed class ContentHashRowTests
             FileResult.Skip("/r/F.cs", "/r/F.cs", "input file does not exist"),
         ];
 
-        var json = RunReport.Create(rows, Phase.Plan, "/r/manifest.csv").ToJson();
+        var json = RunReport.Create(rows, Phase.Plan, "/r/manifest.csv", CollisionNaming.FileFirst).ToJson();
         using var document = System.Text.Json.JsonDocument.Parse(json);
         var files = document.RootElement.GetProperty("files");
 

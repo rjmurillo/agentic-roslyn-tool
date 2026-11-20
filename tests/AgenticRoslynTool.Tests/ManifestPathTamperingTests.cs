@@ -27,7 +27,7 @@ public sealed class ManifestPathTamperingTests
 
         var planOptions = new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null);
         var planResults = new FileSplitter(planOptions).Run().ReportRows;
-        ManifestWriter.Write(planResults, manifestPath);
+        ManifestWriter.Write(planResults, manifestPath, CollisionNaming.FileFirst);
 
         // Redirect the planned output for Bar onto an existing, unrelated file.
         var tampered = planResults
@@ -35,7 +35,7 @@ public sealed class ManifestPathTamperingTests
                 ? r
                 : r with { NewFiles = r.NewFiles.Select(f => f with { Path = victim }).ToArray() })
             .ToArray();
-        ManifestWriter.Write(tampered, manifestPath);
+        ManifestWriter.Write(tampered, manifestPath, CollisionNaming.FileFirst);
 
         var contentOptions = new Options(listPath, manifestPath, workspace.Root, Phase.Content, null);
         var results = new FileSplitter(contentOptions).Run().ReportRows;
@@ -60,7 +60,7 @@ public sealed class ManifestPathTamperingTests
 
         var planOptions = new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null);
         var planResults = new FileSplitter(planOptions).Run().ReportRows;
-        ManifestWriter.Write(planResults, manifestPath);
+        ManifestWriter.Write(planResults, manifestPath, CollisionNaming.FileFirst);
 
         // Point both new files at the same path. Left unchecked, the second write wins and
         // one type is lost from disk.
@@ -70,7 +70,7 @@ public sealed class ManifestPathTamperingTests
                 ? r
                 : r with { NewFiles = r.NewFiles.Select(f => f with { Path = duplicate }).ToArray() })
             .ToArray();
-        ManifestWriter.Write(tampered, manifestPath);
+        ManifestWriter.Write(tampered, manifestPath, CollisionNaming.FileFirst);
 
         var contentOptions = new Options(listPath, manifestPath, workspace.Root, Phase.Content, null);
 

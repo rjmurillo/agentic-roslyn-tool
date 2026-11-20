@@ -106,7 +106,7 @@ public sealed class ContentHashCarryTests : ContentHashTestBase
         // the structural comparison stays as the guard on an edited plan.
         var source = Workspace.WriteFile("Foo.cs", TwoTypes);
         var planned = Plan(source);
-        ManifestWriter.Write(planned.Select(r => r with { KeptPath = Path.Combine(Workspace.Root, "Elsewhere.cs") }).ToArray(), ManifestPath);
+        ManifestWriter.Write(planned.Select(r => r with { KeptPath = Path.Combine(Workspace.Root, "Elsewhere.cs") }).ToArray(), ManifestPath, CollisionNaming.FileFirst);
 
         var row = Assert.Single(Content(source).ReportRows);
 

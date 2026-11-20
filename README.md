@@ -80,7 +80,7 @@ Use these options to control the operation:
 | `--json` | Prints one JSON report to standard output instead of CSV. |
 | `--require-header <text>` | Prepends `<text>` to every emitted file and fails the split if any output does not start with it. Off by default. |
 | `--exclude <path-substring>` | Skips any input whose path contains `<path-substring>`. Repeatable. Off by default. |
-| `--collision-naming file-first\|type-first` | Names the outputs when two inputs would emit the same file name. `file-first`, the default, gives `A.Shared.cs`. `type-first` gives `Shared.A.cs`, which passes SA1649. Pass the same value to every phase. |
+| `--collision-naming file-first\|type-first` | Names the outputs when two inputs would emit the same file name. `file-first`, the default, gives `A.Shared.cs`. `type-first` gives `Shared.A.cs`, which passes SA1649. The plan records it in the manifest, and renames and content reuse it. A later phase given a different value exits 3. |
 
 ### Driving it from an agent
 

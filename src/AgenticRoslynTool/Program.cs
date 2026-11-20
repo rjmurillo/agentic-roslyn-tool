@@ -69,8 +69,8 @@ catch (ArgumentException ex)
 try
 {
     var outcome = new FileSplitter(options).Run();
-    ManifestWriter.Write(outcome.ManifestRows, options.ManifestPath);
-    var report = RunReport.Create(outcome.ReportRows, options.Phase, options.ManifestPath);
+    ManifestWriter.Write(outcome.ManifestRows, options.ManifestPath, outcome.CollisionNaming);
+    var report = RunReport.Create(outcome.ReportRows, options.Phase, options.ManifestPath, outcome.CollisionNaming);
 
     if (options.Json)
     {
@@ -78,7 +78,7 @@ try
     }
     else if (options.Phase == Phase.Plan)
     {
-        Console.WriteLine(ManifestWriter.ToCsv(outcome.ManifestRows));
+        Console.WriteLine(ManifestWriter.ToCsv(outcome.ManifestRows, outcome.CollisionNaming));
     }
 
     // Standard output carries a parseable document or nothing at all, so a caller can pipe
@@ -132,7 +132,7 @@ static void PrintUsage(TextWriter w)
     w.WriteLine("  --collision-naming file-first|type-first");
     w.WriteLine("                                   Name for two inputs that emit the same file name. file-first, the default,");
     w.WriteLine("                                   gives A.Shared.cs. type-first gives Shared.A.cs, which passes SA1649.");
-    w.WriteLine("                                   Pass the same value to every phase.");
+    w.WriteLine("                                   The plan records the value; renames and content reuse it when the flag is absent.");
     w.WriteLine("  --help, -h                       Show help.");
     w.WriteLine();
     w.WriteLine("Exit codes: 0 no failures, 1 a file failed, 2 bad command line, 3 the run could not complete.");

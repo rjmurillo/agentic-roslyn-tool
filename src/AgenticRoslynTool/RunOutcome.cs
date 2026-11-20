@@ -13,9 +13,14 @@ namespace AgenticRoslynTool;
 /// </remarks>
 /// <param name="ManifestRows">Rows to serialize to the manifest CSV.</param>
 /// <param name="ReportRows">Rows describing what this run did, used for the JSON report and the summary line.</param>
-internal sealed record RunOutcome(IReadOnlyList<FileResult> ManifestRows, IReadOnlyList<FileResult> ReportRows)
+/// <param name="CollisionNaming">
+/// The collision naming this run actually used, after <see cref="CollisionNames.Resolve"/>.
+/// It is written to the manifest, so it must be the resolved value and never the raw flag.
+/// </param>
+internal sealed record RunOutcome(IReadOnlyList<FileResult> ManifestRows, IReadOnlyList<FileResult> ReportRows, CollisionNaming CollisionNaming)
 {
     /// <summary>Constructs an outcome whose manifest and report views are the same rows.</summary>
     /// <param name="rows">The rows to use for both views.</param>
-    public static RunOutcome Same(IReadOnlyList<FileResult> rows) => new(rows, rows);
+    /// <param name="collisionNaming">The collision naming the run used.</param>
+    public static RunOutcome Same(IReadOnlyList<FileResult> rows, CollisionNaming collisionNaming) => new(rows, rows, collisionNaming);
 }

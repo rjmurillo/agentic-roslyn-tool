@@ -87,7 +87,7 @@ public sealed class ContentHashRenamesUnplannedTests : ContentHashTestBase
         // says so, whatever renames would have done with the file.
         var single = Workspace.WriteFile("Single.cs", "namespace N;\n\npublic class Single\n{\n}\n");
         var planned = Plan(single);
-        ManifestWriter.Write(planned.Select(r => r with { ContentHash = "sha256:XYZ" }).ToArray(), ManifestPath);
+        ManifestWriter.Write(planned.Select(r => r with { ContentHash = "sha256:XYZ" }).ToArray(), ManifestPath, CollisionNaming.FileFirst);
 
         var row = Assert.Single(RunAndWriteManifest(Phase.Renames, single).ManifestRows);
 

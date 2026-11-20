@@ -11,6 +11,7 @@ namespace AgenticRoslynTool;
 internal sealed record RunReport(
     [property: JsonPropertyName("phase")] string Phase,
     [property: JsonPropertyName("manifest")] string Manifest,
+    [property: JsonPropertyName("collisionNaming")] string CollisionNaming,
     [property: JsonPropertyName("summary")] RunSummary Summary,
     [property: JsonPropertyName("files")] IReadOnlyList<FileReport> Files)
 {
@@ -21,7 +22,14 @@ internal sealed record RunReport(
     };
 
     /// <summary>Builds the report from the rows describing what a run did.</summary>
-    public static RunReport Create(IReadOnlyList<FileResult> results, Phase phase, string manifestPath)
+    /// <param name="results">The rows describing what the run did.</param>
+    /// <param name="phase">The phase that ran.</param>
+    /// <param name="manifestPath">The manifest the run wrote.</param>
+    /// <param name="collisionNaming">
+    /// The naming the run used. Reported once at the top level, not per file: it is one value
+    /// for the whole run. The CSV repeats it per row only because CSV has no file level slot.
+    /// </param>
+    public static RunReport Create(IReadOnlyList<FileResult> results, Phase phase, string manifestPath, CollisionNaming collisionNaming)
     {
         var summary = new RunSummary(
             results.Count,
@@ -34,7 +42,7 @@ internal sealed record RunReport(
             .Select(r => new FileReport(r.OriginalPath, r.KeptPath, r.GitMove, r.Status, r.Reason, r.Note, r.NewFiles.Select(f => new NewFileReport(f.Path, f.Type)).ToArray(), r.ContentHash))
             .ToArray();
 
-        return new RunReport(PhaseName(phase), manifestPath, summary, files);
+        return new RunReport(PhaseName(phase), manifestPath, CollisionNames.FlagValue(collisionNaming), summary, files);
     }
 
     /// <summary>Serializes the report as indented JSON with a trailing newline omitted.</summary>

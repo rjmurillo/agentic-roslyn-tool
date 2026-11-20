@@ -29,7 +29,7 @@ public sealed class RunReportTests
         var options = new Options(listPath, Path.Combine(workspace.Root, "m.csv"), workspace.Root, Phase.Plan, null, ["generated/"]);
         var results = new FileSplitter(options).Run().ReportRows;
 
-        var report = RunReport.Create(results, Phase.Plan, options.ManifestPath);
+        var report = RunReport.Create(results, Phase.Plan, options.ManifestPath, CollisionNaming.FileFirst);
 
         Assert.Equal(2, report.Summary.Total);
         Assert.Equal(1, report.Summary.Split);
@@ -48,11 +48,12 @@ public sealed class RunReportTests
         var options = new Options(listPath, Path.Combine(workspace.Root, "m.csv"), workspace.Root, Phase.Plan, null);
         var results = new FileSplitter(options).Run().ReportRows;
 
-        using var document = JsonDocument.Parse(RunReport.Create(results, Phase.Plan, options.ManifestPath).ToJson());
+        using var document = JsonDocument.Parse(RunReport.Create(results, Phase.Plan, options.ManifestPath, CollisionNaming.FileFirst).ToJson());
         var root = document.RootElement;
 
         Assert.Equal("plan", root.GetProperty("phase").GetString());
         Assert.Equal(options.ManifestPath, root.GetProperty("manifest").GetString());
+        Assert.Equal("file-first", root.GetProperty("collisionNaming").GetString());
 
         var file = Assert.Single(root.GetProperty("files").EnumerateArray());
         Assert.Equal("split", file.GetProperty("status").GetString());
@@ -71,7 +72,7 @@ public sealed class RunReportTests
     [Fact]
     public void SummaryLine_NamesThePhaseAndEveryCount()
     {
-        var report = new RunReport("content", "m.csv", new RunSummary(3, 1, 1, 1, 2), []);
+        var report = new RunReport("content", "m.csv", "file-first", new RunSummary(3, 1, 1, 1, 2), []);
 
         Assert.Equal("content: 3 input(s), 1 split, 1 skipped, 1 failed, 2 new file(s).", report.ToSummaryLine());
     }

@@ -34,7 +34,7 @@ public abstract class ContentHashTestBase : IDisposable
     private protected RunOutcome RunAndWriteManifest(Phase phase, params string[] inputs)
     {
         var outcome = new FileSplitter(new Options(Workspace.WriteInputList(inputs), ManifestPath, Workspace.Root, phase, null)).Run();
-        ManifestWriter.Write(outcome.ManifestRows, ManifestPath);
+        ManifestWriter.Write(outcome.ManifestRows, ManifestPath, CollisionNaming.FileFirst);
         return outcome;
     }
 

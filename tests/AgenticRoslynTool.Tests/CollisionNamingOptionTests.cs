@@ -3,13 +3,14 @@ using Xunit;
 
 namespace AgenticRoslynTool.Tests;
 
-// Covers how --collision-naming is parsed. The default is file-first.
+// Covers how --collision-naming is parsed. An absent flag is null; the plan reads it as file-first.
 public sealed class CollisionNamingOptionTests
 {
     [Fact]
-    public void Parse_DefaultsToFileFirst_AndReadsBothValues()
+    public void Parse_LeavesAnAbsentFlagNull_AndReadsBothValues()
     {
-        Assert.Equal(CollisionNaming.FileFirst, Options.Parse(["--input", "list.txt"]).CollisionNaming);
+        // Absent is not file-first. Renames and content read null as "use the plan's value".
+        Assert.Null(Options.Parse(["--input", "list.txt"]).CollisionNaming);
         Assert.Equal(CollisionNaming.FileFirst, Options.Parse(["--input", "list.txt", "--collision-naming", "file-first"]).CollisionNaming);
         Assert.Equal(CollisionNaming.TypeFirst, Options.Parse(["--input", "list.txt", "--collision-naming", "type-first"]).CollisionNaming);
         Assert.Equal(CollisionNaming.TypeFirst, Options.Parse(["--input", "list.txt", "--collision-naming", "Type-First"]).CollisionNaming);

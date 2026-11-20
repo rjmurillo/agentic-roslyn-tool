@@ -157,7 +157,7 @@ public sealed class InputSourceTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var planOptions = new Options(workspace.WriteInputList(planned), manifestPath, workspace.Root, Phase.Plan, null);
-        ManifestWriter.Write(new FileSplitter(planOptions).Run().ReportRows, manifestPath);
+        ManifestWriter.Write(new FileSplitter(planOptions).Run().ReportRows, manifestPath, CollisionNaming.FileFirst);
 
         // Content phase runs with an empty input list. The plan row must not vanish.
         var emptyList = Path.Combine(workspace.Root, "empty.txt");
@@ -179,7 +179,7 @@ public sealed class InputSourceTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var planOptions = new Options(workspace.WriteInputList(planned), manifestPath, workspace.Root, Phase.Plan, null);
-        ManifestWriter.Write(new FileSplitter(planOptions).Run().ManifestRows, manifestPath);
+        ManifestWriter.Write(new FileSplitter(planOptions).Run().ManifestRows, manifestPath, CollisionNaming.FileFirst);
 
         var contentOptions = new Options(workspace.WriteInputList(planned, unplanned), manifestPath, workspace.Root, Phase.Content, null);
         var outcome = new FileSplitter(contentOptions).Run();
@@ -199,13 +199,13 @@ public sealed class InputSourceTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var planOptions = new Options(workspace.WriteInputList(first, second), manifestPath, workspace.Root, Phase.Plan, null);
-        ManifestWriter.Write(new FileSplitter(planOptions).Run().ManifestRows, manifestPath);
+        ManifestWriter.Write(new FileSplitter(planOptions).Run().ManifestRows, manifestPath, CollisionNaming.FileFirst);
 
         // Batch one applies only First.cs and rewrites the manifest it read.
         var batchOne = Path.Combine(workspace.Root, "batch1.txt");
         File.WriteAllLines(batchOne, new[] { first });
         var firstOutcome = new FileSplitter(new Options(batchOne, manifestPath, workspace.Root, Phase.Content, null)).Run();
-        ManifestWriter.Write(firstOutcome.ManifestRows, manifestPath);
+        ManifestWriter.Write(firstOutcome.ManifestRows, manifestPath, CollisionNaming.FileFirst);
 
         // Batch two reads the rewritten manifest. Second.cs must still be actionable, or
         // the reviewed plan is destroyed by the act of applying it in pieces.

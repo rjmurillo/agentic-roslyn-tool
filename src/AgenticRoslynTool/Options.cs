@@ -23,10 +23,12 @@ namespace AgenticRoslynTool;
 /// </param>
 /// <param name="Json">When true, the run prints a single JSON report to standard output instead of CSV.</param>
 /// <param name="CollisionNaming">
-/// How two outputs that collide across input files are qualified. Changes planned paths, so
-/// the plan, renames, and content runs of one split must all be given the same value.
+/// How two outputs that collide across input files are qualified, or null when
+/// <c>--collision-naming</c> was absent. Null is not <see cref="CollisionNaming.FileFirst"/>:
+/// the plan phase reads it as file-first, and the renames and content phases read it as
+/// "use the value the plan recorded". See <see cref="CollisionNames.Resolve"/>.
 /// </param>
-internal sealed record Options(string InputPath, string ManifestPath, string RepoRoot, Phase Phase, string? RequiredHeader, IReadOnlyList<string>? Excludes = null, bool Json = false, CollisionNaming CollisionNaming = CollisionNaming.FileFirst)
+internal sealed record Options(string InputPath, string ManifestPath, string RepoRoot, Phase Phase, string? RequiredHeader, IReadOnlyList<string>? Excludes = null, bool Json = false, CollisionNaming? CollisionNaming = null)
 {
     /// <summary>
     /// Parses the raw argument array into an <see cref="Options"/> instance, resolving
@@ -43,7 +45,7 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
         string? requiredHeader = null;
         var excludes = new List<string>();
         var json = false;
-        var collisionNaming = CollisionNaming.FileFirst;
+        CollisionNaming? collisionNaming = null;
         string repoRoot = Directory.GetCurrentDirectory();
 
         // Plan, never content. A caller that has not read the docs, which is the usual agent,
@@ -188,11 +190,8 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
 
     private static CollisionNaming ParseCollisionNaming(string value)
     {
-        return value.ToLowerInvariant() switch
-        {
-            "file-first" => CollisionNaming.FileFirst,
-            "type-first" => CollisionNaming.TypeFirst,
-            _ => throw new ArgumentException($"Unknown collision naming: {value}. Use file-first or type-first."),
-        };
+        return CollisionNames.TryParseFlagValue(value, out var collisionNaming)
+            ? collisionNaming
+            : throw new ArgumentException($"Unknown collision naming: {value}. Use file-first or type-first.");
     }
 }

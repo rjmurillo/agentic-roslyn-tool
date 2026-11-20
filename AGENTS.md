@@ -203,12 +203,19 @@ agent does not pay again.
   `.qualityrc.json` lowers that one floor to 6.5 for test files only. Every other value in
   it restates a scanner default, including the scanner's own floor of 3 for test
   testability. Do not lower another floor to get a file through.
-- **The content phase never reruns the cross file collision pass.** It takes every output
-  path from the manifest. So `--collision-naming` would be ignored there without the check
-  in `SplitPlanner.BuildPlan` that refuses a row the plan resolved under the other value.
-  The check reads the row's note, so it depends on `CollisionNames.FormatResolution`. A test that
-  only runs plan and content with one value cannot see that check go missing.
-  `CollisionNamingContentTests` runs the two phases with different values for this reason.
+- **`--collision-naming` lives in the manifest now, and there are two guards.** The plan
+  records it in the `collisionNaming` column. Renames and content resolve it once, through
+  `CollisionNames.Resolve`, and a flag that contradicts the column exits 3 before any file
+  is touched. That is the first guard, and `CollisionNamingRecordedTests` pins it through
+  the real executable. The second is older: the content phase never reruns the collision
+  pass, so the per-row check in `SplitPlanner.BuildPlan` refuses a row the plan resolved
+  under the other value. Since the column, only a hand edit of the column reaches it, so
+  `CollisionNamingContentTests` writes the manifest with the other value to exercise it.
+  The check reads the row's note, so it depends on `CollisionNames.FormatResolution`.
+- **Tests that write a manifest must pick a collision naming.** `ManifestWriter.Write` takes
+  it as a required argument on purpose. Pass the value the plan used, or the test reaches
+  the contradiction error instead of the behavior it means to check. Use
+  `CollisionNamingFixture.PlanAndRecord` to plan and write the way `Program` does.
 - **Exit codes are 0, 1, 2, 3, and they mean different things.** 0 the run completed with
   no failures, 1 a row is `failed`, 2 the command line was wrong, 3 the run could not
   complete. Skips are not failures, so a run that skips everything exits 0. Read

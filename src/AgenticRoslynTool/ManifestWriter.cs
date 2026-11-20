@@ -11,13 +11,75 @@ namespace AgenticRoslynTool;
 /// </summary>
 internal static class ManifestWriter
 {
+    /// <summary>The header of the column that records the run's <c>--collision-naming</c> value.</summary>
+    internal const string CollisionNamingColumn = "collisionNaming";
+
     /// <summary>Writes the manifest CSV to disk as UTF-8 without a BOM, creating the parent directory when needed.</summary>
     /// <param name="results">The per-input results to serialize.</param>
     /// <param name="path">Absolute destination path.</param>
-    public static void Write(IReadOnlyList<FileResult> results, string path)
+    /// <param name="collisionNaming">
+    /// The collision naming the run used. Required, never defaulted, because a later phase
+    /// takes it from the manifest instead of from its own command line.
+    /// </param>
+    public static void Write(IReadOnlyList<FileResult> results, string path, CollisionNaming collisionNaming)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path) ?? ".");
-        File.WriteAllText(path, ToCsv(results), new UTF8Encoding(false));
+        File.WriteAllText(path, ToCsv(results, collisionNaming), new UTF8Encoding(false));
+    }
+
+    /// <summary>
+    /// Reads the collision naming a plan recorded in its <c>collisionNaming</c> column.
+    /// </summary>
+    /// <remarks>
+    /// The value belongs to the whole run, but CSV has no place for a file level value, so
+    /// <see cref="ToCsv"/> repeats it on every row. Every row must therefore agree. A blank,
+    /// unknown, or mixed value means someone edited the file, and guessing would pick
+    /// output paths nobody reviewed, so each of those ends the run.
+    /// Call it only after <see cref="Read"/> with <c>requireContentHash</c>, so a manifest from
+    /// an older version reports the <c>contentHash</c> error first. That error carries the
+    /// same advice, re-run the plan, and is the one older manifests have always produced.
+    /// </remarks>
+    /// <param name="path">Absolute path to a manifest produced by <see cref="Write"/>.</param>
+    /// <returns>The recorded value, or null when the manifest has no data rows.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the column is missing, or any row's value is blank, unknown, or differs from another row's.</exception>
+    public static CollisionNaming? ReadCollisionNaming(string path)
+    {
+        using var parser = new CsvFieldReader(path);
+        var header = parser.ReadFields() ?? Array.Empty<string>();
+        var index = Array.FindIndex(header, name => StringComparer.OrdinalIgnoreCase.Equals(name, CollisionNamingColumn));
+        if (index < 0)
+        {
+            throw new InvalidOperationException($"Plan manifest has no {CollisionNamingColumn} column, so the run cannot tell which --collision-naming the plan used. An older version wrote it. Re-run --phase plan to rebuild it: {path}");
+        }
+
+        // Counts data records, not file lines: a quoted note can span several lines.
+        CollisionNaming? recorded = null;
+        var row = 0;
+        while (!parser.EndOfData)
+        {
+            var fields = parser.ReadFields();
+            if (fields is null || fields.Length == 0)
+            {
+                continue;
+            }
+
+            row++;
+
+            var value = index < fields.Length ? fields[index] : string.Empty;
+            if (!CollisionNames.TryParseFlagValue(value, out var parsed))
+            {
+                throw new InvalidOperationException($"Plan manifest data row {row} has {CollisionNamingColumn} '{value}'. Expected file-first or type-first on every row. Re-run --phase plan to rebuild it: {path}");
+            }
+
+            if (recorded is { } first && first != parsed)
+            {
+                throw new InvalidOperationException($"Plan manifest mixes {CollisionNamingColumn} values: data row {row} has {CollisionNames.FlagValue(parsed)} and an earlier row has {CollisionNames.FlagValue(first)}. Re-run --phase plan to rebuild it: {path}");
+            }
+
+            recorded = parsed;
+        }
+
+        return recorded;
     }
 
     /// <summary>
@@ -105,28 +167,31 @@ internal static class ManifestWriter
     /// New columns are appended, never inserted, so a reader that addresses columns by
     /// position keeps working.
     /// </summary>
-    public static string ToCsv(IReadOnlyList<FileResult> results)
+    /// <param name="results">The per-input results to serialize.</param>
+    /// <param name="collisionNaming">The run's collision naming, repeated on every row. See <see cref="ReadCollisionNaming"/>.</param>
+    public static string ToCsv(IReadOnlyList<FileResult> results, CollisionNaming collisionNaming)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash");
+        builder.AppendLine("originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash," + CollisionNamingColumn);
+        var naming = CollisionNames.FlagValue(collisionNaming);
         foreach (var result in results)
         {
             if (result.NewFiles.Count == 0)
             {
-                AppendRow(builder, result, null);
+                AppendRow(builder, result, null, naming);
                 continue;
             }
 
             foreach (var file in result.NewFiles)
             {
-                AppendRow(builder, result, file);
+                AppendRow(builder, result, file, naming);
             }
         }
 
         return builder.ToString();
     }
 
-    private static void AppendRow(StringBuilder builder, FileResult result, NewFileResult? file)
+    private static void AppendRow(StringBuilder builder, FileResult result, NewFileResult? file, string collisionNaming)
     {
         builder.Append(Csv(result.OriginalPath)).Append(',')
             .Append(Csv(result.KeptPath)).Append(',')
@@ -136,7 +201,8 @@ internal static class ManifestWriter
             .Append(Csv(result.Note ?? string.Empty)).Append(',')
             .Append(Csv(file?.Path ?? string.Empty)).Append(',')
             .Append(Csv(file?.Type ?? string.Empty)).Append(',')
-            .Append(Csv(result.ContentHash ?? string.Empty)).AppendLine();
+            .Append(Csv(result.ContentHash ?? string.Empty)).Append(',')
+            .Append(Csv(collisionNaming)).AppendLine();
     }
 
     private static string Csv(string value)
