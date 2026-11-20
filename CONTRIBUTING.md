@@ -96,7 +96,7 @@ git push origin v0.2.0
 
 A release that carries a breaking change bumps the minor version while the major is 0.
 `--generate-notes` lists pull request titles only, so edit the release notes to name each
-break and its recovery step. Decisions 23 to 25 hold the wording: re-run the plan, and pass
+break and its recovery step. Decisions 23, 25, and 26 hold the wording: re-run the plan, and pass
 `--phase` or `--dry-run` explicitly.
 
 The same workflow also runs from `workflow_dispatch`, so a release can be cut without

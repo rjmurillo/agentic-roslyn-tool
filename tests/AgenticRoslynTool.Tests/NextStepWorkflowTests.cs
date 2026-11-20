@@ -3,7 +3,7 @@ using Xunit;
 
 namespace AgenticRoslynTool.Tests;
 
-// nextArgs is a contract: a caller may run it without reading it. Decision 26.
+// nextArgs is a contract: a caller may run it without reading it. Decision 27.
 public sealed class NextStepWorkflowTests
 {
     // The proof that matters: run nextArgs exactly as printed, twice, and the split is done.

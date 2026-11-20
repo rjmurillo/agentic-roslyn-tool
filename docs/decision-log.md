@@ -511,7 +511,7 @@ possibly compromised version merge itself within minutes.
 
 ### Decision 21. Collision naming is a flag, and the default keeps the SA1649 violation
 
-**Superseded in part by decision 25.** The plan now records the value in the manifest.
+**Superseded in part by decision 26.** The plan now records the value in the manifest.
 The rejection of a column below, and the consequences of a forgotten flag, describe the
 behavior before that change. The note dependency and the per-row content check still hold.
 
@@ -816,7 +816,7 @@ to probe it or to write it, and a report path that is a hard link to the manifes
 the plan. Drop the check at the write and a report can replace a source file the run just
 created.
 
-### Decision 24. A run with no phase plans
+### Decision 25. A run with no phase plans
 
 **Context.** `--phase` defaulted to `content`, the one phase that rewrites source. No entry
 in this log recorded why. Every doc had to warn the reader to pass `--dry-run`, and the
@@ -839,7 +839,7 @@ it breaks every script and doc that uses it, for no gain.
 **Consequences.** Breaking. A script that relied on the old default now plans, exits 0,
 and changes nothing. Three signs show it: the summary line on standard error starts with
 `plan:`, standard output carries the manifest CSV, and a `Next:` line names the phase to
-run (decision 26). Exit 0 with no source change is accepted here, where decision 25 rejects
+run (decision 27). Exit 0 with no source change is accepted here, where decision 26 rejects
 it. Here the run did exactly what it was asked, and says what to do next. There, a run
 asked to apply a plan skipped rows without saying why on the exit code. Docs now tell
 readers to pass `--dry-run` or `--phase` explicitly, so a command means the same on
@@ -849,7 +849,7 @@ so `--report` with no `--phase` is now exit 2.
 **Reversal warning.** Restore `content` as the default and the first bare call from an
 agent rewrites source before anyone has reviewed a plan.
 
-### Decision 25. The plan records `--collision-naming` in the manifest
+### Decision 26. The plan records `--collision-naming` in the manifest
 
 **Context.** Decision 21 made the value a flag that every phase had to repeat, and it
 rejected a manifest column because the column "changes the manifest CSV for every caller,
@@ -909,11 +909,11 @@ the exit 0 trap back in place. Let `Write` default the value and a future caller
 renames run computes paths the plan never held. Accept a blank value as "not recorded" and an edited
 manifest silently falls back to the flag.
 
-### Decision 26. The report says what to run next
+### Decision 27. The report says what to run next
 
 **Context.** The workflow is three runs with the same options, and the commonest mistake is
 a dropped option between them: a missing `--manifest`, a missing `--exclude`, or before
-decision 25 a missing `--collision-naming`. A frontier model reads the docs and carries the
+decision 26 a missing `--collision-naming`. A frontier model reads the docs and carries the
 options forward. An economical model is expected to follow one literal command more
 reliably than a paragraph of advice. The NuGet team measured lower skill compliance in
 weaker models, which points the same way, but no evaluation of this tool has measured it.
@@ -948,7 +948,7 @@ value that may contradict the manifest. Return a suggestion for standard input a
 next run plans nothing and exits 0. Move the field after `files` and a truncated read
 loses it.
 
-### Decision 27. The package ships an Agent Skill as well as `AGENTS.md`
+### Decision 28. The package ships an Agent Skill as well as `AGENTS.md`
 
 **Context.** The .NET team now delivers Agent Skills inside NuGet packages, at
 `skills/<name>/SKILL.md`. Restore puts the file on disk, and `dotnet-inspect` lists it.

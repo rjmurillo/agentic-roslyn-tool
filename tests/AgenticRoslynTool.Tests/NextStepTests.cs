@@ -3,7 +3,7 @@ using Xunit;
 
 namespace AgenticRoslynTool.Tests;
 
-// When NextStep.For suggests a next phase, and what it carries. Decision 26.
+// When NextStep.For suggests a next phase, and what it carries. Decision 27.
 public sealed class NextStepTests
 {
     private static readonly FileResult SplitInPlace = FileResult.Split("/r/A.cs", "/r/A.cs", gitMove: false, note: null, [new NewFileResult("/r/B.cs", "B")]);

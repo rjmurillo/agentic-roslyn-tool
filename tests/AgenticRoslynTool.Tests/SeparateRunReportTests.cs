@@ -145,7 +145,7 @@ public sealed class SeparateRunReportTests
     [Fact]
     public void ForgottenCollisionNamingFlag_UsesThePlansValue_AndLeavesThePlanAlone()
     {
-        // Two inputs both emit Shared.cs, planned type-first. Before decision 25, content
+        // Two inputs both emit Shared.cs, planned type-first. Before decision 26, content
         // without the flag skipped both rows and exited 0. The plan now records the value,
         // so the same command applies the type-first names on the first try. The manifest
         // is never written by content, so the plan stays as reviewed.

@@ -86,7 +86,7 @@ found nothing to do. Pass a list file when you need to scan around an unreadable
 
 A run with no `--phase` and no `--dry-run` is the `plan` phase. It writes the manifest and
 changes no source file. Only `--phase content` rewrites source, and only `--phase renames`
-runs `git mv`. Version 0.1.1 and earlier defaulted to `content`. See decision 24.
+runs `git mv`. Version 0.1.1 and earlier defaulted to `content`. See decision 25.
 
 `--dry-run` and `--phase` both set the phase, so supplying both is rejected with exit code
 2 rather than letting argument order decide between writing a manifest and rewriting source.
@@ -216,7 +216,7 @@ the manifest. It is one value for the whole run. CSV has no place for a file lev
 so the CSV repeats it on every row, and every row must agree. JSON carries it once, at the
 top, because a per-file copy would invite a reader to expect per-file differences. The
 two formats differ in shape in three places: this one, the nesting of `newFiles`, and
-`nextArgs`, which only JSON carries. See decision 25.
+`nextArgs`, which only JSON carries. See decision 26.
 
 `nextArgs` is JSON only. It is the argument list for the phase that should run next, from
 the verb onward, without the command name, because only the caller knows whether it ran
@@ -233,13 +233,13 @@ reader that truncates the document still sees it. The rules live in `NextStep.Fo
   `--input -` would plan nothing and exit 0. Save the paths to a list file instead.
 - It repeats `--input`, `--manifest`, `--repo-root`, `--require-header`, every
   `--exclude`, and `--json` when this run had it. It never repeats `--collision-naming`,
-  because the manifest records it. See decision 25.
+  because the manifest records it. See decision 26.
 
 Standard error carries the same suggestion as one `Next:` line. It quotes an argument that
 holds a space. When an argument holds a double quote or a line break, no quoting is right
 for every shell, so the line falls back to a sentence that points at `nextArgs`.
 `NextStepWorkflowTests.FollowingNextArgs_RunsTheWholeWorkflow` runs `nextArgs` exactly as printed,
-through a real `git mv`, and checks the split is done. See decision 26.
+through a real `git mv`, and checks the split is done. See decision 27.
 
 ## Phase contracts
 
@@ -261,7 +261,7 @@ Promises:
 - Every row carries the run's `collisionNaming`: the flag's value, or `file-first` when
   the flag is absent. A plan never reads the value from an existing manifest, because a
   plan starts afresh. Verified by `CollisionNamingFlagTests` and `CollisionNamingRecordedTests`.
-- Runs when `--phase` is absent. See decision 24.
+- Runs when `--phase` is absent. See decision 25.
 
 You can run `plan` as many times as you like. It is the review step, and it is the reason
 a human or an agent can inspect the whole change before a single byte moves.
@@ -321,7 +321,7 @@ collision pass it reruns names collisions the way the plan did:
 - With a value that contradicts the manifest, it ends the run with exit code 3 before any
   rename. The error names both values and says to omit the flag or re-run the plan.
 - A manifest with no `collisionNaming` column, or with a blank, unknown, or mixed value,
-  also ends the run with exit code 3. See decision 25.
+  also ends the run with exit code 3. See decision 26.
 - With no manifest on disk, an absent flag means `file-first`.
 
 Before the column existed, a renames run with a different value computed the other form's
@@ -382,7 +382,7 @@ Promises:
   output paths. With the hash in front of it, this check now guards the other side: the
   source is proven unchanged, so a disagreement here means the manifest was edited.
 - Refuses a row the plan phase resolved under the other `--collision-naming` value from
-  the one this run resolved. Since decision 25 the run takes its value from the manifest,
+  the one this run resolved. Since decision 26 the run takes its value from the manifest,
   so this fires only when someone edited the `collisionNaming` column and left the paths
   and notes alone. Two things must hold: the output path has the other value's qualified
   form, and the row's note records that the collision pass chose that path. The reason is

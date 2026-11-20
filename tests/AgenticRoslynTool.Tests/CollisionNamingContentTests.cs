@@ -178,7 +178,7 @@ public sealed class CollisionNamingContentTests
         // Pins both edges of the note dependency that decision 21 records. A run under
         // file-first refuses a row whose path and note both carry the type-first name. With
         // the note gone the row reads as a hand edit and is applied. The column is edited to
-        // file-first here, the one way a run reaches this check since decision 25.
+        // file-first here, the one way a run reaches this check since decision 26.
         using var ws = new TempWorkspace();
         var (aPath, _, listPath) = CollisionNamingFixture.WriteSharedPair(ws, sharedTypes: "public class Shared { }\n");
         var manifestPath = Path.Combine(ws.Root, "m.csv");

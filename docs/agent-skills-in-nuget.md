@@ -66,7 +66,7 @@ a skill breaks the format rules below, or when `AGENTS.md` stops naming the skil
 check was seen to fail: injecting `--bogus` into a command, renaming the skill to
 `Split_Types`, and changing `type-first` to `type-last` in a fragment. It checks that
 commands still parse. It does not check that the two files say the same thing in prose.
-See decision 27.
+See decision 28.
 
 ## Format rules the skill must follow
 
@@ -131,10 +131,10 @@ trade." Testing only with cheap models is called "an anti-pattern."
 That points away from writing more prose for weaker models, and toward a command line that
 is hard to misuse. These changes shipped with the skill, and each one is in the decision log:
 
-- A run with no `--phase` plans and changes nothing. Decision 24.
+- A run with no `--phase` plans and changes nothing. Decision 25.
 - The plan records `--collision-naming`, and a later phase that contradicts it exits 3.
-  Decision 25.
-- The JSON report carries `nextArgs`, the exact arguments for the next phase. Decision 26.
+  Decision 26.
+- The JSON report carries `nextArgs`, the exact arguments for the next phase. Decision 27.
 - `--help` prints the three step workflow and says that exit 0 can mean nothing happened.
 
 The skill itself is short and leans on `nextArgs`, so a model follows one literal command

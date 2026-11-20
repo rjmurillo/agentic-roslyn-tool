@@ -50,7 +50,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `Program.cs` | Top level statements. Verb dispatch, error handling, exit codes, output selection. Decides which file a run writes: the manifest in `plan`, the report otherwise. Declares no type. |
 | `Options.cs` | Command line parsing and the option record. Add a new flag here. |
 | `RunReport.cs` | Builds the `--json` report and the one-line summary from the rows a run returned. Carries `collisionNaming` and `nextArgs` at the top level. |
-| `NextStep.cs` | Decides `nextArgs`, the arguments for the next phase, and the `Next:` line on standard error. Read decision 26 before changing when it returns null. |
+| `NextStep.cs` | Decides `nextArgs`, the arguments for the next phase, and the `Next:` line on standard error. Read decision 27 before changing when it returns null. |
 | `ReportFile.cs` | Owns the report file. Refuses an unsafe report path before a renames or content run changes anything, then writes the report by moving a staged file into place. Never opens an existing file for writing. |
 | `RunSummary.cs` | The aggregate counts inside that report. |
 | `FileReport.cs` | One manifest or report row in JSON form. Field names mirror the CSV columns. |
@@ -169,20 +169,20 @@ weight.
     this. The `ContentHash*Tests` classes pin all of it. See decision 22.
 
 13. **A run with no `--phase` plans.** Only `--phase content` rewrites source. An agent's
-    first call usually has no phase, so that call must change nothing. See decision 24.
+    first call usually has no phase, so that call must change nothing. See decision 25.
 
 14. **The plan records `--collision-naming`. Later phases read it and never default it.**
     `ManifestWriter.Write` takes the value as a required argument. `Options.CollisionNaming`
     is null when the flag is absent, and null is not `file-first` once a manifest exists. A
     contradicting flag, a missing column, and a blank, unknown, or mixed value each exit 3
-    before any file is touched. See decision 25.
+    before any file is touched. See decision 26.
 
 15. **Every command in a packaged agent document must parse.** `package/AGENTS.md` and
     `package/skills/split-types/SKILL.md` both carry the workflow on purpose: NuGet MCP
     reads the first, skill tools read the second. `PackagedAgentDocsTests` runs each full
     `split-types` command and each backticked flag fragment through `Options.Parse`. It
     proves the commands still parse, not that the two files agree in prose. Rename or
-    remove a flag and update both files in the same change. See decision 27.
+    remove a flag and update both files in the same change. See decision 28.
 
 ## Conventions for anything you write
 

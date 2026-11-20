@@ -2,7 +2,7 @@ namespace AgenticRoslynTool;
 
 /// <summary>
 /// The manifest's <c>collisionNaming</c> column: its header, its spelling, and the strict
-/// read that renames and content rely on. See decision 25.
+/// read that renames and content rely on. See decision 26.
 /// </summary>
 /// <remarks>
 /// Kept apart from <see cref="ManifestWriter"/>, which turns rows into CSV and back. This

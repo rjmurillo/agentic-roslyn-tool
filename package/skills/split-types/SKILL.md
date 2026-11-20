@@ -37,12 +37,14 @@ tool), or `dnx AgenticRoslynTool --` (no install). Below, `<tool>` means whichev
    - After a `renames` step, commit the renames before you run the next step.
    - Before a `content` step, make sure `git status` shows no other changes, or ask the
      user first. Content rewrites files, and mixed changes are hard to undo.
-5. When `nextArgs` is `null`, read `summary.failed` before you go on.
-   - `0`: the split is done. Build and run the tests.
-   - Above `0`: read `reason` on each `failed` row, fix the cause, and run the same command
-     again. Rows already applied come back `skipped` with a reason starting
-     `already applied`.
+5. When `nextArgs` is `null`, check the report before you go on, in this order.
+   - Any `skipped` row whose reason starts with `stale plan:` means that file changed
+     after the plan. Nothing was applied to it. Re-run the plan, step 2, and continue.
+   - `summary.failed` above `0`: read `reason` on each `failed` row, fix the cause, and
+     run the same command again. Rows already applied come back `skipped` with a reason
+     starting `already applied`.
    - `nextArgs` is also `null` when the input came from standard input. Use a list file.
+   - Otherwise the split is done. Build and run the tests.
 
 ## Exit codes
 
