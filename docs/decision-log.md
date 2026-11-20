@@ -252,7 +252,7 @@ the intended division of labor.
 > amount of manual work for the possibility of a silent miscompile. The manual tail is
 > cheaper.
 
-Decision 29 amends this one for `file` scoped types. The ordinary types beside one can now
+Decision 30 amends this one for `file` scoped types. The ordinary types beside one can now
 move, under a proof that decision records. The rule above did not change.
 
 ## 14. Exclusions come from the command line, not from the source
@@ -1154,7 +1154,30 @@ Drop the workflow from `AGENTS.md` and NuGet MCP users lose it. Delete
 `PackagedAgentDocsTests` and the next renamed flag leaves both documents giving commands
 that exit 2.
 
-### Decision 29. A file that holds a `file` type is split around it
+### Decision 29. Nested namespaces are walked to any depth
+
+**Context.** `TopLevelType.Find` looked one namespace down and no deeper. A type in a
+nested block namespace was never a split candidate. Each output kept the nested block as
+shared text, so the type was declared once per output. The build then failed with a
+duplicate type. The verifier did not catch it, because it compares outputs against the
+same list of found types, and text outside every found type counts as shared.
+
+**Decision.** `Find` walks nested namespaces to any depth, in document order. A nested
+type is placed like any other type, and every guard now sees it.
+
+**Consequences.** Some inputs that were skipped as `nothing to split` now split. One is a
+file with one outer type and one nested type. Another is a file whose only namespace
+holds a nested namespace with two types. The emptied nested block stays in each other
+output, which matches how a sibling namespace block is already left. When two types at
+two depths get one file name, the plan skips that input as a collision. Which pairs do
+depends on `--file-naming`. Under `stylecop` the name and type parameter names must
+match, so `Box<T>` and `Box<U>` split. Under `metadata` the name and arity must match,
+so the same pair collides on ``Box`1.cs``. `NestedNamespaceTests` pins all of this.
+
+**Reversal warning.** Stop the walk at one level and nested types are copied into every
+output again, at exit code 0, with no guard to stop it.
+
+### Decision 30. A file that holds a `file` type is split around it
 
 **Context.** Decision 13 lists `file` scoped types among the inputs refused whole. So a
 file with one `file` helper beside several ordinary types was left whole for a human. No
@@ -1204,10 +1227,6 @@ The split is on by default and has no flag.
     output repeats every using directive, and rule 1 forbids pruning them.
   - The input holds text a preprocessor directive excludes. The tool parses with no
     symbols defined, so a scan cannot read that text.
-  - The input declares a `file` type, and any type sits in a nested namespace. The tool
-    places types one namespace down and no deeper. It repeats a nested block in every
-    output and never scans it. A `file` type there would be copied. An ordinary type
-    there would be declared twice, and could name a `file` type unseen.
   - The input declares at most one ordinary type. Nothing can move.
 - The split row's `note` says which `file` types stayed and whether SA1402 still flags
   the file. The brief asked for a note that says SA1402 still flags it. Finding 1 narrowed
@@ -1218,11 +1237,12 @@ The split is on by default and has no flag.
   because the content phase searches notes for collision paths.
 - `OutputVerifier` asks again about the rendered text. One output must be written to the
   path that was read, and no other output may declare or name a `file` type.
+- A `file` type may sit at any namespace depth. Decision 29 made every such type a type
+  the tool places and scans, so no rule here depends on depth.
 
-The maintainer's brief named the first two refusals in that list. The other three were
+The maintainer's brief named the first two refusals in that list. The other two were
 added while building this, and the maintainer had not ruled on them when this was
-written: excluded text, a nested namespace, and nothing to split. So was the two-form
-note above. The kept type exception was allowed by the brief, not required.
+written: excluded text, and nothing to split. So was the two-form note above. The kept type exception was allowed by the brief, not required.
 
 **Why a name scan is enough.** Leaving the file changes two lookups for a moved type:
 lookup of a simple name, and lookup of extension members. Three compiler rules close the
@@ -1243,7 +1263,7 @@ not know the sets.
 
 **Consequences.** This is a breaking change to default results. A file that was `skipped`
 with `contains file-local type; manual split required` is now `split`, or `skipped` with
-one of six new reasons. That old reason is gone. One SA1402 warning stays for each `file`
+one of five new reasons. That old reason is gone. One SA1402 warning stays for each `file`
 class or record in such a file, and a person must suppress it. The scan is conservative,
 so some safe inputs are skipped: a moved type that merely has a member named like the
 `file` type, and any input with an `#if` branch the parse excludes. How many inputs each
@@ -1268,9 +1288,6 @@ split would then write.
   in another.
 - Compare raw token text in place of the identifier's value, and `@AlphaHelper` passes
   the scan.
-- Drop the nested namespace refusal, and each output repeats the nested block. A `file`
-  type in it becomes two types, and that compiles clean. An ordinary type in it is
-  declared twice, and could name a `file` type where no scan reads.
 - Let the kept type exception apply when the file is named for a type, and that type
   moves out to a file of its own name, which is the file being read.
 - Drop the check in `OutputVerifier`, and a planning mistake reaches disk. The planner is

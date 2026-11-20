@@ -2,7 +2,7 @@ using Xunit;
 
 namespace AgenticRoslynTool.Tests;
 
-// The compiler rules the name scan leans on. Decision 29 argues that a moved type can only
+// The compiler rules the name scan leans on. Decision 30 argues that a moved type can only
 // reach a file-local type by writing its name. That holds because the compiler forbids the
 // other routes, and because a binding made through a symbol does not look a name up. If a
 // later compiler relaxes one of these, the proof needs another look, and this fails first.

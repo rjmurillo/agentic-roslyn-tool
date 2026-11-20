@@ -33,6 +33,7 @@ agentic-roslyn-tool split-types --input <dir|file.cs|csv|list|-> [options]
 | Idempotency | Yes for `plan`. Yes for `content`: it never writes the plan it reads, and a row an earlier run applied is skipped as `already applied`. |
 | Side effects | `plan` writes only the manifest. `renames` runs `git mv` and writes the report. `content` writes source files and the report. Neither of the last two writes the manifest. |
 | Failure mode | Per file. An unexpected exception while reading, parsing, planning, or writing becomes a `failed` row and the run continues. So does a verification failure. Only a throw before the read path is resolved, a missing content manifest, a refused report path, or a report that could not be written ends the run with exit code 3. |
+| Time limit | Each `git mv` in `renames` gets 120 seconds. Past that, the tool kills git and its children and marks the row `failed`. The row's `reason` starts `rename to <path> failed: git mv did not exit within 120 seconds`. Its first sentence ends `and was killed`, or `and could not be stopped and may still be running` when git outlives the kill. It says a killed git can leave an `index.lock` file and a half-finished move, and includes git's standard error. A non-zero exit gives `git mv failed (exit <code>):` and git's message. Paths reach git as separate arguments, so quotes in a file name are safe. |
 | Exit code | 0 no failures, 1 at least one row `failed`, 2 the command line was wrong, 3 the run could not complete. Skips are not failures. |
 | Streams | Standard output carries a parseable document or nothing: the manifest CSV in `plan`, the JSON report under `--json`, and nothing in `renames` and `content` without `--json`, unless the report file could not be written, when the rows print as CSV. The manifest path, the report path, the one-line summary, and every error go to standard error. |
 | Performance | Syntax parse only, no semantic model and no MSBuild load. A 7,818 file run completed in a single pass, measured outside this repository. |
@@ -467,6 +468,24 @@ Promises:
 These run in order inside `FileSplitter.Process`, and all of them run before any write for
 that file.
 
+### What counts as a top level type
+
+A top level type is any class, struct, record, interface, enum, or delegate that is not
+declared inside another type. It can sit at the root of the file, or inside a namespace
+at any depth. A type in `namespace A { namespace B { class Deep { } } }` is a split
+candidate like any other, and lands in exactly one output. The nested namespace block it
+sat in stays in every other output, empty, the way a sibling namespace block does.
+
+Two types at different depths can map to the same output file. The plan then skips the
+input with `target path collision within split`, and nothing is written. Which pairs
+collide depends on `--file-naming`:
+
+| Pair | `stylecop` | `metadata` |
+|---|---|---|
+| `Foo` and `Foo` | collision | collision |
+| `Box<T>` and `Box<U>` | splits, `Box{U}.cs` | collision on ``Box`1.cs`` |
+| `Foo` and `Foo<T>` | splits, `Foo{T}.cs` | splits, ``Foo`1.cs`` |
+
 ### Input rejection, before parsing
 
 Reason text shown in italics is a template; the run substitutes real values.
@@ -484,16 +503,15 @@ Reason text shown in italics is a template; the run substitutes real values.
 | Parse produced an error diagnostic | failed | `input has syntax errors: <diagnostics>` |
 | File has top level statements | skipped | `contains top-level statements; manual split required` |
 | One type or fewer | skipped | `nothing to split: input has <n> top-level type declaration(s)` |
-| A `file` type, and any type in a nested namespace | skipped | `file-local type shares the file with a nested namespace; manual split required` |
 | A `file` type and at most one other type | skipped | `nothing to split: file-local types stay in their file and at most one other type is declared` |
 | A `file` type, and text an `#if` excludes anywhere in the file | skipped | `file-local type shares the file with conditionally excluded text; manual split required` |
 | A `file` type declares an extension method or an extension block | skipped | `file-local type declares extension members; manual split required` |
 | A using directive names a `file` type | skipped | `using directive names a file-local type; manual split required` |
 | Anything else that throws while handling one input | failed | the exception message |
 
-The five `file` rows apply in the order shown, and the first that holds decides the reason.
+The four `file` rows apply in the order shown, and the first that holds decides the reason.
 The last two put the type's name in the row's `note`, for example `Numbers declares
-extension members`. A sixth `file` reason comes from `BuildPlan`, described under
+extension members`. A fifth `file` reason comes from `BuildPlan`, described under
 [File-local types](#file-local-types).
 
 The `stale plan:` rows are the exception to "before parsing" in one phase. The content
@@ -577,7 +595,7 @@ share ``Box`1.cs`` and are refused this way.
 
 A type declared with the `file` modifier never leaves its file, and that file is never
 renamed. The type is visible only in that file, and the compiler builds its metadata name
-from the file's name. The ordinary types beside it may move out. Decision 29 records the
+from the file's name. The ordinary types beside it may move out. Decision 30 records the
 measurements behind each rule here.
 
 - **No rename, in any phase.** The kept path is the input path and `gitMove` is false. A
@@ -609,10 +627,13 @@ The split leaves the file with more than one type, so SA1402 can still report it
 [fix-sa1402-whole-repo.md](fix-sa1402-whole-repo.md#files-that-hold-a-file-type) for how
 to suppress that warning.
 
+A `file` type may sit at any namespace depth. It still stays in the kept file, and a type
+in a nested namespace is scanned like any other.
+
 Nothing else about the workflow changes. The row carries a content hash, and the content
 phase refuses a changed file as `stale plan:`. A retry reports the row as `already
 applied`. A moved type takes its name from `--file-naming`, and a colliding one from
-`--collision-naming`. Verified by the seven `FileLocal*Tests` classes. Six of them compile
+`--collision-naming`. Verified by the eight `FileLocal*Tests` classes. Seven of them compile
 source with the C# compiler, because a parse cannot show a binding.
 
 ### VerifyOutputs

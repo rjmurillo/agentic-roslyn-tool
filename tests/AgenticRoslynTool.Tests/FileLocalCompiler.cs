@@ -1,9 +1,6 @@
-using System.Globalization;
-using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Xunit;
 
 namespace AgenticRoslynTool.Tests;
 
@@ -48,7 +45,7 @@ internal static class FileLocalCompiler
     {
         return compilation.GetDiagnostics()
             .Where(diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning)
-            .Select(diagnostic => diagnostic.Id + " " + diagnostic.GetMessage(CultureInfo.InvariantCulture))
+            .Select(diagnostic => diagnostic.Id + " " + diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture))
             .Order(StringComparer.Ordinal)
             .ToArray();
     }
@@ -56,8 +53,7 @@ internal static class FileLocalCompiler
     // The metadata name the compiler gives a file-local type. It carries the file's name.
     public static string MetadataName(CSharpCompilation compilation, string typeName)
     {
-        var symbols = compilation.GetSymbolsWithName(typeName, SymbolFilter.Type).OfType<INamedTypeSymbol>();
-        return Assert.Single(symbols, symbol => symbol.IsFileLocal).MetadataName;
+        return compilation.GetSymbolsWithName(typeName, SymbolFilter.Type).OfType<INamedTypeSymbol>().Single(symbol => symbol.IsFileLocal).MetadataName;
     }
 
     // How many types of one name the compilation declares, across every file.
@@ -100,7 +96,7 @@ internal static class FileLocalCompiler
                 : new PlannedFile(Path.Combine(Path.GetDirectoryName(path)!, type.Name + ".cs"), type, IsKept: false))
             .ToArray();
         var plan = new SplitPlan(keep, path, GitMove: false, Note: null, SkipReason: null, files);
-        var source = EncodedSource.FromBytes(Encoding.UTF8.GetBytes(text));
+        var source = EncodedSource.FromBytes(System.Text.Encoding.UTF8.GetBytes(text));
         return (types, OutputBuilder.BuildOutputs(source, root, types, plan, string.Empty));
     }
 }

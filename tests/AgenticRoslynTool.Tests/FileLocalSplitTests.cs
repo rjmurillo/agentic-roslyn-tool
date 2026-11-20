@@ -77,25 +77,6 @@ public sealed class FileLocalSplitTests : FileLocalTestBase
         Assert.Contains(Note, File.ReadAllText(ManifestPath), StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void TwoFileLocalTypesWrittenTheSameWay_BothStay()
-    {
-        // Two namespace blocks each declare the same file-local helper, character for
-        // character. Both stay in the kept file, so the verifier must expect that text twice.
-        var alpha = Write("Alpha.cs",
-            "namespace Sample.One\n{\n    internal class Alpha\n    {\n    }\n\n    file class Helper\n    {\n    }\n}\n\n"
-            + "namespace Sample.Two\n{\n    internal class Beta\n    {\n    }\n\n    file class Helper\n    {\n    }\n}\n");
-        Assert.Empty(FileLocalCompiler.Diagnostics(Compile()));
-
-        Run(Phase.Plan, alpha);
-        var row = Assert.Single(Run(Phase.Content, alpha));
-
-        Assert.Equal(("split", "file-local type stayed in this file: Helper; SA1402 still flags the file"), (row.Status, row.Note));
-        Assert.Equal("Beta", Assert.Single(row.NewFiles).Type);
-        Assert.Equal(2, File.ReadAllText(alpha).Split("file class Helper").Length - 1);
-        Assert.Empty(FileLocalCompiler.Diagnostics(Compile()));
-    }
-
     [Theory]
     [InlineData("file struct Pair\n{\n}\n", "Pair; SA1402 flags the file only where it checks more than classes")]
     [InlineData("file interface IMarker\n{\n}\n\nfile enum Mode\n{\n    Off,\n}\n", "IMarker, Mode; SA1402 flags the file only where it checks more than classes")]

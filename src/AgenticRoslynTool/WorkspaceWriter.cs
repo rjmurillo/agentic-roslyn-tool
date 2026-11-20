@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace AgenticRoslynTool;
 
 /// <summary>
@@ -16,29 +14,51 @@ namespace AgenticRoslynTool;
 /// </remarks>
 internal sealed class WorkspaceWriter
 {
+    /// <summary>How long one <c>git mv</c> may run before the tool kills it.</summary>
+    internal static readonly TimeSpan DefaultGitTimeout = TimeSpan.FromMinutes(2);
+
     private readonly string _repoRoot;
+    private readonly TimeSpan _gitTimeout;
 
     /// <summary>Creates a writer bound to the repository <c>git mv</c> runs inside.</summary>
     internal WorkspaceWriter(string repoRoot)
+        : this(repoRoot, DefaultGitTimeout)
     {
-        _repoRoot = repoRoot;
     }
 
+    /// <summary>Creates a writer with a custom <c>git mv</c> time limit. Tests use a short one.</summary>
+    internal WorkspaceWriter(string repoRoot, TimeSpan gitTimeout)
+    {
+        _repoRoot = repoRoot;
+        _gitTimeout = gitTimeout;
+    }
 
     /// <summary>
     /// Runs the git-rename step in isolation and verifies that the file content is
     /// unchanged after the move. If content changed for any reason, the move is
     /// undone before reporting failure.
     /// </summary>
-    /// <exception cref="InvalidOperationException">Thrown when <c>git mv</c> altered the file's byte contents.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when <c>git mv</c> fails or altered the file's byte contents.</exception>
+    /// <exception cref="System.ComponentModel.Win32Exception">Thrown when git cannot be found or started.</exception>
+    /// <exception cref="TimeoutException">Thrown when <c>git mv</c> does not exit within the time limit.</exception>
     internal void ApplyRenameOnly(string originalPath, byte[] originalBytes, string keptPath)
     {
         RunGitMove(originalPath, keptPath);
         var movedBytes = File.ReadAllBytes(keptPath);
         if (!originalBytes.SequenceEqual(movedBytes))
         {
-            RunGitMove(keptPath, originalPath);
-            throw new InvalidOperationException($"git mv changed file content for {originalPath}");
+            var changed = $"git mv changed file content for {originalPath}";
+            try
+            {
+                RunGitMove(keptPath, originalPath);
+            }
+            catch (Exception undo)
+            {
+                // Keep the first cause. A failed move back must not hide that git changed the file.
+                throw new InvalidOperationException($"{changed}, and moving it back failed: {undo.Message}", undo);
+            }
+
+            throw new InvalidOperationException(changed);
         }
     }
 
@@ -86,24 +106,15 @@ internal sealed class WorkspaceWriter
         }
     }
 
-    /// <summary>Runs <c>git mv</c> from the configured repository root and throws with stderr and stdout attached on failure.</summary>
-    /// <exception cref="InvalidOperationException">Thrown when the git process cannot be started or exits with a non-zero code.</exception>
-    internal void RunGitMove(string source, string target)
-    {
-        var psi = new ProcessStartInfo("git", $"mv \"{source}\" \"{target}\"")
-        {
-            WorkingDirectory = _repoRoot,
-            RedirectStandardError = true,
-            RedirectStandardOutput = true,
-            UseShellExecute = false,
-        };
-        using var process = Process.Start(psi) ?? throw new InvalidOperationException("failed to start git mv");
-        process.WaitForExit();
-        if (process.ExitCode != 0)
-        {
-            throw new InvalidOperationException("git mv failed: " + process.StandardError.ReadToEnd() + process.StandardOutput.ReadToEnd());
-        }
-    }
+    /// <summary>
+    /// Runs <c>git mv</c> from the configured repository root. Each path is its own
+    /// argument, after a <c>--</c> so no path can be read as an option.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when git exits with a non-zero code.</exception>
+    /// <exception cref="System.ComponentModel.Win32Exception">Thrown when git cannot be found or started.</exception>
+    /// <exception cref="TimeoutException">Thrown when git does not exit within the time limit.</exception>
+    internal void RunGitMove(string source, string target) =>
+        GitCommand.Run(_repoRoot, _gitTimeout, "mv", "--", source, target);
 
     /// <summary>
     /// Writes the text to disk, preserving the source encoding and BOM. When the

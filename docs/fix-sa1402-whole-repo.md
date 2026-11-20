@@ -255,7 +255,6 @@ are most likely to see:
 | A `file` type declares extension members | skipped | `file-local type declares extension members; manual split required` |
 | A using directive names a `file` type | skipped | `using directive names a file-local type; manual split required` |
 | A `file` type shares the file with an excluded `#if` branch | skipped | `file-local type shares the file with conditionally excluded text; manual split required` |
-| A `file` type shares the file with a nested namespace that declares a type | skipped | `file-local type shares the file with a nested namespace; manual split required` |
 | An `#if` or `#region` spans two types | skipped | `<kind> group at line <n> crosses top-level type boundaries` |
 | Two types in one file share a name and type parameter list | skipped | `target path collision within split: <path>` |
 | File already has one type | skipped | `nothing to split: input has 1 top-level type declaration(s)` |
@@ -353,8 +352,6 @@ The tool skips the file when it cannot prove the split is safe. It never guesses
 * **A `using` alias or `using static` names a `file` type.** Every new file repeats the
   using directives, and the new file cannot see the type.
 * **The file has an `#if` branch that is excluded.** The tool cannot read excluded text.
-* **The file has a nested namespace that declares a type.** The tool places types one
-  namespace down and no deeper, so it cannot place or check that type.
 * **The file has only one other type.** There is nothing to move. The SA1402 warning on
   such a file was there before, and you suppress it the same way.
 

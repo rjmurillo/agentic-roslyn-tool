@@ -88,38 +88,6 @@ public sealed class FileLocalOutrightRefusalTests : FileLocalTestBase
         Assert.Contains(FileLocalCompiler.Diagnostics(split), d => d.StartsWith("CS0246 ", StringComparison.Ordinal));
     }
 
-    [Fact]
-    public void FileLocalTypeInANestedNamespace_WouldBeCopied_SoTheInputIsRefused()
-    {
-        // The tool places types one namespace down and no deeper. It would repeat the
-        // nested block in every output, and each copy would be a new file-local type.
-        var alpha = Write("Alpha.cs",
-            "namespace Sample\n{\n    internal class Alpha\n    {\n    }\n\n    internal class Second\n    {\n    }\n\n"
-            + "    namespace Inner\n    {\n        file class Hidden\n        {\n        }\n    }\n}\n");
-        var text = File.ReadAllText(alpha);
-
-        AssertRefused(alpha, FileLocalTypes.NestedNamespaceReason, null);
-
-        Assert.Equal(1, FileLocalCompiler.CountDeclared(FileLocalCompiler.Compile([(alpha, text)]), "Hidden"));
-        var split = FileLocalCompiler.Compile(FileLocalCompiler.SplitUnchecked(alpha, text));
-        Assert.Empty(FileLocalCompiler.Diagnostics(split));
-        Assert.Equal(2, FileLocalCompiler.CountDeclared(split, "Hidden"));
-    }
-
-    [Fact]
-    public void OrdinaryTypeInANestedNamespace_WouldBeDeclaredTwice_SoTheInputIsRefused()
-    {
-        // The file-local type is one the tool can see. The nested block is not, and no
-        // scan reads it, so Deep could also name the file-local type unseen.
-        var alpha = Write("Alpha.cs",
-            "namespace Sample\n{\n    internal class Alpha\n    {\n    }\n\n    internal class Second\n    {\n    }\n\n    file class AlphaHelper\n    {\n    }\n\n"
-            + "    namespace Inner\n    {\n        internal class Deep\n        {\n        }\n    }\n}\n");
-
-        AssertRefused(alpha, FileLocalTypes.NestedNamespaceReason, null);
-
-        Assert.Contains(FileLocalCompiler.Diagnostics(CompileUncheckedSplit(alpha)), d => d.StartsWith("CS0101 ", StringComparison.Ordinal));
-    }
-
     [Theory]
     [InlineData("internal class Alpha\n{\n}\n\nfile class AlphaHelper\n{\n}\n")]
     [InlineData("file class First\n{\n}\n\nfile class Second\n{\n}\n")]

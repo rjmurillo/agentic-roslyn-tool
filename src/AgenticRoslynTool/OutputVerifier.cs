@@ -26,7 +26,7 @@ internal static class OutputVerifier
     /// (see <see cref="VerifyLineConservation"/>);
     /// (5) the set of top-level types in the outputs matches the input set exactly; and
     /// (6) a <c>file</c> type stays in the file it was read from, and no output that
-    /// leaves that file names one (see <see cref="VerifyFileLocalTypesStay"/>).
+    /// leaves that file names one (see <see cref="FileLocalTypes.DescribeViolation"/>).
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown as soon as any invariant fails, so the failure is surfaced without partial output being written.</exception>
     internal static void VerifyOutputs(string readPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions, string? requiredHeader)
@@ -70,50 +70,12 @@ internal static class OutputVerifier
             throw new InvalidOperationException($"{readPath}: output top-level type set does not match input");
         }
 
-        VerifyFileLocalTypesStay(readPath, inputTypes, outputs, parseOptions);
-    }
-
-    /// <summary>
-    /// Checks the rendered outputs of an input that declares a <c>file</c> type. One
-    /// output must be written to the path the input was read from. Every other output must
-    /// declare no <c>file</c> type and name none.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="SplitPlanner.BuildPlan"/> already refuses these inputs when it plans. This
-    /// asks again about the text that would reach disk, so a planning mistake fails the row
-    /// here. Moving a <c>file</c> type, or renaming its file, changes its metadata name. A
-    /// moved type that names one stops compiling, or binds to another type of that name.
-    /// </remarks>
-    /// <param name="readPath">The path the input was read from.</param>
-    /// <param name="inputTypes">Every top-level type in the input.</param>
-    /// <param name="outputs">The rendered outputs.</param>
-    /// <param name="parseOptions">The options the input was parsed with.</param>
-    /// <exception cref="InvalidOperationException">Thrown when a <c>file</c> type would leave its file, its file would be renamed, or a moved output names one.</exception>
-    internal static void VerifyFileLocalTypesStay(string readPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions)
-    {
-        var fileLocal = inputTypes.Where(t => t.HasFileModifier).ToArray();
-        if (fileLocal.Length == 0)
+        // A file-local type stays in the file it was read from, and no output that leaves
+        // that file may name one. The planner refuses such an input first. This asks again
+        // about the text that would reach disk.
+        if (FileLocalTypes.DescribeViolation(readPath, inputTypes, outputs, parseOptions) is { } violation)
         {
-            return;
-        }
-
-        if (!outputs.Any(o => PathComparison.Comparer.Equals(o.Path, readPath)))
-        {
-            throw new InvalidOperationException($"{readPath}: a file that declares a file-local type would be renamed");
-        }
-
-        foreach (var output in outputs.Where(o => !PathComparison.Comparer.Equals(o.Path, readPath)))
-        {
-            var root = CSharpSyntaxTree.ParseText(output.Text, parseOptions, path: output.Path).GetCompilationUnitRoot();
-            if (FileLocalTypes.FindDeclarations(root).Any())
-            {
-                throw new InvalidOperationException($"{output.Path}: a file-local type would leave {readPath}");
-            }
-
-            if (FileLocalTypes.FindNamedInOutput(root, fileLocal) is { } named)
-            {
-                throw new InvalidOperationException($"{output.Path} names file-local type {named}, which stays in {readPath}");
-            }
+            throw new InvalidOperationException(violation);
         }
     }
 

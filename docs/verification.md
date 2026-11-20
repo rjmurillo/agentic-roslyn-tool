@@ -139,7 +139,7 @@ Whitelisting header lines instead would hide a dropped source line with the same
 ## Check 4: same type set out as in
 
 The tool parses every output again and collects its top-level types. Top-level means
-declared in the compilation unit or directly inside its namespace. The sorted list of type
+declared in the compilation unit or inside a namespace at any depth. The sorted list of type
 keys must equal the sorted list from the input, or the file fails with
 `<input path>: output top-level type set does not match input`.
 
@@ -161,7 +161,7 @@ The plan refuses these inputs before this check can see them, and records a skip
 own reason. The check asks again about the text that would reach disk, so a mistake in
 planning fails the file here and nothing is written. It is still a check on syntax. It
 cannot prove a moved type compiles, which is why the plan refuses whenever a name matches.
-See [decision-log.md, decision 29](decision-log.md#decision-29-a-file-that-holds-a-file-type-is-split-around-it).
+See [decision-log.md, decision 30](decision-log.md#decision-30-a-file-that-holds-a-file-type-is-split-around-it).
 
 ## Before the checks: the input must be the one that was planned
 
