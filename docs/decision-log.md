@@ -1227,6 +1227,10 @@ The split is on by default and has no flag.
     output repeats every using directive, and rule 1 forbids pruning them. The check is by
     name, like the scan: any identifier in a using directive counts, so `using
     System.Text.Json;` beside `file class Json` is refused too.
+  - An ordinary type, or a type nested in one, names a `file` type in its base list. The
+    compiler allows `class Alpha : IMarker<AlphaHelper>`. `Alpha` stays, so no moved type
+    names the helper. A moved type still gets one, by inference from a generic call that
+    takes the interface. See the next section.
   - The input holds text a preprocessor directive excludes. The tool parses with no
     symbols defined, so a scan cannot read that text.
   - The input declares at most one ordinary type. Nothing can move.
@@ -1242,8 +1246,9 @@ The split is on by default and has no flag.
 - A `file` type may sit at any namespace depth. Decision 29 made every such type a type
   the tool places and scans, so no rule here depends on depth.
 
-The maintainer's brief named the first two refusals in that list. The other two go
-beyond the brief: excluded text, and nothing to split. So do three more things. The note
+The maintainer's brief named the first two refusals in that list. The other three go
+beyond the brief: a base list, excluded text, and nothing to split. So do three more
+things. The note
 scopes its SA1402 claim, as above. The SA1402 guide said a `file` type is exempt from
 SA1402, and finding 1 says it is not, so the guide now says so. And `OutputVerifier`
 expected each declaration's text once across the outputs. A `file` type shares the kept
@@ -1252,17 +1257,37 @@ same way, or `class Helper { }` inside `file class Helper { }`. For an input wit
 type the check now expects each text as often as the input holds it. Other inputs still
 expect one. The kept type exception was allowed by the brief, not required.
 
-**Why a name scan is enough.** Leaving the file changes two lookups for a moved type:
-lookup of a simple name, and lookup of extension members. Three compiler rules close the
-other paths, and each was observed in the same scratch build. CS9051 forbids a `file` type
-in the signature of a member of an ordinary type. CS9053 forbids one as the base of an
-ordinary type. CS9071 forbids two types of one name in one namespace of one file. Two namespace blocks
-of one file may each hold a type of that name, and the name scan refuses a moved one. So a moved type can only
-reach a `file` type by writing its name in a body, an attribute, an interface list, or a
-comment. A binding made through a symbol is not a lookup by name. A `file` class named in a
+**Why these refusals, and what they do not prove.** A moved type can come to depend on a
+`file` type in three ways that were found and tested.
+
+1. It writes the name, in a body, an attribute, a base list, or a comment. The name scan
+   refuses it.
+2. It uses an extension member that a `file` type declares. No name appears at the call
+   site, so the input is refused outright.
+3. It infers the type from the type that stays. `class Alpha : IMarker<AlphaHelper>` beside
+   `static T Make<T>(IMarker<T> marker)` lets a moved type write `Maker.Make(new Alpha())`
+   and hold an `AlphaHelper`. In one file a call on that value bound to the helper's own
+   method. In two files it bound to an extension method on `object`, with no diagnostic.
+   A test program printed `Value=1` before the split and `Value=2` after. So a base list
+   that names a `file` type is refused outright, in the type that stays and in any type
+   nested in it.
+
+The first version of this decision claimed the name scan alone was enough. Review found
+the third way after that claim was written. So this is an argument by enumeration, and
+not a proof that no fourth way exists.
+
+The compiler closes the other places where a `file` type could sit on the surface of an
+ordinary type. Each was observed in a scratch build. CS9051 forbids one in a member
+signature, a constraint, an event, a delegate, and a primary constructor. CS9053 forbids
+one in the base class of an ordinary type, and in the interfaces of an ordinary interface.
+CS9071 forbids two types of one name in one namespace of one file. Two namespace blocks of
+one file may each hold a type of that name, and the name scan refuses a moved one.
+
+A binding made through a symbol is not a lookup by name. A `file` class named in a
 `CollectionBuilder` attribute was still bound from another file. That is one observation,
-not a survey of every attribute the compiler reads. `FileLocalPremiseTests` pins the three
-rules and that observation, so a compiler that relaxes one fails a test.
+not a survey of every attribute the compiler reads. `FileLocalPremiseTests` pins the
+compiler rules, that observation, and the inference case, so a compiler that relaxes one
+fails a test.
 
 **Rejected.** Moving the `file` type with the types that use it: the new file has a new
 name, so the metadata name changes. An opt in flag: a first run would still skip every
@@ -1272,8 +1297,11 @@ not know the sets.
 
 **Consequences.** This is a breaking change to default results. A file that was `skipped`
 with `contains file-local type; manual split required` is now `split`, or `skipped` with
-one of five new reasons, or with any reason that applies to an ordinary input, such as a
-`#region` over two types. That old reason is gone. When the kept type is a class or record,
+one of six new reasons, or with any reason that applies to an ordinary input, such as a
+`#region` over two types. It can also end `failed`, as any ordinary input can. One known
+case: the ownership check counts text, so a type with three blank lines in a row in its
+body fails that check at plan time, and nothing is written. That defect is older than
+this change and `AGENTS.md` lists it. That old reason is gone. When the kept type is a class or record,
 one SA1402 warning stays for each `file` class or record, and a person must suppress it. The scan is conservative,
 so some safe inputs are skipped: a moved type that merely has a member named like the
 `file` type, and any input with an `#if` branch the parse excludes. How many inputs each
@@ -1283,7 +1311,7 @@ One hole is known and is not closed here. A `file` modifier inside an excluded `
 branch is never seen, so that type is planned as an ordinary one. `AGENTS.md` lists it
 under known issues.
 
-**Reversal warning.** The first six items were each tested by removing the rule and
+**Reversal warning.** The first seven items were each tested by removing the rule and
 compiling what the split would then write. Tests pin the last three without a compile.
 
 - Let the keep rule rename the file, and the `file` type's metadata name changes with no
@@ -1298,6 +1326,9 @@ compiling what the split would then write. Tests pin the last three without a co
   in another.
 - Compare raw token text in place of the identifier's value, and `@AlphaHelper` passes
   the scan.
+- Drop the base list refusal, and a moved type infers a `file` type from the type that
+  stays. A call on it then binds to another method with no diagnostic.
+  `FileLocalPremiseTests` shows the binding change.
 - Let the kept type exception apply when the file is named for a type, and that type
   moves out to a file of its own name, which is the file being read.
 - Drop the check in `OutputVerifier`, and a planning mistake reaches disk. The planner is
@@ -1305,7 +1336,7 @@ compiling what the split would then write. Tests pin the last three without a co
 - Reword the start of the note, and the packaged agent documents stop matching it.
   `PackagedAgentDocsTests` fails on that.
 
-Re-check this proof when the C# language version or the Roslyn package changes. The tool
+Re-check this argument when the C# language version or the Roslyn package changes. The tool
 parses with the preview language version, so new syntax parses with no error. A new way to
 bind to a type with no name at the use site needs a new refusal here. Extension blocks in
 C# 14 were one.

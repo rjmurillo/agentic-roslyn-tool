@@ -22,7 +22,9 @@ namespace AgenticRoslynTool;
 /// syntactic covers the second, so an input whose <c>file</c> type declares extension
 /// members is refused outright. A using directive that names a <c>file</c> type is
 /// refused too, because every output repeats every using directive. Text a preprocessor
-/// directive excludes is refused, because a scan cannot read it. See decision 30.
+/// directive excludes is refused, because a scan cannot read it. A base list that names a
+/// <c>file</c> type is refused, because a moved type can then infer that type without
+/// naming it. See decision 30.
 /// </para>
 /// <para>
 /// Call <see cref="DescribeRefusal"/> first and <see cref="PlanAround"/> second. The
@@ -43,6 +45,12 @@ internal static class FileLocalTypes
 
     /// <summary>A using directive names a <c>file</c> type.</summary>
     internal const string UsingDirectiveReason = "using directive names a file-local type; manual split required";
+
+    /// <summary>
+    /// An ordinary type lists a <c>file</c> type among its base types, for example as a
+    /// type argument of an interface it implements.
+    /// </summary>
+    internal const string BaseListReason = "type lists a file-local type among its base types; manual split required";
 
     /// <summary>A type that would move names a <c>file</c> type.</summary>
     internal const string MovedTypeReason = "moved type names a file-local type; manual split required";
@@ -87,14 +95,29 @@ internal static class FileLocalTypes
             return (ExtensionMembersReason, $"{extending.Key} declares extension members");
         }
 
-        var named = FileLocalNames.FindInUsings(root, fileLocal);
-        return named is null ? null : (UsingDirectiveReason, $"a using directive names {named}");
+        if (FileLocalNames.FindInUsings(root, fileLocal) is { } named)
+        {
+            return (UsingDirectiveReason, $"a using directive names {named}");
+        }
+
+        // The type that stays may name a file-local type, but not in a base list. From
+        // there the type reaches other files with no name at the use site: a call that
+        // takes the interface infers it.
+        foreach (var type in types.Where(t => !t.HasFileModifier))
+        {
+            if (FileLocalNames.FindInBaseLists(type.Node, fileLocal) is { } listed)
+            {
+                return (BaseListReason, $"{type.Key} lists {listed} among its base types");
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
     /// Plans around the <c>file</c> types of an input <see cref="DescribeRefusal"/> let
     /// through: picks the type that stays with them, then either refuses the input because
-    /// a type that would move names a <c>file</c> type, or writes the note for the row.
+    /// a type that would move names a <c>file</c> type, or lets the split go ahead.
     /// </summary>
     /// <remarks>
     /// The type the keep rule chose stands whenever the rule chose it for its name.
@@ -105,26 +128,25 @@ internal static class FileLocalTypes
     /// input is refused.
     /// </remarks>
     /// <param name="byRule">The type the keep rule chose among the ordinary types.</param>
-    /// <param name="namedForFile">True when the keep rule chose <paramref name="byRule"/> for its name. False when it only took the first type.</param>
-    /// <param name="renameWithheld">True when the keep rule would have renamed the file. The note then says the file keeps its name.</param>
+    /// <param name="namedForFile">True when the keep rule chose <paramref name="byRule"/> for its name, or the file already has that type's name. False when the rule only took the first type.</param>
     /// <param name="ordinary">The types declared without the <c>file</c> modifier.</param>
     /// <param name="fileLocal">The types declared with it.</param>
     /// <returns>
-    /// The kept type, then the note for a split row or null, then null or the note for a
-    /// row skipped with <see cref="MovedTypeReason"/>.
+    /// The kept type, then null, or the note for a row skipped with
+    /// <see cref="MovedTypeReason"/>.
     /// </returns>
-    internal static (TopLevelType Keep, string? Note, string? Refusal) PlanAround(TopLevelType byRule, bool namedForFile, bool renameWithheld, IReadOnlyList<TopLevelType> ordinary, IReadOnlyList<TopLevelType> fileLocal)
+    internal static (TopLevelType Keep, string? RefusalNote) PlanAround(TopLevelType byRule, bool namedForFile, IReadOnlyList<TopLevelType> ordinary, IReadOnlyList<TopLevelType> fileLocal)
     {
         var keep = namedForFile ? byRule : ChooseNaming(byRule, ordinary, fileLocal);
         foreach (var type in ordinary.Where(t => !ReferenceEquals(t, keep)))
         {
             if (FileLocalNames.FindIn(type.Node, fileLocal) is { } named)
             {
-                return (keep, null, $"{type.Key} names {named}");
+                return (keep, $"{type.Key} names {named}");
             }
         }
 
-        return (keep, DescribeStay(keep, fileLocal, renameWithheld), null);
+        return (keep, null);
     }
 
     /// <summary>
@@ -192,7 +214,10 @@ internal static class FileLocalTypes
     /// Every note says SA1402 still flags the file. When fewer than two classes or records
     /// stay, it adds where: only a build set to check more than classes raises the warning.
     /// </remarks>
-    private static string DescribeStay(TopLevelType keep, IReadOnlyList<TopLevelType> fileLocal, bool renameWithheld)
+    /// <param name="keep">The ordinary type that stays with the <c>file</c> types.</param>
+    /// <param name="fileLocal">The <c>file</c> types of the input.</param>
+    /// <param name="renameWithheld">True when the file does not have the name the tool would give the kept type's file. The note then says the file keeps its name.</param>
+    internal static string DescribeStay(TopLevelType keep, IReadOnlyList<TopLevelType> fileLocal, bool renameWithheld)
     {
         var names = fileLocal.Select(type => type.Key).Distinct(StringComparer.Ordinal).ToArray();
         var classes = fileLocal.Append(keep).Count(type => type.Node.IsKind(SyntaxKind.ClassDeclaration) || type.Node.IsKind(SyntaxKind.RecordDeclaration));

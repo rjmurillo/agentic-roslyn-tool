@@ -60,6 +60,22 @@ internal static class FileLocalNames
     }
 
     /// <summary>
+    /// The first <c>file</c> type named in a base list of <paramref name="type"/> or of a
+    /// type nested in it, or null. A class, struct, or record may implement an interface
+    /// whose type arguments hold a <c>file</c> type, and code in another file can then
+    /// infer that type without ever writing its name.
+    /// </summary>
+    /// <param name="type">One type declaration.</param>
+    /// <param name="fileLocal">The <c>file</c> types of the input.</param>
+    internal static string? FindInBaseLists(SyntaxNode type, IReadOnlyList<TopLevelType> fileLocal)
+    {
+        return type.DescendantNodesAndSelf()
+            .OfType<BaseListSyntax>()
+            .Select(list => FindIn(list, fileLocal))
+            .FirstOrDefault(name => name is not null);
+    }
+
+    /// <summary>
     /// The first <c>file</c> type a rendered output names, in a using directive or inside
     /// a type, or null. The verifier asks this about every output that leaves the file.
     /// </summary>

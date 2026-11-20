@@ -57,10 +57,12 @@ The tool gives each top-level type an owned span:
 
 The check takes the text of each input type's owned span and counts how often it appears
 across all outputs. The count must be exactly 1. Zero means the type was dropped. Two or
-more means it was duplicated. Either fails the file:
+more means it was duplicated. An input that declares a `file` type is the one exception:
+there one declaration's text can sit inside another's in the kept file, so each text is
+expected as often as the input itself holds it. A wrong count fails the file:
 
 ```text
-<input path>: declaration and owned trivia for <type> appears <count> times across outputs, expected <count>
+<input path>: declaration and owned trivia for <type> appears <count> times across outputs, expected <expected>
 ```
 
 An ordinary `//` comment above a type that has no doc comment is outside the owned span.

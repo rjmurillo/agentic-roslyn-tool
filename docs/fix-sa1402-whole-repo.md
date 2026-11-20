@@ -254,6 +254,7 @@ are most likely to see:
 | A type that would move names a `file` type | skipped | `moved type names a file-local type; manual split required` |
 | A `file` type declares extension members | skipped | `file-local type declares extension members; manual split required` |
 | A using directive names a `file` type | skipped | `using directive names a file-local type; manual split required` |
+| A type lists a `file` type among its base types | skipped | `type lists a file-local type among its base types; manual split required` |
 | A `file` type shares the file with an excluded `#if` branch | skipped | `file-local type shares the file with conditionally excluded text; manual split required` |
 | An `#if` or `#region` spans two types | skipped | `<kind> group at line <n> crosses top-level type boundaries` |
 | Two types in one file share a name and type parameter list | skipped | `target path collision within split: <path>` |
@@ -352,6 +353,10 @@ The tool skips the file when it cannot prove the split is safe. It never guesses
 * **A `using` alias or `using static` names a `file` type.** Every new file repeats the
   using directives, and the new file cannot see the type. The check is by name, so a
   namespace segment that equals the type's name refuses the file too.
+* **A type lists a `file` type among its base types.** For example `class Alpha :
+  IMarker<AlphaHelper>`. Code in another file can then get an `AlphaHelper` from a generic
+  call without writing the name, and a call on it can bind to another method with no
+  error. So the tool refuses the file even though `Alpha` would stay.
 * **The file has an `#if` branch that is excluded.** The tool cannot read excluded text.
 * **The file has only one other type.** There is nothing to move. The SA1402 warning on
   such a file was there before, and you suppress it the same way.

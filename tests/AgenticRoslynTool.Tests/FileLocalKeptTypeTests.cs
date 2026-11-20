@@ -113,6 +113,30 @@ public sealed class FileLocalKeptTypeTests : FileLocalTestBase
     }
 
     [Fact]
+    public void FileNamedForAGenericTypeInBraceForm_KeepsThatType()
+    {
+        // Foo{T}.cs is the name the tool gives Foo<T> beside Foo, though the keep rule does
+        // not match it. So Foo<T> is kept, and Foo, which names the helper, would move.
+        // The reason says so. It is not a path collision from keeping Foo instead.
+        var foo = Write("Foo{T}.cs", "namespace Sample;\n\ninternal class Foo<T>\n{\n}\n\ninternal class Foo\n{\n    public static string HelperName() => typeof(WidgetHelper).FullName;\n}\n\n" + Helper);
+
+        AssertRefused(foo, FileLocalTypes.MovedTypeReason, "Foo names WidgetHelper");
+    }
+
+    [Fact]
+    public void KeptTypeChosenBecauseItNamesAFileLocalType_GetsTheNoteForItsOwnName()
+    {
+        // Plain comes first, so the keep rule takes it. Foo<T> names the helper and is
+        // kept instead. The file already has Foo<T>'s name, so no rename was withheld.
+        var foo = Write("Foo{T}.cs", "namespace Sample;\n\ninternal class Plain\n{\n}\n\ninternal class Foo<T>\n{\n    public static string HelperName() => typeof(WidgetHelper).FullName;\n}\n\ninternal class Foo\n{\n}\n\n" + Helper);
+
+        var row = Assert.Single(Run(Phase.Plan, foo));
+
+        Assert.Equal(("split", "file-local type stayed in this file: WidgetHelper; SA1402 still flags the file"), (row.Status, row.Note));
+        Assert.Equal(["Foo", "Plain"], row.NewFiles.Select(f => f.Type).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
     public void BuildPlan_CalledAlone_StillRefusesWhatTheSplitterRefusesFirst()
     {
         // FileSplitter asks FileLocalTypes before it plans. BuildPlan asks again, so a

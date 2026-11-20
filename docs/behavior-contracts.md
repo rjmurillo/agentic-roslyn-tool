@@ -507,11 +507,12 @@ Reason text shown in italics is a template; the run substitutes real values.
 | A `file` type, and text an `#if` excludes anywhere in the file | skipped | `file-local type shares the file with conditionally excluded text; manual split required` |
 | A `file` type declares an extension method or an extension block | skipped | `file-local type declares extension members; manual split required` |
 | Any identifier in a using directive equals a `file` type's name | skipped | `using directive names a file-local type; manual split required` |
+| An ordinary type, or a type nested in one, names a `file` type in its base list | skipped | `type lists a file-local type among its base types; manual split required` |
 | Anything else that throws while handling one input | failed | the exception message |
 
-The four `file` rows apply in the order shown, and the first that holds decides the reason.
-The last two put the type's name in the row's `note`, for example `Numbers declares
-extension members`. A fifth `file` reason comes from `BuildPlan`, described under
+The five `file` rows apply in the order shown, and the first that holds decides the reason.
+The last three put the type's name in the row's `note`, for example `Numbers declares
+extension members`. A sixth `file` reason comes from `BuildPlan`, described under
 [File-local types](#file-local-types).
 
 The `stale plan:` rows are the exception to "before parsing" in one phase. The content

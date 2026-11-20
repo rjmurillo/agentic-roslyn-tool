@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 42 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 420 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 430 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -91,7 +91,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 420 passed, 0 failed
+dotnet test  -c Release      # must be 430 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -194,8 +194,9 @@ weight.
     visible only there, and the compiler builds its metadata name from the file's name.
     `gitMove` is false for such an input in every phase. An ordinary type moves out only
     when no identifier in it equals a `file` type's name. An input is refused outright
-    when a `file` type declares extension members, when a using directive names one, or
-    when an `#if` excludes text the scan cannot read. Never relax the name scan to "looks
+    when a `file` type declares extension members, when a using directive names one,
+    when a type names one in a base list, or when an `#if` excludes text the scan cannot
+    read. Never relax the name scan to "looks
     unrelated": a `file` type hides a same-named type from another namespace, and the
     moved code would compile clean against that other type. `OutputVerifier` checks the
     rendered text again. The `FileLocal*Tests` classes pin each rule by compiling. See
@@ -434,6 +435,12 @@ agent does not pay again.
   `file class` beside one struct. The row's note follows that count, so do not reword it
   to promise a warning. Measure a StyleCop claim in a scratch project before you write it
   down.
+- **A name scan of the moved types was not enough for a `file` type.** `class Alpha :
+  IMarker<AlphaHelper>` compiles, and `Alpha` stays, so no moved type names the helper.
+  A moved type still got one by generic inference, and a call on it bound to another
+  method with no diagnostic. Review found this in round four. Before you relax a refusal
+  in `FileLocalTypes`, ask how the type that stays can hand a `file` type to another file.
+  `FileLocalPremiseTests` pins the compiler rules that close the other ways.
 - **An extension block is a `TypeDeclarationSyntax`.** `OfType<TypeDeclarationSyntax>()`
   returns it beside the classes, with an empty identifier. Find it by
   `SyntaxKind.ExtensionBlockDeclaration`.
@@ -444,6 +451,14 @@ agent does not pay again.
 ## Known issues, not yet fixed
 
 Recorded so nobody rediscovers them and nobody assumes they are intentional.
+
+- The ownership check counts text, so some valid inputs end `failed` at plan time. A type
+  with three blank lines in a row inside its body is one: the blank line collapse rewrites
+  the body, and the check then finds the original text zero times. A comment above the
+  first type that repeats a one line declaration is another: every output repeats the
+  comment. Nothing is written in either case. This is true with or without a `file` type.
+  An input with a `file` type used to be skipped before this check ran, and now reaches
+  it like any other input.
 
 - A `#nullable` or `#pragma` directive placed above one type travels only with that type.
   With `#nullable enable` above the second of three types, the third type's new file has

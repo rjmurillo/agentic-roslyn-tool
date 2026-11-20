@@ -75,6 +75,19 @@ internal static class FileLocalCompiler
         return (symbol.IsFileLocal ? "file " : string.Empty) + symbol.ToDisplayString();
     }
 
+    // The type that declares the member one identifier binds to, with its namespace. An
+    // extension method reports the class that declares it. The identifier is looked up
+    // inside the declaration of the type named inType.
+    public static string BoundMemberOwner(CSharpCompilation compilation, string inType, string identifier)
+    {
+        var use = compilation.SyntaxTrees
+            .SelectMany(tree => tree.GetRoot().DescendantNodes().OfType<BaseTypeDeclarationSyntax>())
+            .Where(declaration => declaration.Identifier.ValueText == inType)
+            .SelectMany(declaration => declaration.DescendantNodes().OfType<IdentifierNameSyntax>())
+            .First(name => name.Identifier.ValueText == identifier);
+        return compilation.GetSemanticModel(use.SyntaxTree).GetSymbolInfo(use).Symbol!.ContainingType.ToDisplayString();
+    }
+
     // What a split would write if nothing refused it. The type named for the file stays
     // with the file-local types, and every other ordinary type moves to its own file. A
     // test compiles this to show what a refusal prevents. Nothing is written to disk.

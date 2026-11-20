@@ -271,17 +271,22 @@ internal static class SplitPlanner
             // No rename, in any phase: the compiler builds a file-local type's metadata
             // name from the file's name, so a rename is a behavior change. The kept path
             // stays the input path and gitMove stays false.
-            // The keep rule chose a type for its name whenever the simple name matches,
-            // even where the metadata convention says it does not own the file name. And
-            // the rule would have renamed the file only when its name for the kept type
-            // differs from the name the file has.
-            var namedForFile = keepOwnsFileName || StringComparer.OrdinalIgnoreCase.Equals(keep.Name, baseName);
-            var renameWithheld = !keepOwnsFileName && !StringComparer.OrdinalIgnoreCase.Equals(OutputBuilder.GetFileName(keep, candidates, convention), Path.GetFileName(originalPath));
-            (keep, note, var dependency) = FileLocalTypes.PlanAround(keep, namedForFile, renameWithheld, candidates, fileLocal);
+            // The file is named for the kept type when the keep rule matched it by name,
+            // or when the file already has the name the tool gives that type, such as
+            // Foo{T}.cs for Foo<T>. Only a kept type the rule took as a plain first choice
+            // may be replaced.
+            var fileName = Path.GetFileName(originalPath);
+            bool HasItsName(TopLevelType type) => StringComparer.OrdinalIgnoreCase.Equals(OutputBuilder.GetFileName(type, types, convention), fileName);
+            var byRule = keep;
+            var namedForFile = keepOwnsFileName || StringComparer.OrdinalIgnoreCase.Equals(keep.Name, baseName) || HasItsName(keep);
+            (keep, var dependency) = FileLocalTypes.PlanAround(byRule, namedForFile, candidates, fileLocal);
             if (dependency is not null)
             {
                 return new SplitPlan(keep, keptPath, gitMove, null, FileLocalTypes.MovedTypeReason, Array.Empty<PlannedFile>(), SkipNote: dependency);
             }
+
+            var keptByName = (ReferenceEquals(keep, byRule) && keepOwnsFileName) || HasItsName(keep);
+            note = FileLocalTypes.DescribeStay(keep, fileLocal, renameWithheld: !keptByName);
         }
         else if (!keepOwnsFileName)
         {
