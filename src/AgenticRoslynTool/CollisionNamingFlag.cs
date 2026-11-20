@@ -30,7 +30,7 @@ internal static class CollisionNamingFlag
     /// The recorded value wins when the flag is absent, so a caller does not have to repeat the
     /// flag on every phase. A flag that contradicts the recorded value ends the run before any
     /// file is touched. Skipping the affected rows instead would exit 0, which reads as a run
-    /// with nothing to do, and would overwrite those rows' reviewed plan.
+    /// with nothing to do.
     /// </remarks>
     /// <param name="given">The <c>--collision-naming</c> value, or null when the flag was absent.</param>
     /// <param name="recorded">The manifest's value, or null when there is no manifest or it has no rows.</param>

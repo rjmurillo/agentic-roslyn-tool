@@ -33,22 +33,24 @@ tool), or `dnx AgenticRoslynTool --` (no install). Below, `<tool>` means whichev
    `nextArgs` repeats it for you.
 3. Read the JSON report. `summary.split` counts the files that will split. Each `skipped`
    row has a `reason`. If `summary.split` is 0, stop: there is nothing to do.
-4. Run `nextArgs` from the report, with `<tool>` in front. Pass each element as its own
-   argument; do not join them into one string. Each run prints a new report with a new
-   `nextArgs`. Repeat until `nextArgs` is `null`.
-   - After a `renames` step, commit the renames before you run the next step.
-   - Before a `content` step, make sure `git status` shows no other changes, or ask the
-     user first. Content rewrites files, and mixed changes are hard to undo.
-5. When `nextArgs` is `null`, check the report before you go on, in this order.
-   - Any `skipped` row whose reason starts with `stale plan:` means that file changed
-     after the plan. Nothing was applied to it. Re-run steps 1 and 2, then continue. Step
-     1 matters: after a committed rename, the old list still names the file's old path,
-     and a plan from it finds nothing to split.
+4. Before the first step that changes files, make sure `git status` shows no other
+   changes, or ask the user first. Then run `nextArgs` from the report, with `<tool>` in
+   front. Pass each element as its own argument; do not join them into one string. Each
+   run prints a new report with a new `nextArgs`. Repeat until `nextArgs` is `null`.
+   After a `renames` step, commit only the renamed files before you run the next step.
+5. When `nextArgs` is `null`, the split is done only when all three hold: the report's
+   `phase` is `content`, `summary.failed` is `0`, and no `skipped` row's reason starts
+   with `stale plan:`. Then build and run the tests. Otherwise, in this order:
+   - A `skipped` row whose reason starts with `stale plan:` means that file changed after
+     the plan, and nothing was applied to it. Re-run steps 1 and 2, then continue. Step 1
+     matters: after a committed rename, the old list names the file's old path, and a
+     plan from it finds nothing to split.
    - `summary.failed` above `0`: read `reason` on each `failed` row, fix the cause, and
-     run the same command again. Rows already applied come back `skipped` with a reason
-     starting `already applied`.
-   - `nextArgs` is also `null` when the input came from standard input. Use a list file.
-   - Otherwise the split is done. Build and run the tests.
+     run the same command again.
+   - The input came from standard input: `nextArgs` is always `null` then. Use a list file.
+   - The report's `phase` is `plan` or `renames`: run `--phase content` with the same
+     `--input` and `--manifest`. This happens after renames ran twice, when every row
+     says `input file does not exist` because the files already moved.
 
 ## Exit codes
 
@@ -60,7 +62,7 @@ tool), or `dnx AgenticRoslynTool --` (no install). Below, `<tool>` means whichev
 ## Rules
 
 - Do not edit a planned file between steps. A changed file is skipped with a reason that
-  starts `stale plan:`. Re-run the plan to recover.
+  starts `stale plan:`. Recover as step 5 says: rebuild the list file, then re-run the plan.
 - Do not edit the manifest. Renames and content read the plan from it, including the
   `collisionNaming` value.
 - Keep every `using` the tool copied into a new file. One that looks unused can still

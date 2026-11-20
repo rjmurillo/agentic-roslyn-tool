@@ -228,18 +228,28 @@ reader that truncates the document still sees it. The rules live in `NextStep.Fo
   `content` otherwise. A renames run with nothing to move would spend a turn.
 - After `renames`, it points at `content`. Commit the renames first; the `Next:` line on
   standard error says so.
-- It is `null` after `content`, when any row is `failed`, when no row is `split`, and when
-  `--input` was `-`. Standard input cannot be read again by a second process, so replaying
-  `--input -` would plan nothing and exit 0. Save the paths to a list file instead.
+- It is `null` after `content`, when any row is `failed`, when no row is `split`, when
+  `--input` was `-`, after a renames run with no plan manifest on disk, and when the report
+  file could not be written. Standard input cannot be read again by a second process, so
+  replaying `--input -` would plan nothing and exit 0. Save the paths to a list file
+  instead. A renames run with no manifest plans afresh, but content exits 3 without one,
+  so suggesting content there is sure to fail.
+- `null` does not mean the split is done. The packaged skill says the split is done only
+  when the last report's `phase` is `content`, `summary.failed` is 0, and no skipped row
+  starts with `stale plan:`. A repeated renames run, for example, ends with `null`
+  `nextArgs` and every row `input file does not exist`, while content has not run.
 - It repeats `--input`, `--manifest`, `--repo-root`, `--require-header`, every
   `--exclude`, and `--json` when this run had it. It repeats `--report` only when the
   caller chose a path, and `--file-naming` only when it is `metadata`, because the
   manifest does not record that one. It never repeats `--collision-naming`, because the
   manifest records it. See decision 26.
 
-Standard error carries the same suggestion as one `Next:` line. It quotes an argument that
-holds a space. When an argument holds a double quote or a line break, no quoting is right
-for every shell, so the line falls back to a sentence that points at `nextArgs`.
+Standard error carries the same suggestion as one `Next:` line. An argument made only of
+letters, digits, and `_ . / : + % -` is printed bare. One that also holds a space or a
+backslash is put in single quotes, which bash, zsh, and PowerShell read literally. Any
+other character, such as `$`, a backtick, `&`, a quote, `=`, `@`, `,`, or a line break,
+turns the line into a sentence that points at `nextArgs`, because no quoting is right for
+every shell.
 `NextStepWorkflowTests.FollowingNextArgs_RunsTheWholeWorkflow` runs `nextArgs` exactly as printed,
 through a real `git mv`, and checks the split is done. See decision 27.
 

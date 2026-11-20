@@ -1054,17 +1054,25 @@ weaker models, which points the same way, but no evaluation of this tool has mea
 and standard error carries a `Next:` line with the same suggestion. `NextStep.For` decides.
 After `plan` it points at `renames` only when a row needs a `git mv`, and at `content`
 otherwise. It is `null` after `content`, after a failed row, when nothing splits, for
-standard input, and when the report file could not be written. It carries `--report` only
+standard input, after a renames run with no plan on disk, and when the report file could
+not be written. It carries `--report` only
 when the caller chose a path, because the parser fills in the default otherwise. It carries
 `--file-naming metadata`, because the manifest does not record that flag (decision 24), and
 a content run under the other convention skips the affected rows.
 `--help` now prints the three step workflow and says that exit 0 can mean nothing happened.
 
-The `Next:` line prints an argument bare when it holds only characters no shell
-interprets, and in single quotes when it also holds a space or a backslash. Bash, zsh, and
-PowerShell all read single quotes literally. Any other character, such as `$`, a backtick,
-`&`, a quote, or a line break, turns the line into a sentence that points at `nextArgs`.
-Review found that the first version used double quotes, where `$` still expands.
+The `Next:` line prints an argument bare when it holds only letters, digits, and
+`_ . / : + % -`, and in single quotes when it also holds a space or a backslash. Bash, zsh,
+and PowerShell all read single quotes literally. Any other character, such as `$`, a
+backtick, `&`, a quote, `=`, `@`, `,`, or a line break, turns the line into a sentence that
+points at `nextArgs`. Review found that the first version used double quotes, where `$`
+still expands, and later that zsh expands a leading `=` and PowerShell splats a leading
+`@`.
+
+`nextArgs` being `null` does not mean the split is done. A repeated renames run ends with
+`null` and every row `input file does not exist`. The packaged skill therefore defines
+done positively: the last report's `phase` is `content`, `summary.failed` is 0, and no
+skipped row starts with `stale plan:`.
 
 **Rejected.** A full command line string. The command name differs by install method, and
 quoting differs by shell, so a string would be wrong for some caller. An argument array
@@ -1077,10 +1085,12 @@ Suggesting a phase after a failed row was rejected, because a failure needs a de
 update. Standard error gains one line on success. Standard output is unchanged, so a pipe
 into a parser still works. A frontier model can ignore the field at no cost.
 
-**Reversal warning.** Add `--collision-naming` to `nextArgs` and a renames run copies a
-value that may contradict the manifest. Return a suggestion for standard input and the
-next run plans nothing and exits 0. Move the field after `files` and a truncated read
-loses it.
+**Reversal warning.** Add `--collision-naming` to `nextArgs` and it repeats a value the
+manifest already records; after a fresh plan under another value, the copied flag would
+end the next run at exit 3. Return a suggestion for standard input and the next run plans
+nothing and exits 0. Suggest content after a renames run with no plan on disk and the
+next run exits 3. Add `=`, `@`, or `,` back to the bare set and a pasted `Next:` line
+breaks in zsh or PowerShell. Move the field after `files` and a truncated read loses it.
 
 ### Decision 28. The package ships an Agent Skill as well as `AGENTS.md`
 

@@ -98,7 +98,7 @@ try
     }
 
     // A run whose report could not be written did not complete, so it suggests nothing.
-    var nextArgs = reportFailure is null ? NextStep.For(options, rows) : null;
+    var nextArgs = reportFailure is null ? NextStep.For(options, rows, planOnDisk: File.Exists(options.ManifestPath)) : null;
     var report = RunReport.Create(rows, options.Phase, options.ManifestPath, reportFailure is null ? reportPath : null, collisionNaming, nextArgs);
 
     if (options.Json)

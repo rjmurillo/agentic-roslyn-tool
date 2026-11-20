@@ -22,6 +22,9 @@ public sealed class NextStepDescribeTests
     [InlineData("// `whoami`")]
     [InlineData("// R&D")]
     [InlineData("// it's ours")]
+    [InlineData("=x")]
+    [InlineData("@gen")]
+    [InlineData("a,b")]
     public void Describe_FallsBackToASentence_WhenNoQuotingIsSafe(string header)
     {
         IReadOnlyList<string> args = ["split-types", "--phase", "content", "--require-header", header];

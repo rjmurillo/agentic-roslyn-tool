@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 39 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 324 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 328 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -88,7 +88,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 324 passed, 0 failed
+dotnet test  -c Release      # must be 328 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -400,12 +400,14 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
 
 - The renames phase holds each file to the manifest's hash and status, and runs a rename
   only when the manifest row plans that same rename. It does not check new file paths or
-  either naming flag. A renames run with a different `--file-naming` moves nothing the plan
+  `--file-naming`. `--collision-naming` is different: the plan records it, and renames
+  exits 3 on a contradicting value (rule 14). A renames run with a different `--file-naming` moves nothing the plan
   did not ask for, but it can leave out a rename the plan did ask for, and it reports that
   row as `split`. The content phase then fails the row with `Run --phase renames`, and a
   renames run with the plan's value recovers.
   `RenamesPhase_UnderAnotherConvention_CanLeaveOutAPlannedRename` pins this. A fix means
-  the manifest recording both naming flags. That waits on a decision. See decision 24.
+  the manifest recording `--file-naming` too, as decision 26 does for `--collision-naming`.
+  That waits on a decision. See decisions 24 and 26.
 - A kept file's rename target is checked against other kept renames, not against new
   files. `KeptRenameCollisions` gives a rename target to the first input that claims it.
   `ResolvePlannedOutputCollisions` looks at new files only. So if one input plans to rename

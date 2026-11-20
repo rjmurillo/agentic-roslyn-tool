@@ -26,18 +26,30 @@ namespace AgenticRoslynTool;
 internal static class NextStep
 {
     /// <summary>Characters printed bare in the <c>Next:</c> line, because no shell gives them a meaning.</summary>
-    private static readonly SearchValues<char> Bare = SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_./:=,+@%-");
+    /// <remarks>
+    /// <c>=</c>, <c>@</c>, and <c>,</c> are left out on purpose. zsh expands a word that
+    /// starts with <c>=</c>, PowerShell splats one that starts with <c>@</c>, and PowerShell
+    /// reads <c>a,b</c> as an array. Review found the first two by running the line.
+    /// </remarks>
+    private static readonly SearchValues<char> Bare = SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_./:+%-");
 
     /// <summary>The arguments for the next phase, or null when there is no safe next phase to suggest.</summary>
     /// <param name="options">The options this run was given, including the phase that ran.</param>
     /// <param name="reportRows">The rows describing what this run did.</param>
+    /// <param name="planOnDisk">
+    /// Whether the plan manifest exists. A renames run with no manifest plans afresh, but
+    /// content refuses to run without one, so suggesting content there would exit 3.
+    /// </param>
     /// <returns>
-    /// Null after <c>content</c>, when any row failed, when no row is <c>split</c>, and when
-    /// the input was standard input, which a second process cannot read again.
+    /// Null after <c>content</c>, when any row failed, when no row is <c>split</c>, when
+    /// the input was standard input, which a second process cannot read again, and after a
+    /// renames run with no plan on disk. <c>Program</c> also suggests nothing when the
+    /// report file could not be written.
     /// </returns>
-    public static IReadOnlyList<string>? For(Options options, IReadOnlyList<FileResult> reportRows)
+    public static IReadOnlyList<string>? For(Options options, IReadOnlyList<FileResult> reportRows, bool planOnDisk)
     {
         if (options.Phase == Phase.Content
+            || (options.Phase == Phase.Renames && !planOnDisk)
             || options.InputPath == Options.StdinPath
             || reportRows.Any(r => r.Status == "failed")
             || !reportRows.Any(r => r.Status == "split"))
