@@ -575,6 +575,24 @@ public sealed class ManifestContentHashTests
     }
 
     [Fact]
+    public void RefusedCollisionName_KeepsTheHash()
+    {
+        // Under type-first naming, Shared.G.cs reads as generated code, so the plan refuses
+        // that input. The refusal row still describes a file the plan read.
+        var hash = ContentHash.Compute([1]);
+        FileResult[] rows =
+        [
+            FileResult.Split("/r/G.cs", "/r/G.cs", false, null, [new NewFileResult("/r/Shared.cs", "Shared")]) with { ContentHash = hash },
+            FileResult.Split("/r/B.cs", "/r/B.cs", false, null, [new NewFileResult("/r/Shared.cs", "Shared")]) with { ContentHash = ContentHash.Compute([2]) },
+        ];
+
+        var refused = SplitPlanner.ResolvePlannedOutputCollisions(rows, CollisionNaming.TypeFirst)[0];
+
+        Assert.Equal(CollisionNames.GeneratedNameReason, refused.Reason);
+        Assert.Equal(hash, refused.ContentHash);
+    }
+
+    [Fact]
     public void ContentReportRows_RepeatTheManifestHash_ForInputsThatAreNotApplied()
     {
         using var workspace = new TempWorkspace();

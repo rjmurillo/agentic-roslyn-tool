@@ -15,23 +15,31 @@ namespace AgenticRoslynTool;
 /// </remarks>
 internal static class SplitPlanner
 {
+    private const string PlanMismatchReason = "content phase plan does not match manifest";
+
     /// <summary>
     /// Cross-file collision pass. If two different source files would each emit an
     /// output file with the same simple name (for example both emitting <c>Foo.cs</c>),
-    /// each is qualified as <c>OriginalFileName.TypeName.cs</c>. If the qualified form
-    /// still collides, the affected inputs are converted to skips with a manual-handling
-    /// reason.
+    /// each is qualified in the form <paramref name="collisionNaming"/> selects. If the
+    /// qualified form still collides, the affected inputs are converted to skips with a
+    /// manual-handling reason.
     /// </summary>
     /// <remarks>
-    /// The qualified fallback form violates StyleCop SA1649 (file name must match
-    /// first type). The tool prefers a StyleCop violation over a build break; the
-    /// alternative would be to refuse to split, which loses coverage.
+    /// The default form, <c>OriginalFileName.TypeName.cs</c>, violates StyleCop SA1649
+    /// (file name must match first type). The tool prefers a StyleCop violation over a
+    /// build break; the alternative would be to refuse to split, which loses coverage.
+    /// <see cref="CollisionNaming.TypeFirst"/> swaps the two parts so SA1649 passes. It is
+    /// opt-in because it changes planned paths, and a plan and its content run must agree.
+    /// This pass does not probe the disk for the qualified path. The content phase does,
+    /// in <see cref="BuildPlan"/>, before anything is written.
     /// </remarks>
-    internal static IReadOnlyList<FileResult> ResolvePlannedOutputCollisions(IReadOnlyList<FileResult> results)
+    /// <param name="results">One row per input, as the plan phase computed them.</param>
+    /// <param name="collisionNaming">Which qualified form to use for a colliding output.</param>
+    internal static IReadOnlyList<FileResult> ResolvePlannedOutputCollisions(IReadOnlyList<FileResult> results, CollisionNaming collisionNaming = CollisionNaming.FileFirst)
     {
         var entries = results
             .Where(r => r.Status == "split")
-            .SelectMany(r => r.NewFiles.Select(f => new PlannedOutputEntry(r.OriginalPath, f.Type, f.Path, GetQualifiedPath(r.OriginalPath, f.Path))))
+            .SelectMany(r => r.NewFiles.Select(f => new PlannedOutputEntry(r.OriginalPath, f.Type, f.Path, CollisionNames.GetQualifiedPath(r.OriginalPath, f.Path, collisionNaming))))
             .ToArray();
         // Two comparers, on purpose. Grouping by output path asks "could these two writes
         // hit the same file", which stays ignore-case so a same-name-different-case pair is
@@ -57,13 +65,25 @@ internal static class SplitPlanner
             .Where(g => g.Count() > 1)
             .SelectMany(g => g.Select(e => e.OriginalPath))
             .ToHashSet(PathComparison.Comparer);
+
+        // Type-first ends the name with the source file's base name. A source called G.cs
+        // or Designer.cs would yield Shared.G.cs, which Roslyn reads as generated code:
+        // analyzers skip it and nullable annotations switch off. That is a behavior change,
+        // so the input is handed back. File-first is left alone to keep its plans identical.
+        var refusedNames = collisionNaming != CollisionNaming.TypeFirst
+            ? new Dictionary<string, string>(PathComparison.Comparer)
+            : resolvedPaths
+                .Where(kvp => CollisionNames.HasGeneratedCodeName(kvp.Value))
+                .GroupBy(kvp => kvp.Key.OriginalPath, kvp => kvp.Value, PathComparison.Comparer)
+                .ToDictionary(g => g.Key, g => string.Join("; ", g.Order(StringComparer.Ordinal)), PathComparison.Comparer);
         var notesBySource = collisionGroups
             .SelectMany(group => group.Select(entry => new
             {
                 entry.OriginalPath,
                 Note = "resolved output path collision: " + string.Join("; ", group
+                    .Where(e => !refusedNames.ContainsKey(e.OriginalPath))
                     .OrderBy(e => e.OriginalPath, StringComparer.OrdinalIgnoreCase)
-                    .Select(e => $"{e.OriginalPath} -> {resolvedPaths[(e.OriginalPath, e.Type, e.Path)]}")),
+                    .Select(e => CollisionNames.FormatResolution(e.OriginalPath, resolvedPaths[(e.OriginalPath, e.Type, e.Path)]))),
             }))
             .GroupBy(x => x.OriginalPath, PathComparison.Comparer)
             .ToDictionary(g => g.Key, g => string.Join(" | ", g.Select(x => x.Note).Distinct(StringComparer.Ordinal)), PathComparison.Comparer);
@@ -73,6 +93,11 @@ internal static class SplitPlanner
             if (qualifiedCollisions.Contains(result.OriginalPath))
             {
                 return FileResult.Skip(result.OriginalPath, result.KeptPath, "qualified output path collision requires manual handling") with { ContentHash = result.ContentHash };
+            }
+
+            if (refusedNames.TryGetValue(result.OriginalPath, out var refused))
+            {
+                return FileResult.Skip(result.OriginalPath, result.KeptPath, CollisionNames.GeneratedNameReason) with { Note = "refused output name: " + refused, ContentHash = result.ContentHash };
             }
 
             var newFiles = result.NewFiles.Select(file =>
@@ -88,15 +113,6 @@ internal static class SplitPlanner
 
             return result with { NewFiles = newFiles, Note = note };
         }).ToArray();
-    }
-
-    /// <summary>Builds the qualified fallback path used to break same-simple-name collisions across two different source files.</summary>
-    internal static string GetQualifiedPath(string originalPath, string targetPath)
-    {
-        var directory = Path.GetDirectoryName(targetPath) ?? ".";
-        var sourceBaseName = Path.GetFileNameWithoutExtension(originalPath);
-        var targetFileName = Path.GetFileName(targetPath);
-        return Path.Combine(directory, sourceBaseName + "." + targetFileName);
     }
 
     /// <summary>
@@ -178,9 +194,12 @@ internal static class SplitPlanner
     /// already exists on disk (except when it happens to be the current input file),
     /// and refuses when the recomputed plan does not match the manifest handed to the
     /// content phase. Together these are what make the plan-then-apply workflow safe.
+    /// The mismatch refusal also covers a manifest planned under the other
+    /// <c>--collision-naming</c> value, so a content run cannot apply names the caller did
+    /// not ask this run for.
     /// </remarks>
     /// <returns>A <see cref="SplitPlan"/>; a non-null <see cref="SplitPlan.SkipReason"/> means the split was refused.</returns>
-    internal static SplitPlan BuildPlan(string originalPath, string readPath, IReadOnlyList<TopLevelType> types, FileResult? planned, string? directiveNote)
+    internal static SplitPlan BuildPlan(string originalPath, string readPath, IReadOnlyList<TopLevelType> types, FileResult? planned, string? directiveNote, CollisionNaming collisionNaming)
     {
         var directory = Path.GetDirectoryName(readPath) ?? ".";
         var baseName = Path.GetFileNameWithoutExtension(originalPath);
@@ -237,47 +256,72 @@ internal static class SplitPlanner
         var files = paths.Select(kvp => new PlannedFile(kvp.Key, kvp.Value, ReferenceEquals(kvp.Value, keep))).ToArray();
         if (planned is not null)
         {
-            var plannedByType = planned.NewFiles.ToDictionary(f => f.Type, f => f.Path, StringComparer.Ordinal);
-            files = files.Select(file =>
+            var (substituted, refusal, refusalNote) = ApplyManifestPaths(originalPath, keptPath, gitMove, files, planned, collisionNaming);
+            if (refusal is not null)
             {
-                if (file.IsKept)
-                {
-                    return file;
-                }
-
-                return plannedByType.TryGetValue(file.Type.Key, out var plannedPath) ? file with { Path = plannedPath } : file;
-            }).ToArray();
-
-            // The path written is the substituted one, so it needs its own existence check.
-            // No originalPath or readPath exemption here: a legitimate planned path never
-            // equals either, so exempting them only lets an edited manifest aim a write at
-            // the file being read.
-            var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { keptPath };
-            foreach (var file in files.Where(f => !f.IsKept))
-            {
-                if (File.Exists(file.Path))
-                {
-                    return new SplitPlan(keep, keptPath, gitMove, note, $"target path already exists: {file.Path}", Array.Empty<PlannedFile>());
-                }
-
-                if (!claimed.Add(file.Path))
-                {
-                    return new SplitPlan(keep, keptPath, gitMove, note, $"target path collision within split: {file.Path}", Array.Empty<PlannedFile>());
-                }
+                return new SplitPlan(keep, keptPath, gitMove, note, refusal, Array.Empty<PlannedFile>(), SkipNote: refusalNote);
             }
 
-            var plannedNewFiles = planned.NewFiles.Select(f => f.Path).Order(StringComparer.OrdinalIgnoreCase).ToArray();
-            var actualNewFiles = files.Where(f => !f.IsKept).Select(f => f.Path).Order(StringComparer.OrdinalIgnoreCase).ToArray();
-            if (!StringComparer.OrdinalIgnoreCase.Equals(planned.KeptPath, keptPath) || planned.GitMove != gitMove || !plannedNewFiles.SequenceEqual(actualNewFiles, StringComparer.OrdinalIgnoreCase))
-            {
-                return new SplitPlan(keep, keptPath, gitMove, note, "content phase plan does not match manifest", Array.Empty<PlannedFile>());
-            }
+            files = substituted;
         }
 
         note = CombineNotes(note, directiveNote);
         return new SplitPlan(keep, keptPath, gitMove, note, null, files);
     }
 
+
+    /// <summary>
+    /// Content phase only. Swaps each moved type's computed path for the path the manifest
+    /// planned, then checks the result against the disk and against the manifest row.
+    /// </summary>
+    /// <returns>The substituted files, or a refusal reason with an optional note for the skipped row.</returns>
+    private static (PlannedFile[] Files, string? Refusal, string? RefusalNote) ApplyManifestPaths(string originalPath, string keptPath, bool gitMove, PlannedFile[] computed, FileResult planned, CollisionNaming collisionNaming)
+    {
+        var plannedByType = planned.NewFiles.ToDictionary(f => f.Type, f => f.Path, StringComparer.Ordinal);
+        var computedPaths = computed.Where(f => !f.IsKept).ToDictionary(f => f.Type.Key, f => f.Path, StringComparer.Ordinal);
+        var files = computed
+            .Select(file => !file.IsKept && plannedByType.TryGetValue(file.Type.Key, out var plannedPath) ? file with { Path = plannedPath } : file)
+            .ToArray();
+        var moved = files.Where(f => !f.IsKept).ToArray();
+
+        // The path written is the substituted one, so it needs its own existence check.
+        // No originalPath or readPath exemption here: a legitimate planned path never
+        // equals either, so exempting them only lets an edited manifest aim a write at
+        // the file being read.
+        var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { keptPath };
+        foreach (var file in moved)
+        {
+            if (File.Exists(file.Path))
+            {
+                return (files, $"target path already exists: {file.Path}", null);
+            }
+
+            if (!claimed.Add(file.Path))
+            {
+                return (files, $"target path collision within split: {file.Path}", null);
+            }
+        }
+
+        // The collision pass does not run in this phase, so the manifest is the only place
+        // a collision name can come from. One the plan phase resolved under the other
+        // --collision-naming value is a plan this run was not asked to apply. This runs
+        // after the checks above so those keep their own, more specific reasons.
+        foreach (var file in moved)
+        {
+            var mismatch = CollisionNames.DescribeOtherNamingForm(originalPath, computedPaths[file.Type.Key], file.Path, planned.Note, collisionNaming);
+            if (mismatch is not null)
+            {
+                return (files, PlanMismatchReason, mismatch);
+            }
+        }
+
+        var plannedNewFiles = planned.NewFiles.Select(f => f.Path).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+        var actualNewFiles = moved.Select(f => f.Path).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+        var matches = StringComparer.OrdinalIgnoreCase.Equals(planned.KeptPath, keptPath)
+            && planned.GitMove == gitMove
+            && plannedNewFiles.SequenceEqual(actualNewFiles, StringComparer.OrdinalIgnoreCase);
+        return matches ? (files, null, null) : (files, PlanMismatchReason, null);
+    }
 
     internal static string? CombineNotes(string? first, string? second)
     {

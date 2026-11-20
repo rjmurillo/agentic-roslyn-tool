@@ -129,6 +129,10 @@ static void PrintUsage(TextWriter w)
     w.WriteLine("  --json                           Print one JSON report to stdout instead of CSV.");
     w.WriteLine("  --require-header <text>          Require and prepend this file header. Off by default.");
     w.WriteLine("  --exclude <path-substring>       Skip inputs whose path contains this substring. Repeatable.");
+    w.WriteLine("  --collision-naming file-first|type-first");
+    w.WriteLine("                                   Name for two inputs that emit the same file name. file-first, the default,");
+    w.WriteLine("                                   gives A.Shared.cs. type-first gives Shared.A.cs, which passes SA1649.");
+    w.WriteLine("                                   Pass the same value to every phase.");
     w.WriteLine("  --help, -h                       Show help.");
     w.WriteLine();
     w.WriteLine("Exit codes: 0 no failures, 1 a file failed, 2 bad command line, 3 the run could not complete.");

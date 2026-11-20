@@ -24,8 +24,8 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 31 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 146 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 33 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 167 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -53,6 +53,8 @@ Every source file, so you do not have to open one to find out whether it matters
 | `NewFileReport.cs` | One created file inside a `FileReport`, carrying its path and type name. |
 | `PathComparison.cs` | The path equality rule used for identity. Platform aware on purpose. |
 | `Phase.cs` | The `plan`, `renames`, `content` enum. |
+| `CollisionNaming.cs` | The `file-first`, `type-first` enum behind `--collision-naming`. |
+| `CollisionNames.cs` | Builds the qualified name for a cross file collision, and recognizes one the plan phase wrote. |
 | `EncodedSource.cs` | Reads bytes into text while capturing encoding, byte order mark, and newline style, then writes them back unchanged. |
 | `TopLevelType.cs` | One top level type declaration plus the file name it maps to. |
 | `SplitPlan.cs` | The decision for one input: keep, rename, split, or refuse. |
@@ -77,7 +79,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 146 passed, 0 failed
+dotnet test  -c Release      # must be 167 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -158,7 +160,7 @@ weight.
     structural check, never hash decoded text, and never let renames or content write a
     hash it computed: each row copies the hash of the manifest row it replaces, on every
     status and every exit. Review found a launder path through each exit that forgot
-    this. `ManifestContentHashTests` pins all of it. See decision 21.
+    this. `ManifestContentHashTests` pins all of it. See decision 22.
 
 ## Conventions for anything you write
 
@@ -197,6 +199,12 @@ agent does not pay again.
   test files failed it when measured. `.qualityrc.json` sets `minConfidence` to 0.7, which
   turns those low confidence scores into warnings. A regression in a file that already
   exists still blocks. Do not reshape code or tests to raise that score.
+- **The content phase never reruns the cross file collision pass.** It takes every output
+  path from the manifest. So `--collision-naming` would be ignored there without the check
+  in `SplitPlanner.BuildPlan` that refuses a row the plan resolved under the other value.
+  The check reads the row's note, so it depends on `CollisionNames.FormatResolution`. A test that
+  only runs plan and content with one value cannot see that check go missing.
+  `CollisionNamingContentTests` runs the two phases with different values for this reason.
 - **Exit codes are 0, 1, 2, 3, and they mean different things.** 0 the run completed with
   no failures, 1 a row is `failed`, 2 the command line was wrong, 3 the run could not
   complete. Skips are not failures, so a run that skips everything exits 0. Read

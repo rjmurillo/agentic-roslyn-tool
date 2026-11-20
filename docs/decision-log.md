@@ -95,7 +95,7 @@ what was reviewed.
 **Consequences.** Three invocations instead of one. A plan whose shape has drifted is
 detected rather than applied. That check is structural: it compares the kept path, the git
 move flag, and the set of output paths. On its own it missed a source edit that left type
-names and paths alone. Decision 21 added a content hash to close that gap.
+names and paths alone. Decision 22 added a content hash to close that gap.
 
 > **Warning.** Collapsing this into a single pass removes the review artifact and the
 > drift check together. At that point the tool is asking for trust it has not earned, on
@@ -508,7 +508,75 @@ Turn code owner review back on while there is one owner and the maintainer's own
 requests cannot merge. Removing Renovate's release age lets a freshly published,
 possibly compromised version merge itself within minutes.
 
-### Decision 21. The plan manifest carries a content hash of every input
+### Decision 21. Collision naming is a flag, and the default keeps the SA1649 violation
+
+**Context.** Two inputs in one folder can each emit `Shared.cs`. The collision pass
+qualifies both as `<OriginalFileName>.<TypeName>.cs`, such as `A.Shared.cs`. SA1649 reads
+a file name up to its first dot, so it reads `A` and reports the file. The naming guide
+told readers to rename by hand to `Shared.A.cs`. That is mechanical work the tool can do.
+The StyleCop source confirms the rule: `FileNameHelpers.GetFileNameAndSuffix` cuts the
+name at the first dot, read at commit `4502632`. A build with StyleCop.Analyzers
+`1.2.0-beta.556` on .NET SDK 10.0.404 confirmed the result.
+
+**Decision.** `--collision-naming file-first|type-first` selects the qualified form.
+`file-first` is the default and is today's behavior. `type-first` emits
+`<TypeName>.<OriginalFileName>.cs`. Both forms are built from the target file name the
+plan already chose, so a generic keeps its braces: `Shared{T}.A.cs`. The content phase
+refuses a row the plan resolved under the other value, with
+`content phase plan does not match manifest`. It knows such a row by two facts together:
+the path has the other value's qualified form, and the row's note records that the
+collision pass chose it.
+
+**Rejected.** Changing the default to `type-first`. Every plan with a collision would get
+new paths, and a manifest reviewed before the upgrade would stop matching. Reading
+`stylecop.json` or `.editorconfig` to choose was also rejected. That is the defect in
+decisions 9 and 14: the tool guessing at one repository's setup. Recording the value in
+the manifest was rejected too. A column would give exact detection and one refusal before
+any row is touched. It also changes the manifest CSV for every caller, to serve one flag.
+Revisit it if a second flag ever changes planned paths.
+
+**Consequences.** The value must be passed to every phase. The renames phase reads no
+manifest, so it cannot check the value. It also writes the manifest again from its own
+plan. A renames run with a different value replaces the reviewed collision names, and the
+content check then agrees with the new manifest. Closing that gap means teaching renames
+to read the manifest, which is a larger change than this flag. The content check
+reads the plan's value from the path and the note together. It is per row. A row with no
+collision has the same paths under both values and still applies. A run without the flag
+plans the same paths as before, and it still accepts a free path typed into the manifest
+by hand, including one shaped like `Shared.A.cs`. Such a row's note does not name that
+path, so the check does not fire. The cost is a dependency on the note text, and it cuts
+both ways. Strip the note and the check goes quiet for that row. Rewrite the note as well
+as the path, for example with a replace-all of `A.Shared.cs` to `Shared.A.cs`, and a run
+without the flag refuses that row. That one hand edit is the only default behavior that
+changed. Under the `metadata` convention `Shared{T}.A.cs` still raises SA1649,
+for the same reason `Shared{T}.cs` does.
+
+A forgotten flag is the likely mistake, and it is not free. The mismatched rows are
+skipped, so the run exits 0, and the note on each row names the cause. The content phase
+then writes those rows back as `skipped`, which uses up the reviewed plan for them. The
+fix is to run the plan phase again. This is the known cost of the manifest being both
+plan and report.
+
+Type-first refuses a colliding source whose base name is `G`, `Designer`, or `Generated`,
+or ends in `.g`, `.g.i`, `.designer`, or `.generated`. The qualified name would end in a
+suffix that Roslyn's
+`GeneratedCodeUtilities.IsGeneratedCodeFile` reads as generated code. Analyzers skip such
+a file and nullable annotations switch off in it. File-first has the mirror case when the
+type is named `G`, `Designer`, or `Generated`. It is left alone so default plans stay
+identical.
+
+**Reversal warning.** Remove the content check and the flag stops meaning anything in the
+content phase. That phase takes paths from the manifest and never reruns the collision
+pass, so it would write whichever form the manifest holds and report `split`. Drop the
+note half of the check and a default run starts refusing every hand-edited `Shared.A.cs`,
+not only one whose note was rewritten to match. The pass that writes the note and the
+check that reads it both call `CollisionNames.FormatResolution`. Give either its own
+format and the check stops matching. Widen the check to "every manifest path must be one
+this run computes" and every hand-edited path is refused. Flip the default and every
+existing plan with a collision goes stale at once. The flag name and its two values are
+now command line contract. Rename or remove one and every script that passes it exits 2.
+
+### Decision 22. The plan manifest carries a content hash of every input
 
 **Context.** The content phase compared its recomputed plan against the manifest by shape
 only: kept path, git move flag, output paths. An edit that kept every type name and path,
