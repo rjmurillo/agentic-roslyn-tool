@@ -167,7 +167,8 @@ to know:
   column names the path and both values.
 * **The renames phase writes the manifest again.** It recomputes the plan under the value
   it is given and replaces the manifest with the result. A renames run with a different
-  value therefore swaps the reviewed names for the other form, and nothing refuses. Give
+  value therefore swaps the reviewed names for the other form, and nothing refuses a file
+the plan marked `split`. Give
   it the same value as the plan run.
 * **A mismatched content run uses up the plan.** Skips are not failures, so the run exits
   0, and files with no collision are still split. The content phase then writes its rows

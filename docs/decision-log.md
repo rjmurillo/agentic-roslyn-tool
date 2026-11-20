@@ -535,11 +535,12 @@ the manifest was rejected too. A column would give exact detection and one refus
 any row is touched. It also changes the manifest CSV for every caller, to serve one flag.
 Revisit it if a second flag ever changes planned paths.
 
-**Consequences.** The value must be passed to every phase. The renames phase reads no
-manifest, so it cannot check the value. It also writes the manifest again from its own
-plan. A renames run with a different value replaces the reviewed collision names, and the
-content check then agrees with the new manifest. Closing that gap means teaching renames
-to read the manifest, which is a larger change than this flag. The content check
+**Consequences.** The value must be passed to every phase. The renames phase reads the
+manifest only for each row's hash and status, never for its paths, so it does not check
+the value. See decision 22. It also writes the manifest again from its own plan. A renames
+run with a different value replaces the reviewed collision names, and the content check
+then agrees with the new manifest. Closing that gap means holding renames to the planned
+paths as well, which is a larger change than this flag. The content check
 reads the plan's value from the path and the note together. It is per row. A row with no
 collision has the same paths under both values and still applies. A run without the flag
 plans the same paths as before, and it still accepts a free path typed into the manifest
