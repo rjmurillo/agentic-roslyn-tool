@@ -81,7 +81,7 @@ public sealed class SeamUnitTests
     {
         var (_, types) = Parse("class Foo { }\r\nclass Foo<T> { }\r\n");
 
-        var names = types.Select(type => OutputBuilder.GetFileName(type, types)).ToArray();
+        var names = types.Select(type => OutputBuilder.GetFileName(type, types, FileNamingConvention.StyleCop)).ToArray();
 
         Assert.Equal(new[] { "Foo.cs", "Foo{T}.cs" }, names);
     }

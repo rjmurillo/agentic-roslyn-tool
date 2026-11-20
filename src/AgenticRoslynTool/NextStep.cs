@@ -63,6 +63,10 @@ internal static class NextStep
             ("--manifest", options.ManifestPath),
             ("--repo-root", options.RepoRoot),
             ("--report", chosenReport),
+
+            // The manifest does not record --file-naming, so the next phase must be told it
+            // again. A content run under the other convention skips the affected rows.
+            ("--file-naming", options.FileNaming == FileNamingConvention.Metadata ? "metadata" : null),
             ("--require-header", options.RequiredHeader),
             .. (options.Excludes ?? []).Select(exclude => ("--exclude", (string?)exclude)),
         ];

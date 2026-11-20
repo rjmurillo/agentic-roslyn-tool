@@ -66,11 +66,17 @@ public sealed partial class PackagedAgentDocsTests
         {
             var tokens = Placeholder().Replace(fragment, "value").Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-            // A flag named alone in prose, such as `--report`, stands for one with a value.
-            var exception = Record.Exception(() => Options.Parse(["--input", "value", .. tokens]))
-                is ArgumentException { Message: var message } && message.EndsWith("requires a value.", StringComparison.Ordinal)
-                ? Record.Exception(() => Options.Parse(["--input", "value", .. tokens, "value"]))
-                : Record.Exception(() => Options.Parse(["--input", "value", .. tokens]));
+            // A flag named alone in prose, such as `--report` or `--file-naming`, only has to
+            // be a flag the parser knows. Its value is not in the text, so it is not checked.
+            if (tokens.Length == 1)
+            {
+                var unknown = Record.Exception(() => Options.Parse(["--input", "value", .. tokens])) is ArgumentException { Message: var bare }
+                    && bare.StartsWith("Unknown argument:", StringComparison.Ordinal);
+                Assert.False(unknown, $"{relativePath}: `{fragment}` is not a flag the parser knows");
+                continue;
+            }
+
+            var exception = Record.Exception(() => Options.Parse(["--input", "value", .. tokens]));
 
             // --report and --phase plan are refused together by design; that is not drift.
             var refusedByDesign = exception is ArgumentException { Message: var why } && why.StartsWith("--report applies to", StringComparison.Ordinal);

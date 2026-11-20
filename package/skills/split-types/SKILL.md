@@ -29,6 +29,8 @@ tool), or `dnx AgenticRoslynTool --` (no install). Below, `<tool>` means whichev
 2. Plan. This changes no source file:
    `<tool> split-types --phase plan --input <dir>/split.txt --manifest <dir>/split.csv --json`
    If the repository enforces SA1649, add `--collision-naming type-first` to this step only.
+   If its StyleCop `fileNamingConvention` is `metadata`, also add `--file-naming metadata`.
+   `nextArgs` repeats it for you.
 3. Read the JSON report. `summary.split` counts the files that will split. Each `skipped`
    row has a `reason`. If `summary.split` is 0, stop: there is nothing to do.
 4. Run `nextArgs` from the report, with `<tool>` in front. Pass each element as its own

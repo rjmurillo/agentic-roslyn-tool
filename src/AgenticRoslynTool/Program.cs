@@ -182,6 +182,9 @@ static void PrintUsage(TextWriter w)
     w.WriteLine("                                   Name for two inputs that emit the same file name. file-first, the default,");
     w.WriteLine("                                   gives A.Shared.cs. type-first gives Shared.A.cs, which passes SA1649.");
     w.WriteLine("                                   The plan records the value; renames and content reuse it when the flag is absent.");
+    w.WriteLine("  --file-naming stylecop|metadata  SA1649 convention for generic file names. Defaults to stylecop: Foo.cs,");
+    w.WriteLine("                                   or Foo{T}.cs when a same-name type shares the file. metadata names");
+    w.WriteLine("                                   them Foo`1.cs. Pass the same value to every phase.");
     w.WriteLine("  --help, -h                       Show help.");
     w.WriteLine();
     w.WriteLine("Typical workflow. Use one list file and one manifest outside the repository for every step:");

@@ -84,5 +84,15 @@ public sealed class NextStepTests
         Assert.DoesNotContain("--report", NextStep.For(defaulted, [SplitInPlace])!);
     }
 
+    [Fact]
+    public void FileNaming_IsCarriedWhenItIsNotTheDefault()
+    {
+        // The manifest records --collision-naming but not --file-naming, so only the second
+        // has to travel with the next command.
+        var metadata = NextStep.For(Plain() with { FileNaming = FileNamingConvention.Metadata }, [SplitInPlace])!;
+        Assert.Equal("metadata", metadata[metadata.ToList().IndexOf("--file-naming") + 1]);
+        Assert.DoesNotContain("--file-naming", NextStep.For(Plain(), [SplitInPlace])!);
+    }
+
     private static Options Plain() => new("/r/list.txt", "/m/plan.csv", "/r", Phase.Plan, null);
 }

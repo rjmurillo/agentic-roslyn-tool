@@ -224,22 +224,33 @@ internal static class SplitPlanner
     /// content phase. Together these are what make the plan-then-apply workflow safe.
     /// The mismatch refusal also covers a manifest planned under the other
     /// <c>--collision-naming</c> value, so a content run cannot apply names the caller did
-    /// not ask this run for.
+    /// not ask this run for. The same holds for a manifest planned under the other
+    /// <c>--file-naming</c> value.
     /// </remarks>
+    /// <param name="originalPath">The input path the plan row is keyed by.</param>
+    /// <param name="readPath">The path the source is read from, which is the kept path once a rename has landed.</param>
+    /// <param name="types">Every top-level type in the input, in source order.</param>
+    /// <param name="planned">The plan manifest row for this input in the content phase; null while planning.</param>
+    /// <param name="directiveNote">A note from directive analysis to carry onto the plan.</param>
+    /// <param name="collisionNaming">Which qualified form a cross-file collision name takes.</param>
+    /// <param name="convention">
+    /// The SA1649 file naming convention. It decides both which type is kept and what each
+    /// file is called, so it has no default: a caller that forgot it would plan
+    /// <c>stylecop</c> names inside a <c>metadata</c> run.
+    /// </param>
     /// <returns>A <see cref="SplitPlan"/>; a non-null <see cref="SplitPlan.SkipReason"/> means the split was refused.</returns>
-    internal static SplitPlan BuildPlan(string originalPath, string readPath, IReadOnlyList<TopLevelType> types, FileResult? planned, string? directiveNote, CollisionNaming collisionNaming)
+    internal static SplitPlan BuildPlan(string originalPath, string readPath, IReadOnlyList<TopLevelType> types, FileResult? planned, string? directiveNote, CollisionNaming collisionNaming, FileNamingConvention convention)
     {
         var directory = Path.GetDirectoryName(readPath) ?? ".";
         var baseName = Path.GetFileNameWithoutExtension(originalPath);
-        var matchingTypes = types.Where(t => StringComparer.OrdinalIgnoreCase.Equals(t.Name, baseName)).ToArray();
-        var keep = matchingTypes.OrderBy(t => t.TypeParameters.Count == 0 ? 0 : 1).FirstOrDefault() ?? types[0];
+        var (keep, keepOwnsFileName) = ChooseKept(types, baseName, convention);
         var gitMove = false;
         string? note = null;
         var keptPath = originalPath;
 
-        if (!StringComparer.OrdinalIgnoreCase.Equals(keep.Name, baseName))
+        if (!keepOwnsFileName)
         {
-            var target = Path.Combine(directory, OutputBuilder.GetFileName(keep, types));
+            var target = Path.Combine(directory, OutputBuilder.GetFileName(keep, types, convention));
             if (StringComparer.OrdinalIgnoreCase.Equals(target, readPath))
             {
                 keptPath = target;
@@ -252,7 +263,7 @@ internal static class SplitPlanner
             }
             else
             {
-                note = $"rename collision for {target}; kept original file name";
+                note = KeptRenameCollisions.DescribeDroppedRename(target);
             }
         }
 
@@ -265,7 +276,7 @@ internal static class SplitPlanner
             // kept Q<T> stays in Q.cs while a second part of Q<T> is named Q{T}.cs.
             var target = StringComparer.Ordinal.Equals(type.Key, keep.Key)
                 ? keptPath
-                : Path.Combine(directory, OutputBuilder.GetFileName(type, types));
+                : Path.Combine(directory, OutputBuilder.GetFileName(type, types, convention));
             if (paths.ContainsKey(target))
             {
                 return new SplitPlan(keep, keptPath, gitMove, note, $"target path collision within split: {target}", Array.Empty<PlannedFile>());
@@ -284,7 +295,11 @@ internal static class SplitPlanner
         var files = paths.Select(kvp => new PlannedFile(kvp.Key, kvp.Value, ReferenceEquals(kvp.Value, keep))).ToArray();
         if (planned is not null)
         {
-            var (substituted, refusal, refusalNote) = ApplyManifestPaths(originalPath, keptPath, gitMove, files, planned, collisionNaming);
+            // The name each moved type would get under the other --file-naming value. The
+            // content phase uses it to recognize a plan made under that value.
+            var other = convention == FileNamingConvention.Metadata ? FileNamingConvention.StyleCop : FileNamingConvention.Metadata;
+            var otherNames = files.Where(f => !f.IsKept).ToDictionary(f => f.Type.Key, f => Path.Combine(directory, OutputBuilder.GetFileName(f.Type, types, other)), StringComparer.Ordinal);
+            var (substituted, refusal, refusalNote) = ApplyManifestPaths(originalPath, keptPath, gitMove, files, planned, collisionNaming, convention, otherNames);
             if (refusal is not null)
             {
                 return new SplitPlan(keep, keptPath, gitMove, note, refusal, Array.Empty<PlannedFile>(), SkipNote: refusalNote);
@@ -303,7 +318,7 @@ internal static class SplitPlanner
     /// planned, then checks the result against the disk and against the manifest row.
     /// </summary>
     /// <returns>The substituted files, or a refusal reason with an optional note for the skipped row.</returns>
-    private static (PlannedFile[] Files, string? Refusal, string? RefusalNote) ApplyManifestPaths(string originalPath, string keptPath, bool gitMove, PlannedFile[] computed, FileResult planned, CollisionNaming collisionNaming)
+    private static (PlannedFile[] Files, string? Refusal, string? RefusalNote) ApplyManifestPaths(string originalPath, string keptPath, bool gitMove, PlannedFile[] computed, FileResult planned, CollisionNaming collisionNaming, FileNamingConvention convention, IReadOnlyDictionary<string, string> otherConventionPaths)
     {
         var plannedByType = planned.NewFiles.ToDictionary(f => f.Type, f => f.Path, StringComparer.Ordinal);
         var computedPaths = computed.Where(f => !f.IsKept).ToDictionary(f => f.Type.Key, f => f.Path, StringComparer.Ordinal);
@@ -336,7 +351,8 @@ internal static class SplitPlanner
         // after the checks above so those keep their own, more specific reasons.
         foreach (var file in moved)
         {
-            var mismatch = CollisionNames.DescribeOtherNamingForm(originalPath, computedPaths[file.Type.Key], file.Path, planned.Note, collisionNaming);
+            var mismatch = CollisionNames.DescribeOtherNamingForm(originalPath, computedPaths[file.Type.Key], file.Path, planned.Note, collisionNaming)
+                ?? PlanMismatch.DescribeOtherConventionForm(originalPath, computedPaths[file.Type.Key], otherConventionPaths[file.Type.Key], file.Path, convention);
             if (mismatch is not null)
             {
                 return (files, PlanMismatchReason, mismatch);
@@ -348,7 +364,36 @@ internal static class SplitPlanner
         var matches = StringComparer.OrdinalIgnoreCase.Equals(planned.KeptPath, keptPath)
             && planned.GitMove == gitMove
             && plannedNewFiles.SequenceEqual(actualNewFiles, StringComparer.OrdinalIgnoreCase);
-        return matches ? (files, null, null) : (files, PlanMismatchReason, null);
+        return matches ? (files, null, null) : (files, PlanMismatchReason, PlanMismatch.DescribeShape(planned, keptPath, gitMove, actualNewFiles));
+    }
+
+    /// <summary>
+    /// Picks the type that stays in the input file, and says whether the file is already
+    /// named for it. When it is not, the caller plans a rename.
+    /// </summary>
+    /// <remarks>
+    /// Under <c>stylecop</c> the kept type is the one whose simple name matches the file,
+    /// the non-generic one first, and that match is also what makes the name correct.
+    /// Under <c>metadata</c> the file name carries the arity, so <c>Foo`1.cs</c> belongs to
+    /// <c>Foo&lt;T&gt;</c>. Matching on the simple name alone would never find it and would
+    /// move <c>Foo&lt;T&gt;</c> out of its own correctly named file. The simple name match
+    /// stays as the fallback for choosing, but a generic type chosen that way sits in a
+    /// plain <c>Foo.cs</c>, which SA1649 rejects under this convention, so the file does
+    /// not count as named for it.
+    /// </remarks>
+    private static (TopLevelType Keep, bool OwnsFileName) ChooseKept(IReadOnlyList<TopLevelType> types, string baseName, FileNamingConvention convention)
+    {
+        var bySimpleName = types
+            .Where(t => StringComparer.OrdinalIgnoreCase.Equals(t.Name, baseName))
+            .OrderBy(t => t.TypeParameters.Count == 0 ? 0 : 1)
+            .FirstOrDefault() ?? types[0];
+        if (convention != FileNamingConvention.Metadata)
+        {
+            return (bySimpleName, StringComparer.OrdinalIgnoreCase.Equals(bySimpleName.Name, baseName));
+        }
+
+        var byMetadataName = types.FirstOrDefault(t => StringComparer.OrdinalIgnoreCase.Equals(OutputBuilder.GetMetadataName(t), baseName));
+        return byMetadataName is null ? (bySimpleName, false) : (byMetadataName, true);
     }
 
     internal static string? CombineNotes(string? first, string? second)

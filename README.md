@@ -82,6 +82,7 @@ Use these options to control the operation:
 | `--require-header <text>` | Prepends `<text>` to every emitted file and fails the split if any output does not start with it. Off by default. |
 | `--exclude <path-substring>` | Skips any input whose path contains `<path-substring>`. Repeatable. Off by default. |
 | `--collision-naming file-first\|type-first` | Names the outputs when two inputs would emit the same file name. `file-first`, the default, gives `A.Shared.cs`. `type-first` gives `Shared.A.cs`, which passes SA1649. The plan records it in the manifest, and renames and content reuse it. A later phase given a different value exits 3. |
+| `--file-naming stylecop\|metadata` | Chooses the SA1649 convention for generic file names. `stylecop`, the default, gives `Foo.cs`, or `Foo{T}.cs` when another type in the file shares the name. `metadata` gives ``Foo`1.cs``. Pass the same value to every phase. |
 
 ### Driving it from an agent
 
@@ -132,7 +133,7 @@ at `renames` only when a file needs a `git mv`; commit the renames before you ru
 when nothing would split, and when the input came from standard input, which a second run
 cannot read again. It is also
 `null` when the report file could not be written. It repeats `--report` only when you
-chose a path. Pass each element as its own argument; do not join them into one string.
+chose a path, and `--file-naming` when it is `metadata`. Pass each element as its own argument; do not join them into one string.
 
 Exit codes are distinct so a caller can branch without parsing anything:
 
@@ -197,6 +198,14 @@ git commit -m "Rename C# files to match primary types"
 ```
 
 Keep renames in their own commit. Git can then record renames instead of delete-and-add pairs, preserving file history.
+
+If you pass `--file-naming metadata` to the plan, pass it to the renames and content phases
+too. The convention decides file names, so it has to be the same in all three. The content
+phase skips a file whose manifest row was made under the other convention, and writes
+nothing for it. The plan is unchanged, so run the content phase again with the right value.
+The renames phase runs a rename only when the plan holds that same rename. Under the wrong
+value it moves nothing, but it can leave out a rename the plan did ask for. The content phase then fails that file
+and tells you to run the renames phase, which works once the value is right.
 
 The renames phase recomputes the plan from the current files. It never writes the
 manifest, and records what it did in the report file, `split-types.report.csv` here. It
@@ -303,8 +312,8 @@ One production run processed 7,818 files and split 461 of them. Roslyn parsed ev
 ## Known limitations
 
 * Two input files can each plan a new file at the same output path. For example, two files in one folder each declare a type named `Shared` in different namespaces. The tool resolves that by qualifying both as `FileName.TypeName.cs`. This default conflicts with StyleCop SA1649. Pass `--collision-naming type-first` to the plan phase to get `TypeName.FileName.cs` instead, which SA1649 accepts. A generic name such as `Shared{T}.A.cs` passes under the `stylecop` convention only. If you already split with the default, fix just those files instead of disabling SA1649 for the whole repository: rename them by hand to `TypeName.FileName.cs`, move each into a folder named for its namespace, or suppress SA1649 for those paths in `.editorconfig`. (details: [docs/sa1402-sa1649-naming.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/sa1402-sa1649-naming.md#same-type-name-in-two-namespaces))
-* Generic file names follow StyleCop's default `stylecop` file naming convention, such as `Foo{T}.cs`. Under the `metadata` convention, SA1649 expects ``Foo`1.cs`` instead. Every generic file the tool emits, whether `Foo{T}.cs` or a plain `Foo.cs`, then raises SA1649 unless its first type is `partial`. Rename those files by hand, or switch the repository to the `stylecop` convention. (details: [docs/sa1402-sa1649-naming.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/sa1402-sa1649-naming.md#if-you-use-the-metadata-convention))
-* Two types that share a simple name inside a *single* file are not split. Unless they differ by generic arity or by type parameter names, which is resolved as `Name{T}.cs`, the file is skipped with `target path collision within split` and needs manual handling. (details: [docs/sa1402-sa1649-naming.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/sa1402-sa1649-naming.md))
+* Generic file names follow StyleCop's default `stylecop` file naming convention, such as `Foo{T}.cs`. Under the `metadata` convention, SA1649 expects ``Foo`1.cs`` instead. Pass `--file-naming metadata` to every phase and the tool plans that name for each generic type it moves or keeps. The tool does not read `stylecop.json` or `.editorconfig`, so without the flag every generic file it emits raises SA1649 in a `metadata` repository unless its first type is `partial`. A file that holds one generic type only is not split, so the flag does not rename it. (details: [docs/sa1402-sa1649-naming.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/sa1402-sa1649-naming.md#if-you-use-the-metadata-convention))
+* Two types that share a simple name inside a *single* file are not split. Unless they differ by generic arity or by type parameter names, which is resolved as `Name{T}.cs`, the file is skipped with `target path collision within split` and needs manual handling. Under `--file-naming metadata` only arity tells them apart: `Box<T>` and `Box<U>` both map to ``Box`1.cs``, so that file is skipped too. (details: [docs/sa1402-sa1649-naming.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/sa1402-sa1649-naming.md))
 * Two or more parts of one partial type in the same file, generic or not, make the tool skip that file with `target path collision within split`. The parts are not merged, and other types in that file stay where they are.
 * The tool does not prune using directives. A seemingly unused using can supply an extension method or target-typed conversion. Removing it would turn a mechanical edit into a semantic change.
 * The tool uses the Roslyn Syntax API without a semantic model. It does not resolve types across projects.
