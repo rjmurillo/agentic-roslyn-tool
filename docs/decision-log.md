@@ -669,6 +669,33 @@ afresh one phase early. Make the missing column a fallback and every old manifes
 loses the guarantee. Hash decoded text instead of bytes and a newline or encoding change
 slips through.
 
+### Decision 23. A run with no phase plans
+
+**Context.** `--phase` defaulted to `content`, the one phase that rewrites source. No entry
+in this log recorded why. Every doc had to warn the reader to pass `--dry-run`, and the
+package `AGENTS.md` repeated it. A caller that skips the docs runs
+`split-types --input .` first. Agents do this, and economical models do it more often. That
+first call rewrote the repository. The NuGet team's skill evaluation found the same split
+by tier: weaker models follow written guidance less reliably than frontier models. A safe
+default protects every tier, and costs a frontier model nothing.
+
+**Decision.** With no `--phase` and no `--dry-run`, the tool runs `plan`. Only
+`--phase content` rewrites source. `--dry-run` stays as an alias for `--phase plan`, and
+combining it with `--phase` is still exit 2.
+
+**Rejected.** Requiring `--phase` on every run. It is safer than any default, but the
+first call then fails with exit 2 and teaches the caller nothing it could not learn from a
+plan. A plan teaches the caller what would happen. Removing `--dry-run` was rejected too:
+it breaks every script and doc that uses it, for no gain.
+
+**Consequences.** Breaking. A script that relied on the old default now plans, exits 0,
+and changes nothing. Its summary line on standard error starts with `plan:`, which is the
+only sign. Docs now tell readers to pass `--dry-run` or `--phase` explicitly, so a command
+means the same on version 0.1.1 and on later versions.
+
+**Reversal warning.** Restore `content` as the default and the first bare call from an
+agent rewrites source before anyone has reviewed a plan.
+
 ## Unrecorded decisions
 
 Recorded so nobody assumes these were considered.

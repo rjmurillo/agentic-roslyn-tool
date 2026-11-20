@@ -10,7 +10,10 @@ namespace AgenticRoslynTool;
 /// </param>
 /// <param name="ManifestPath">Absolute path to the CSV manifest. Defaults to <c>sa1402-split-manifest.csv</c> next to the input.</param>
 /// <param name="RepoRoot">Absolute repository root used as the working directory for <c>git mv</c> calls.</param>
-/// <param name="Phase">Which of the <see cref="AgenticRoslynTool.Phase"/> stages to execute.</param>
+/// <param name="Phase">
+/// Which of the <see cref="AgenticRoslynTool.Phase"/> stages to execute. <see cref="Parse"/>
+/// defaults it to <see cref="Phase.Plan"/>, so only an explicit <c>--phase</c> changes source.
+/// </param>
 /// <param name="RequiredHeader">Optional file header to require and prepend to every output file.</param>
 /// <param name="Excludes">
 /// Path substrings that mark an input as untouchable, for example generated output
@@ -42,7 +45,10 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
         var json = false;
         var collisionNaming = CollisionNaming.FileFirst;
         string repoRoot = Directory.GetCurrentDirectory();
-        var phase = Phase.Content;
+
+        // Plan, never content. A caller that has not read the docs, which is the usual agent,
+        // runs the command with no --phase first. That first call must change no source file.
+        var phase = Phase.Plan;
         var dryRun = false;
         var phaseGiven = false;
 

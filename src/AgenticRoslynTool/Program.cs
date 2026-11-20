@@ -124,8 +124,8 @@ static void PrintUsage(TextWriter w)
     w.WriteLine("  --repo-root <path>               Repository root used for git operations. Defaults to the current directory.");
     w.WriteLine("  --manifest <path>                Path to the manifest CSV. Defaults to sa1402-split-manifest.csv beside a list");
     w.WriteLine("                                   input, or in --repo-root for a directory or stdin input.");
-    w.WriteLine("  --phase plan|renames|content     Which phase to run. Defaults to content.");
-    w.WriteLine("  --dry-run                        Shorthand for --phase plan. Cannot be combined with --phase.");
+    w.WriteLine("  --phase plan|renames|content     Which phase to run. Defaults to plan, which changes no source file.");
+    w.WriteLine("  --dry-run                        Same as --phase plan. Kept for older scripts. Cannot be combined with --phase.");
     w.WriteLine("  --json                           Print one JSON report to stdout instead of CSV.");
     w.WriteLine("  --require-header <text>          Require and prepend this file header. Off by default.");
     w.WriteLine("  --exclude <path-substring>       Skip inputs whose path contains this substring. Repeatable.");

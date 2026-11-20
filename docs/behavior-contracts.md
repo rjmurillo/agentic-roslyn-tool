@@ -82,8 +82,13 @@ A directory scan that cannot read a subdirectory ends the run with exit code 3 r
 returning a partial list. A partial scan would exit 0 and look exactly like a scan that
 found nothing to do. Pass a list file when you need to scan around an unreadable directory.
 
+A run with no `--phase` and no `--dry-run` is the `plan` phase. It writes the manifest and
+changes no source file. Only `--phase content` rewrites source, and only `--phase renames`
+runs `git mv`. Version 0.1.1 and earlier defaulted to `content`. See decision 23.
+
 `--dry-run` and `--phase` both set the phase, so supplying both is rejected with exit code
 2 rather than letting argument order decide between writing a manifest and rewriting source.
+`--dry-run` is now the same as the default and is kept so older scripts still parse.
 
 A plan row the content phase's input never supplied stays in the rewritten manifest
 verbatim, still `split` and still actionable, and appears in the run report as `skipped`

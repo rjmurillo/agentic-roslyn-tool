@@ -59,8 +59,9 @@ dotnet run --project src/AgenticRoslynTool -- split-types --help
 
 ## Usage
 
-Start with `--dry-run`. Without `--phase` or `--dry-run`, the tool runs the `content`
-phase, which rewrites files. Run `plan`, then `renames`, then `content`, as
+Without `--phase`, the tool runs the `plan` phase, which changes no source file. Only
+`--phase content` rewrites files. Version 0.1.1 and earlier ran `content` by default, so
+pass `--dry-run` or `--phase` explicitly in scripts. Run `plan`, then `renames`, then `content`, as
 [docs/fix-sa1402-whole-repo.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/fix-sa1402-whole-repo.md) walks through.
 
 `split-types` requires `--input`, which identifies the C# files to process. It accepts a
@@ -71,8 +72,8 @@ Use these options to control the operation:
 
 | Option | Purpose |
 | --- | --- |
-| `--phase plan\|renames\|content` | Selects a phase. Defaults to content, which rewrites files. |
-| `--dry-run` | Runs the `plan` phase without changing source files. |
+| `--phase plan\|renames\|content` | Selects a phase. Defaults to `plan`, which changes no source file. |
+| `--dry-run` | Same as `--phase plan`. Kept so older scripts still work. |
 | `--input <dir\|file\|csv\|list\|->` | Supplies the required file list. |
 | `--repo-root <path>` | Sets the repository root. |
 | `--manifest <path>` | Sets the CSV manifest path. |
