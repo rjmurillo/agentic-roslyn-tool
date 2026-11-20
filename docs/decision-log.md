@@ -627,7 +627,7 @@ below follow from that rule.
   a short value, or another algorithm's prefix never match by accident and never throw.
 - **The structural check stays.** The hash proves the source is unchanged. It says nothing
   about the manifest. The structural comparison now catches an edited manifest over
-  unchanged source, which `ManifestContentHashTests` pins.
+  unchanged source, which `ContentHashCarryTests` pins.
 
 **Rejected.** Falling back to the structural check when the column is missing. That is the
 silent path: a caller with an old manifest would get the old, weaker guarantee and no sign

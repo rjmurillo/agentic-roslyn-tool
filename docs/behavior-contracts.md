@@ -158,7 +158,7 @@ Promises:
   platform's filesystem case rules, and produce no row.
 - The manifest round trips through `ManifestWriter.Read`.
 - Every row for a file the run read carries that file's `contentHash`. Verified by
-  `ManifestContentHashTests`.
+  `ContentHashPlanTests`.
 
 You can run `plan` as many times as you like. It is the review step, and it is the reason
 a human or an agent can inspect the whole change before a single byte moves.
@@ -205,7 +205,7 @@ sees a manifest that agrees with whatever renames was given. Pass the same value
 in the plan run.
 
 Requires a real git repository to rename. Most of the test suite avoids this phase by
-keeping every fixture file name equal to its primary type name. `ManifestContentHashTests`
+keeping every fixture file name equal to its primary type name. `ContentHashRenamesTests`
 is the exception: its rename tests run `git init` and `git add` in a temporary directory
 and then run this phase for real.
 

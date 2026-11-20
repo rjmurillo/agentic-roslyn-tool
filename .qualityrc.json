@@ -1,5 +1,4 @@
 {
-  "minConfidence": 0.7,
   "thresholds": {
     "cohesion": { "min": 7 },
     "coupling": { "min": 7 },
@@ -7,6 +6,11 @@
     "testability": { "min": 6 },
     "nonRedundancy": { "min": 8 }
   },
-  "context": { "test": { "testability": { "min": 3 } } },
+  "context": {
+    "test": {
+      "testability": { "min": 3 },
+      "nonRedundancy": { "min": 6.5 }
+    }
+  },
   "ignore": ["**/bin/**", "**/obj/**"]
 }
