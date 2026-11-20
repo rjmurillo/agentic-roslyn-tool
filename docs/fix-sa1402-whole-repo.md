@@ -253,7 +253,7 @@ are most likely to see:
 | A `file` type declares extension members | skipped | `file-local type declares extension members; manual split required` |
 | A using directive names a `file` type | skipped | `using directive names a file-local type; manual split required` |
 | A `file` type shares the file with an excluded `#if` branch | skipped | `file-local type shares the file with conditionally excluded text; manual split required` |
-| A `file` type sits in a nested namespace | skipped | `file-local type sits in a nested namespace; manual split required` |
+| A `file` type shares the file with a nested namespace that declares a type | skipped | `file-local type shares the file with a nested namespace; manual split required` |
 | An `#if` or `#region` spans two types | skipped | `<kind> group at line <n> crosses top-level type boundaries` |
 | Two types in one file share a name and type parameter list | skipped | `target path collision within split: <path>` |
 | File already has one type | skipped | `nothing to split: input has 1 top-level type declaration(s)` |

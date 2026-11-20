@@ -1202,8 +1202,10 @@ The split is on by default and has no flag.
     output repeats every using directive, and rule 1 forbids pruning them.
   - The input holds text a preprocessor directive excludes. The tool parses with no
     symbols defined, so a scan cannot read that text.
-  - A `file` type sits in a nested namespace. The tool places types one namespace down
-    and no deeper, and would repeat the nested block in every output.
+  - The input declares a `file` type, and any type sits in a nested namespace. The tool
+    places types one namespace down and no deeper. It repeats a nested block in every
+    output and never scans it. A `file` type there would be copied. An ordinary type
+    there would be declared twice, and could name a `file` type unseen.
   - The input declares at most one ordinary type. Nothing can move.
 - The split row's `note` says which `file` types stayed and that SA1402 still flags the
   file. The note carries no path, because the content phase searches notes for collision
@@ -1211,8 +1213,9 @@ The split is on by default and has no flag.
 - `OutputVerifier` asks again about the rendered text. One output must be written to the
   path that was read, and no other output may declare or name a `file` type.
 
-The last two outright refusals, and the fifth, were added while building this. Richard's
-brief named the first two.
+Richard's brief named the first two refusals in that list. The other three were added
+while building this, without consulting him: excluded text, a nested namespace, and
+nothing to split. The kept type exception above was allowed by the brief, not required.
 
 **Why a name scan is enough.** Leaving the file changes two lookups for a moved type:
 lookup of a simple name, and lookup of extension members. Three compiler rules close the

@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 40 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 378 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 379 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -89,7 +89,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 378 passed, 0 failed
+dotnet test  -c Release      # must be 379 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -437,8 +437,8 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   namespace down and no deeper, so `namespace A { class X { } class Y { } namespace B {
   class Deep { } } }` splits, and both `X.cs` and `Y.cs` declare `Deep`. The build then
   fails with a duplicate type. The line count check allows it, because text outside every
-  found type counts as shared. An input with a `file` type there is refused, as decision
-  29 records. Every other input with this shape still splits.
+  found type counts as shared. An input that also declares a `file` type, at any depth,
+  is refused, as decision 29 records. Every other input with this shape still splits.
 
 - A `file` modifier inside an excluded `#if` branch is not seen. In `#if X` / `file` /
   `#else` / `internal` / `#endif` / `class Maybe`, the parse reads `Maybe` as `internal`

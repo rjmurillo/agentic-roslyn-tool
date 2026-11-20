@@ -32,8 +32,12 @@ internal static class FileLocalTypes
     /// <summary>The input declares a <c>file</c> type and at most one other type, so no type can move.</summary>
     internal const string NothingToSplitReason = "nothing to split: file-local types stay in their file and at most one other type is declared";
 
-    /// <summary>A <c>file</c> type sits in a nested namespace, which the tool does not treat as a type it places.</summary>
-    internal const string NestedNamespaceReason = "file-local type sits in a nested namespace; manual split required";
+    /// <summary>
+    /// The input declares a <c>file</c> type, and some type sits in a nested namespace. The
+    /// tool places types one namespace down and no deeper, so it repeats a nested block in
+    /// every output without reading it.
+    /// </summary>
+    internal const string NestedNamespaceReason = "file-local type shares the file with a nested namespace; manual split required";
 
     /// <summary>The input holds text a preprocessor directive excludes, which the name scan cannot read.</summary>
     internal const string ExcludedTextReason = "file-local type shares the file with conditionally excluded text; manual split required";
@@ -59,17 +63,20 @@ internal static class FileLocalTypes
     /// <returns>The skip reason and a note that names the type involved, or null.</returns>
     internal static (string Reason, string? Note)? DescribeRefusal(CompilationUnitSyntax root, IReadOnlyList<TopLevelType> types)
     {
-        var declared = FindDeclarations(root).ToArray();
-        if (declared.Length == 0)
+        if (!FindDeclarations(root).Any())
         {
             return null;
         }
 
-        var fileLocal = types.Where(t => t.HasFileModifier).ToArray();
-        if (declared.Length != fileLocal.Length)
+        // A type the tool did not find sits in a nested namespace. Every output would
+        // repeat that block: a file-local type in it would be copied, and an ordinary type
+        // in it could name a file-local type where no scan below reads.
+        if (FindNamespaceLevelTypes(root).Count() != types.Count)
         {
             return (NestedNamespaceReason, null);
         }
+
+        var fileLocal = types.Where(t => t.HasFileModifier).ToArray();
 
         if (types.Count - fileLocal.Length < 2)
         {
@@ -174,7 +181,12 @@ internal static class FileLocalTypes
     /// </summary>
     internal static IEnumerable<MemberDeclarationSyntax> FindDeclarations(CompilationUnitSyntax root)
     {
-        return root.DescendantNodes(IsNamespaceLevel).OfType<MemberDeclarationSyntax>().Where(TopLevelType.IsFileLocal);
+        return FindNamespaceLevelTypes(root).Where(TopLevelType.IsFileLocal);
+    }
+
+    private static IEnumerable<MemberDeclarationSyntax> FindNamespaceLevelTypes(CompilationUnitSyntax root)
+    {
+        return root.DescendantNodes(IsNamespaceLevel).OfType<MemberDeclarationSyntax>().Where(node => node is BaseTypeDeclarationSyntax or DelegateDeclarationSyntax);
     }
 
     private static IEnumerable<UsingDirectiveSyntax> FindUsings(CompilationUnitSyntax root)

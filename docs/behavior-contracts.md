@@ -484,7 +484,7 @@ Reason text shown in italics is a template; the run substitutes real values.
 | Parse produced an error diagnostic | failed | `input has syntax errors: <diagnostics>` |
 | File has top level statements | skipped | `contains top-level statements; manual split required` |
 | One type or fewer | skipped | `nothing to split: input has <n> top-level type declaration(s)` |
-| A `file` type in a nested namespace | skipped | `file-local type sits in a nested namespace; manual split required` |
+| A `file` type, and any type in a nested namespace | skipped | `file-local type shares the file with a nested namespace; manual split required` |
 | A `file` type and at most one other type | skipped | `nothing to split: file-local types stay in their file and at most one other type is declared` |
 | A `file` type, and text an `#if` excludes anywhere in the file | skipped | `file-local type shares the file with conditionally excluded text; manual split required` |
 | A `file` type declares an extension method or an extension block | skipped | `file-local type declares extension members; manual split required` |
