@@ -185,7 +185,8 @@ comes from the plan for the sample above, with paths shortened:
       "status": "split",
       "reason": null,
       "note": null,
-      "newFiles": [{ "newFilePath": "/repo/src/Shapes/Square.cs", "type": "Square" }]
+      "newFiles": [{ "newFilePath": "/repo/src/Shapes/Square.cs", "type": "Square" }],
+      "contentHash": "sha256:5f2b0e9c41d7a8366c1e0b94d2f7a3158e6c0d4b9a7f31e2c58d06b4a19e73fc"
     }
   ]
 }

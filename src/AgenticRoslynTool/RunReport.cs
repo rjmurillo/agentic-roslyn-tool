@@ -31,7 +31,7 @@ internal sealed record RunReport(
             results.Sum(r => r.NewFiles.Count));
 
         var files = results
-            .Select(r => new FileReport(r.OriginalPath, r.KeptPath, r.GitMove, r.Status, r.Reason, r.Note, r.NewFiles.Select(f => new NewFileReport(f.Path, f.Type)).ToArray()))
+            .Select(r => new FileReport(r.OriginalPath, r.KeptPath, r.GitMove, r.Status, r.Reason, r.Note, r.NewFiles.Select(f => new NewFileReport(f.Path, f.Type)).ToArray(), r.ContentHash))
             .ToArray();
 
         return new RunReport(PhaseName(phase), manifestPath, summary, files);

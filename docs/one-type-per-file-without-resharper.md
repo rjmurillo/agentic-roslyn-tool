@@ -137,13 +137,13 @@ public enum OrderStatus
 public record OrderLine(string Sku, int Quantity);
 ```
 
-The plan phase prints this manifest. The tool writes absolute paths; they are shortened
-here:
+The plan phase prints this manifest. The tool writes absolute paths and a full 64 digit
+`contentHash`; both are shortened here:
 
 ```text
-originalPath,keptPath,gitMove,status,reason,note,newFilePath,type
-"src/Models.cs","src/Order.cs",true,"split","","","src/OrderStatus.cs","OrderStatus"
-"src/Models.cs","src/Order.cs",true,"split","","","src/OrderLine.cs","OrderLine"
+originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash
+"src/Models.cs","src/Order.cs",true,"split","","","src/OrderStatus.cs","OrderStatus","sha256:5f2b..."
+"src/Models.cs","src/Order.cs",true,"split","","","src/OrderLine.cs","OrderLine","sha256:5f2b..."
 ```
 
 Standard error carries the summary line:

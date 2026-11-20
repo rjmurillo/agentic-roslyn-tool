@@ -72,12 +72,12 @@ internal class Result<T> : Result
 }
 ```
 
-The plan phase writes this manifest row. Paths are shortened here; the tool writes absolute
-paths.
+The plan phase writes this manifest row. Paths and hashes are shortened here; the tool
+writes absolute paths and a full 64 digit `contentHash`.
 
 ```csv
-originalPath,keptPath,gitMove,status,reason,note,newFilePath,type
-"src/Result.cs","src/Result.cs",false,"split","","","src/Result{T}.cs","Result<T>"
+originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash
+"src/Result.cs","src/Result.cs",false,"split","","","src/Result{T}.cs","Result<T>","sha256:9c1e..."
 ```
 
 After the content phase, `Result.cs` keeps `Result` and `Result{T}.cs` holds `Result<T>`.
@@ -129,8 +129,8 @@ paths. A file whose paths come out the same under both conventions still splits.
 generic type. The run exits 0 and its rows replace the plan, so run the plan phase again
 before you retry.
 
-The renames phase has no such check, because it recomputes the plan instead of replaying
-it. A renames run without the flag applies the `stylecop` renames and rewrites the manifest
+The renames phase has no such check. It recomputes the plan and holds each file to the
+manifest's hash and status, not to its planned names. A renames run without the flag applies the `stylecop` renames and rewrites the manifest
 to match. A content run without the flag then agrees with that manifest and writes
 `stylecop` names. If you changed the flag after planning, run the plan phase again.
 
@@ -191,9 +191,9 @@ outputs. By default the form is `<OriginalFileName>.<TypeName>.cs`. The plan say
 the `note` column:
 
 ```csv
-originalPath,keptPath,gitMove,status,reason,note,newFilePath,type
-"src/A.cs","src/A.cs",false,"split","","resolved output path collision: src/A.cs -> src/A.Shared.cs; src/B.cs -> src/B.Shared.cs","src/A.Shared.cs","Shared"
-"src/B.cs","src/B.cs",false,"split","","resolved output path collision: src/A.cs -> src/A.Shared.cs; src/B.cs -> src/B.Shared.cs","src/B.Shared.cs","Shared"
+originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash
+"src/A.cs","src/A.cs",false,"split","","resolved output path collision: src/A.cs -> src/A.Shared.cs; src/B.cs -> src/B.Shared.cs","src/A.Shared.cs","Shared","sha256:41d7..."
+"src/B.cs","src/B.cs",false,"split","","resolved output path collision: src/A.cs -> src/A.Shared.cs; src/B.cs -> src/B.Shared.cs","src/B.Shared.cs","Shared","sha256:b94d..."
 ```
 
 The collision check ignores case, so `Shared.cs` and `shared.cs` count as the same path.
@@ -209,9 +209,9 @@ Pass `--collision-naming type-first` and the tool swaps the two parts of the qua
 name. It emits `<TypeName>.<OriginalFileName>.cs`:
 
 ```csv
-originalPath,keptPath,gitMove,status,reason,note,newFilePath,type
-"src/A.cs","src/A.cs",false,"split","","resolved output path collision: src/A.cs -> src/Shared.A.cs; src/B.cs -> src/Shared.B.cs","src/Shared.A.cs","Shared"
-"src/B.cs","src/B.cs",false,"split","","resolved output path collision: src/A.cs -> src/Shared.A.cs; src/B.cs -> src/Shared.B.cs","src/Shared.B.cs","Shared"
+originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash
+"src/A.cs","src/A.cs",false,"split","","resolved output path collision: src/A.cs -> src/Shared.A.cs; src/B.cs -> src/Shared.B.cs","src/Shared.A.cs","Shared","sha256:41d7..."
+"src/B.cs","src/B.cs",false,"split","","resolved output path collision: src/A.cs -> src/Shared.A.cs; src/B.cs -> src/Shared.B.cs","src/Shared.B.cs","Shared","sha256:b94d..."
 ```
 
 SA1649 reads both names as `Shared`, so both files pass. The flag is opt-in, and the
@@ -224,8 +224,8 @@ to know:
   column names the path and both values.
 * **The renames phase writes the manifest again.** It recomputes the plan under the value
   it is given and replaces the manifest with the result. A renames run with a different
-  value therefore swaps the reviewed names for the other form, and nothing refuses. Give
-  it the same value as the plan run.
+  value therefore swaps the reviewed names for the other form. Give it the same value as
+  the plan run.
 * **A mismatched content run uses up the plan.** Skips are not failures, so the run exits
   0, and files with no collision are still split. The content phase then writes its rows
   back to the manifest, so the skipped files lose their `split` rows. Run the plan phase

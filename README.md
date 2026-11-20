@@ -181,14 +181,17 @@ Keep renames in their own commit. Git can then record renames instead of delete-
 If you pass `--file-naming metadata` to the plan, pass it to the renames and content phases
 too. The convention decides file names, so it has to be the same in all three. The content
 phase skips a file whose manifest row was made under the other convention, and writes
-nothing for it. The renames phase has no such check. It rewrites the manifest under the
-value it was given, so run the plan again if you changed the flag. If a rename already
-landed, undo it with Git or list the file's new path first. A list that still names the
-old path plans nothing for that file.
+nothing for it. The renames phase does not compare file names with the plan. It rewrites
+the manifest under the value it was given, so run the plan again if you changed the flag.
+If a rename already landed, undo it with Git or list the file's new path first. A list that
+still names the old path plans nothing for that file.
 
-The renames phase recomputes the plan from the current files rather than replaying the
-reviewed manifest, and rewrites the manifest with what it did. Re-run the plan phase and
-review it again if the tree changed since your last plan.
+The renames phase recomputes the plan from the current files and rewrites the manifest
+with what it did, but it is held to the reviewed plan. Three cases are skipped with a
+`stale plan:` reason and not renamed: a file whose bytes no longer match the recorded
+`contentHash`, a file it would split that the plan did not mark `split`, and a file it
+would split that was added to the input after the plan. Re-run the plan phase and review
+it again if the tree changed since your last plan.
 
 Finally, split files and review the result:
 
@@ -203,7 +206,9 @@ dotnet build
 git diff --check
 ```
 
-The content phase exits 3 if no plan manifest exists at `--manifest`, and overwrites that
+The content phase exits 3 if no plan manifest exists at `--manifest`. The renames and
+content phases both exit 3 if the manifest has no `contentHash` column because an older
+version wrote it. Re-run the plan phase to rebuild it. The content phase overwrites the
 manifest with its results. Copy the reviewed plan to a second path first when you want to
 keep it for comparison.
 
@@ -232,8 +237,31 @@ a run leaves the earlier files already rewritten. Review the plan first, and com
 phases.
 
 The tool also refuses to write over a file that already exists, whether that path came
-from its own naming rules or from the manifest, and refuses to run the content phase at
-all when the recomputed plan disagrees with the reviewed manifest.
+from its own naming rules or from the manifest, and refuses a file in the content phase
+when the recomputed plan disagrees with the reviewed manifest.
+
+The plan is tied to the bytes it was reviewed against. Every manifest row records a
+`contentHash`, the SHA-256 of the input file's raw bytes, and the JSON report carries the
+same field:
+
+```csv
+originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash
+"/repo/src/Foo.cs","/repo/src/Foo.cs",false,"split","","","/repo/src/Bar.cs","Bar","sha256:5f2b0e9c41d7a8366c1e0b94d2f7a3158e6c0d4b9a7f31e2c58d06b4a19e73fc"
+```
+
+The renames phase hashes each file it reads again, and the content phase hashes each file
+the plan marks `split`. Any difference, a changed method
+body, a trailing space, a new line ending, a byte order mark, refuses that file with a
+`skipped` row whose reason starts with `stale plan:`. Nothing is written for it, and the
+other files in the run are unaffected. A `git mv` does not change bytes, so a renamed file
+still matches. The refusal holds until you re-run the plan phase and review the new plan.
+A later run does not apply the file. The refusal row replaces the plan row and
+keeps the planned hash, so renames reports `stale plan:` again and content reports
+`not present as split in plan manifest`.
+
+One case reads oddly. A second content run, or a renames run, over a file content already
+split reports it as `stale plan:`, because content rewrote the kept file. The file is left
+alone.
 
 Blank-line handling uses Roslyn trivia nodes, not raw text. Blank lines inside block comments or `#if` regions belong to a token's trivia text. A text normalizer can corrupt that content, while trivia-level handling preserves it.
 

@@ -15,5 +15,8 @@ Use `agentic-roslyn-tool split-types` to split top-level types into separate fil
 - If the repository enforces SA1649, add `--collision-naming type-first` to every phase, renames included, because renames rewrites the manifest. Two inputs that emit the same file name then get `Shared.A.cs`, not `A.Shared.cs`. A content run whose value differs from the plan skips those files, exits 0, and replaces their plan rows. Run the plan phase again before you retry.
 - Run `--phase renames` with the same input and manifest, then commit the renames.
 - Run `--phase content` with the same input and manifest, then build and test.
+- Do not edit a planned file between phases. Each manifest row carries a `contentHash` of the file's bytes. A file that changed is `skipped` with a reason starting `stale plan:`. Re-run the plan to recover.
+- Exit 3 naming a missing `contentHash` column, from renames or content, means an older version wrote the manifest. Re-run the plan.
+- A `stale plan:` row stays refused until you re-run the plan. Renames also refuses to split a file added to the input after the plan.
 
 See the [recommended workflow](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/README.md#recommended-workflow) for complete commands.
