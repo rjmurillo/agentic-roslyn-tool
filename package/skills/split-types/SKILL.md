@@ -41,7 +41,9 @@ tool), or `dnx AgenticRoslynTool --` (no install). Below, `<tool>` means whichev
      user first. Content rewrites files, and mixed changes are hard to undo.
 5. When `nextArgs` is `null`, check the report before you go on, in this order.
    - Any `skipped` row whose reason starts with `stale plan:` means that file changed
-     after the plan. Nothing was applied to it. Re-run the plan, step 2, and continue.
+     after the plan. Nothing was applied to it. Re-run steps 1 and 2, then continue. Step
+     1 matters: after a committed rename, the old list still names the file's old path,
+     and a plan from it finds nothing to split.
    - `summary.failed` above `0`: read `reason` on each `failed` row, fix the cause, and
      run the same command again. Rows already applied come back `skipped` with a reason
      starting `already applied`.
