@@ -101,6 +101,34 @@ public sealed class FileLocalKeptTypeTests : FileLocalTestBase
     }
 
     [Fact]
+    public void FileAlreadyNamedAsTheKeepRuleWouldNameIt_DoesNotClaimAWithheldRename()
+    {
+        // Foo<T> beside Foo is named Foo{T}.cs, which is this file's name. The keep rule
+        // would not have renamed it, so the note must not say a rename was withheld.
+        var foo = Write("Foo{T}.cs", "namespace Sample;\n\ninternal class Foo<T>\n{\n}\n\ninternal class Foo\n{\n}\n\n" + Helper);
+
+        var row = Assert.Single(Run(Phase.Plan, foo));
+
+        Assert.Equal(("split", "file-local type stayed in this file: WidgetHelper; SA1402 still flags the file"), (row.Status, row.Note));
+    }
+
+    [Fact]
+    public void BuildPlan_CalledAlone_StillRefusesWhatTheSplitterRefusesFirst()
+    {
+        // FileSplitter asks FileLocalTypes before it plans. BuildPlan asks again, so a
+        // second caller cannot plan around a refusal. Extension members are the case no
+        // later check would catch.
+        const string Source = "namespace Sample;\n\ninternal class Alpha\n{\n}\n\ninternal class Caller\n{\n    public int Run() => 3.Thrice();\n}\n\n"
+            + "file static class Numbers\n{\n    public static int Thrice(this int value) => value * 3;\n}\n";
+        var types = FileLocalCompiler.BuildUnchecked(PathOf("Alpha.cs"), Source).Types;
+
+        var plan = SplitPlanner.BuildPlan(PathOf("Alpha.cs"), PathOf("Alpha.cs"), types, planned: null, directiveNote: null, CollisionNaming.FileFirst, Naming);
+
+        Assert.Equal((FileLocalTypes.ExtensionMembersReason, "Numbers declares extension members"), (plan.SkipReason, plan.SkipNote));
+        Assert.Empty(plan.Files);
+    }
+
+    [Fact]
     public void TypeNamedForTheFile_IsKept_EvenWhenAnotherTypeNamesTheFileLocalType()
     {
         // Keeping Gadget would mean moving Widgets out of Widgets.cs, which the keep rule

@@ -506,7 +506,7 @@ Reason text shown in italics is a template; the run substitutes real values.
 | A `file` type and at most one other type | skipped | `nothing to split: file-local types stay in their file and at most one other type is declared` |
 | A `file` type, and text an `#if` excludes anywhere in the file | skipped | `file-local type shares the file with conditionally excluded text; manual split required` |
 | A `file` type declares an extension method or an extension block | skipped | `file-local type declares extension members; manual split required` |
-| A using directive names a `file` type | skipped | `using directive names a file-local type; manual split required` |
+| Any identifier in a using directive equals a `file` type's name | skipped | `using directive names a file-local type; manual split required` |
 | Anything else that throws while handling one input | failed | the exception message |
 
 The four `file` rows apply in the order shown, and the first that holds decides the reason.
@@ -644,8 +644,9 @@ when any of these hold:
 - An output does not start with the required header, when `--require-header` is set.
 - An output does not parse.
 - A type's declaration plus its owned trivia appears in more than one output, or in none.
-  One case expects two: two `file` types written the same way in two namespace blocks
-  both stay in the kept file.
+  For an input that declares a `file` type the count is not fixed at one: each text is
+  expected as often as the input itself holds it, because one declaration's text can sit
+  inside another's in the kept file.
 - The set of top level types across all outputs does not equal the input set.
 - The input declares a `file` type, and no output is written to the path that was read.
   That would be a rename.

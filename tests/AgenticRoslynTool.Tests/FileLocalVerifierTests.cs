@@ -60,7 +60,9 @@ public sealed class FileLocalVerifierTests
 
         var error = Assert.Throws<InvalidOperationException>(() => OutputVerifier.VerifyOutputs(ReadPath, types, outputs, ParseOptions, null));
 
-        Assert.Equal(NamesIt, error.Message);
+        // The moved path comes from Path.Combine, so its separators follow the platform.
+        var moved = Assert.Single(outputs, output => output.Path != ReadPath).Path;
+        Assert.Equal($"{moved} names file-local type AlphaHelper, which stays in {ReadPath}", error.Message);
     }
 
     [Fact]

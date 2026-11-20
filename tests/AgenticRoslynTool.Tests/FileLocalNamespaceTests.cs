@@ -72,4 +72,25 @@ public sealed class FileLocalNamespaceTests : FileLocalTestBase
         Assert.Equal(2, File.ReadAllText(alpha).Split("file class Helper").Length - 1);
         Assert.Empty(FileLocalCompiler.Diagnostics(Compile()));
     }
+
+    [Theory]
+    [InlineData("Helper.cs", "namespace Sample.One\n{\n    file class Helper\n    {\n    }\n\n    internal class Mover\n    {\n    }\n}\n\nnamespace Sample.Two\n{\n    class Helper\n    {\n    }\n}\n")]
+    [InlineData("Alpha.cs", "namespace Sample;\n\ninternal class Alpha\n{\n}\n\nfile class Wrap\n{\n    internal enum Mover { Off, On }\n}\n\ninternal enum Mover { Off, On }\n")]
+    [InlineData("Alpha.cs", "namespace Sample.One\n{\n    internal class Alpha\n    {\n    }\n\n    /// <summary>Helps.</summary>\n    file class Helper\n    {\n    }\n}\n\nnamespace Sample.Two\n{\n    internal class Mover\n    {\n    }\n\n    file class Helper\n    {\n    }\n}\n")]
+    public void OneDeclarationsTextInsideAnothers_StillSplits(string fileName, string source)
+    {
+        // In each input one declaration's text sits inside another's: a class inside the
+        // same-named file-local class, an enum inside a file-local type that nests one
+        // like it, and a helper inside its documented twin. The ownership check counts text, so it must
+        // expect what the input itself holds. Main skipped these whole. They must not fail.
+        var path = Write(fileName, source);
+        Assert.Empty(FileLocalCompiler.Diagnostics(Compile()));
+
+        Run(Phase.Plan, path);
+        var row = Assert.Single(Run(Phase.Content, path));
+
+        Assert.Equal(("split", null), (row.Status, row.Reason));
+        Assert.Equal("Mover", Assert.Single(row.NewFiles).Type);
+        Assert.Empty(FileLocalCompiler.Diagnostics(Compile()));
+    }
 }

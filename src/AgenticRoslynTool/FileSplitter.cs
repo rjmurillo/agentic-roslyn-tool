@@ -488,7 +488,7 @@ internal sealed class FileSplitter
 
         // A file-local type stays where it is. This refuses the inputs no choice of kept
         // type could make safe. BuildPlan refuses the rest, once it knows which types move.
-        if (FileLocalTypes.DescribeRefusal(root, types) is { } fileLocalRefusal)
+        if (FileLocalTypes.DescribeRefusal(types) is { } fileLocalRefusal)
         {
             return FileResult.Skip(originalPath, readPath, fileLocalRefusal.Reason) with { Note = fileLocalRefusal.Note };
         }

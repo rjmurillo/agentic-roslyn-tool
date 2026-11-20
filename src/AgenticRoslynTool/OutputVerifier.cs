@@ -21,7 +21,8 @@ internal static class OutputVerifier
     /// (1) every output starts with the required header when one was requested;
     /// (2) every output is a syntactically valid compilation unit;
     /// (3) each input type's declaration and owned trivia appears exactly once
-    /// across the outputs (never dropped, never duplicated);
+    /// across the outputs (never dropped, never duplicated), or as often as the input
+    /// holds that text when the input declares a <c>file</c> type;
     /// (4) non-whitespace lines are conserved across the split
     /// (see <see cref="VerifyLineConservation"/>);
     /// (5) the set of top-level types in the outputs matches the input set exactly; and
@@ -46,18 +47,22 @@ internal static class OutputVerifier
             }
         }
 
-        // An input declares each text once, except for two file-local types written the
-        // same way in two namespace blocks. Both stay in the kept file, so that text is
-        // expected twice. Ordinary types written the same way share a name and are refused
-        // as a collision before this runs.
-        var declarations = inputTypes.Select(GetTypeOwnedText).ToArray();
-        for (var index = 0; index < inputTypes.Count; index++)
+        // A declaration's text appears once across the outputs. An input with a file-local
+        // type is the exception, because that type shares the kept file with another type.
+        // A second file-local type written the same way stays beside it. An ordinary type's
+        // text can sit inside a file-local type's text, such as `class Helper { }` inside
+        // `file class Helper { }`. So for such an input each text is expected as often as
+        // the input itself holds it, counted the same way on both sides.
+        var sourceText = inputTypes[0].Node.SyntaxTree.GetText().ToString();
+        var hasFileLocal = inputTypes.Any(t => t.HasFileModifier);
+        foreach (var inputType in inputTypes)
         {
-            var expected = declarations.Count(text => StringComparer.Ordinal.Equals(text, declarations[index]));
-            var count = outputs.Sum(o => CountOccurrences(o.Text, declarations[index]));
+            var declaration = GetTypeOwnedText(inputType);
+            var expected = hasFileLocal ? CountOccurrences(sourceText, declaration) : 1;
+            var count = outputs.Sum(o => CountOccurrences(o.Text, declaration));
             if (count != expected)
             {
-                throw new InvalidOperationException($"{readPath}: declaration and owned trivia for {inputTypes[index].Key} appears {count} times across outputs");
+                throw new InvalidOperationException($"{readPath}: declaration and owned trivia for {inputType.Key} appears {count} times across outputs, expected {expected}");
             }
         }
 
@@ -121,7 +126,7 @@ internal static class OutputVerifier
     /// dropped source line.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Thrown when a non-whitespace input line is not preserved across the outputs, or when an output line that was not in the prologue appears more times in the outputs than in the input.</exception>
-    internal static void VerifyLineConservation(string originalPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs)
+    internal static void VerifyLineConservation(string readPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs)
     {
         var sourceText = inputTypes[0].Node.SyntaxTree.GetText().ToString();
         var prologueLines = GetPrologueLines(sourceText, inputTypes);
@@ -133,7 +138,7 @@ internal static class OutputVerifier
             outputLines.TryGetValue(line, out var outputCount);
             if (outputCount < count)
             {
-                throw new InvalidOperationException($"{originalPath}: non-whitespace line was dropped: {line}");
+                throw new InvalidOperationException($"{readPath}: non-whitespace line was dropped: {line}");
             }
         }
 
@@ -142,7 +147,7 @@ internal static class OutputVerifier
             originalLines.TryGetValue(line, out var originalCount);
             if (count > originalCount && !prologueLines.Contains(line))
             {
-                throw new InvalidOperationException($"{originalPath}: non-prologue line was duplicated: {line}");
+                throw new InvalidOperationException($"{readPath}: non-prologue line was duplicated: {line}");
             }
         }
     }

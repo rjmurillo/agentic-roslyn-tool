@@ -59,16 +59,17 @@ internal static class FileLocalTypes
     /// with no <c>file</c> type, and for one that <see cref="PlanAround"/> must still
     /// clear.
     /// </summary>
-    /// <param name="root">The parsed input.</param>
     /// <param name="types">Every top-level type in the input, in source order.</param>
     /// <returns>The skip reason and a note that names the type involved, or null.</returns>
-    internal static (string Reason, string? Note)? DescribeRefusal(CompilationUnitSyntax root, IReadOnlyList<TopLevelType> types)
+    internal static (string Reason, string? Note)? DescribeRefusal(IReadOnlyList<TopLevelType> types)
     {
         var fileLocal = types.Where(t => t.HasFileModifier).ToArray();
         if (fileLocal.Length == 0)
         {
             return null;
         }
+
+        var root = fileLocal[0].Node.SyntaxTree.GetCompilationUnitRoot();
 
         if (types.Count - fileLocal.Length < 2)
         {
@@ -96,29 +97,24 @@ internal static class FileLocalTypes
     /// a type that would move names a <c>file</c> type, or writes the note for the row.
     /// </summary>
     /// <remarks>
-    /// The type the keep rule chose stands whenever the file is named for it, by its
-    /// simple name or under the naming convention. Otherwise the keep rule only took the
-    /// first type, and the one ordinary type that names a <c>file</c> type is kept
-    /// instead. That is safe because such a type can never move: keeping it turns a
+    /// The type the keep rule chose stands whenever the rule chose it for its name.
+    /// Otherwise the keep rule only took the first type, and the one ordinary type that
+    /// names a <c>file</c> type is kept instead. That is safe because such a type can never move: keeping it turns a
     /// refusal into a split whose every moved type still passes the same scan. With two
     /// such types one of them would have to move, so the first choice stands and the
     /// input is refused.
     /// </remarks>
     /// <param name="byRule">The type the keep rule chose among the ordinary types.</param>
-    /// <param name="ownsFileName">True when the file is already named for <paramref name="byRule"/>, so the keep rule plans no rename.</param>
-    /// <param name="baseName">The input's file name without its extension.</param>
+    /// <param name="namedForFile">True when the keep rule chose <paramref name="byRule"/> for its name. False when it only took the first type.</param>
+    /// <param name="renameWithheld">True when the keep rule would have renamed the file. The note then says the file keeps its name.</param>
     /// <param name="ordinary">The types declared without the <c>file</c> modifier.</param>
     /// <param name="fileLocal">The types declared with it.</param>
     /// <returns>
     /// The kept type, then the note for a split row or null, then null or the note for a
     /// row skipped with <see cref="MovedTypeReason"/>.
     /// </returns>
-    internal static (TopLevelType Keep, string? Note, string? Refusal) PlanAround(TopLevelType byRule, bool ownsFileName, string baseName, IReadOnlyList<TopLevelType> ordinary, IReadOnlyList<TopLevelType> fileLocal)
+    internal static (TopLevelType Keep, string? Note, string? Refusal) PlanAround(TopLevelType byRule, bool namedForFile, bool renameWithheld, IReadOnlyList<TopLevelType> ordinary, IReadOnlyList<TopLevelType> fileLocal)
     {
-        // Under the metadata convention a generic type matched by its simple name does not
-        // own the file name, yet the keep rule still chose it for that name. Only the plain
-        // fallback to the first type may be replaced.
-        var namedForFile = ownsFileName || StringComparer.OrdinalIgnoreCase.Equals(byRule.Name, baseName);
         var keep = namedForFile ? byRule : ChooseNaming(byRule, ordinary, fileLocal);
         foreach (var type in ordinary.Where(t => !ReferenceEquals(t, keep)))
         {
@@ -128,7 +124,7 @@ internal static class FileLocalTypes
             }
         }
 
-        return (keep, DescribeStay(keep, fileLocal, renameWithheld: !ownsFileName), null);
+        return (keep, DescribeStay(keep, fileLocal, renameWithheld), null);
     }
 
     /// <summary>

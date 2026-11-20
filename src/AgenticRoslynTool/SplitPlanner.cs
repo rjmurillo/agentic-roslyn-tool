@@ -253,11 +253,12 @@ internal static class SplitPlanner
         // file whatever the plan decides, so the plan is made over the ordinary types.
         var fileLocal = types.Where(t => t.HasFileModifier).ToArray();
         var candidates = fileLocal.Length == 0 ? types : types.Where(t => !t.HasFileModifier).ToArray();
-        if (fileLocal.Length != 0 && candidates.Count < 2)
+        if (FileLocalTypes.DescribeRefusal(types) is { } fileLocalRefusal)
         {
-            // FileLocalTypes.DescribeRefusal refuses this input first. Asked again here so
-            // this method never picks a kept type from an empty list.
-            return new SplitPlan(types[0], originalPath, false, null, FileLocalTypes.NothingToSplitReason, Array.Empty<PlannedFile>());
+            // FileSplitter asks this first, so a real run never reaches here. Asked again
+            // so this method is safe to call alone: every refusal for a file-local type
+            // holds here too, and a kept type is never picked from an empty list.
+            return new SplitPlan(types[0], originalPath, false, null, fileLocalRefusal.Reason, Array.Empty<PlannedFile>(), SkipNote: fileLocalRefusal.Note);
         }
 
         var (keep, keepOwnsFileName) = ChooseKept(candidates, baseName, convention);
@@ -270,7 +271,13 @@ internal static class SplitPlanner
             // No rename, in any phase: the compiler builds a file-local type's metadata
             // name from the file's name, so a rename is a behavior change. The kept path
             // stays the input path and gitMove stays false.
-            (keep, note, var dependency) = FileLocalTypes.PlanAround(keep, keepOwnsFileName, baseName, candidates, fileLocal);
+            // The keep rule chose a type for its name whenever the simple name matches,
+            // even where the metadata convention says it does not own the file name. And
+            // the rule would have renamed the file only when its name for the kept type
+            // differs from the name the file has.
+            var namedForFile = keepOwnsFileName || StringComparer.OrdinalIgnoreCase.Equals(keep.Name, baseName);
+            var renameWithheld = !keepOwnsFileName && !StringComparer.OrdinalIgnoreCase.Equals(OutputBuilder.GetFileName(keep, candidates, convention), Path.GetFileName(originalPath));
+            (keep, note, var dependency) = FileLocalTypes.PlanAround(keep, namedForFile, renameWithheld, candidates, fileLocal);
             if (dependency is not null)
             {
                 return new SplitPlan(keep, keptPath, gitMove, null, FileLocalTypes.MovedTypeReason, Array.Empty<PlannedFile>(), SkipNote: dependency);

@@ -3,8 +3,8 @@
 To verify a mechanical C# refactor, check four things. Every non-whitespace line survives
 (line conservation). Each type's doc comment and attributes land exactly once (trivia
 ownership). Every output still parses. A Roslyn scan of top-level types is identical before
-and after. `split-types` runs the first three, plus a per-file type set check, for each
-file before it writes anything. The repository-wide scan is a step you run yourself.
+and after. `split-types` runs the first three, plus a per-file type set check and a `file` type
+check, for each file before it writes anything. The repository-wide scan is a step you run yourself.
 
 This page is for the reviewer who has to approve a diff that touches hundreds of files. It
 explains what each check proves and what it does not. For the exact contract of each guard,
@@ -60,7 +60,7 @@ across all outputs. The count must be exactly 1. Zero means the type was dropped
 more means it was duplicated. Either fails the file:
 
 ```text
-<input path>: declaration and owned trivia for <type> appears <count> times across outputs
+<input path>: declaration and owned trivia for <type> appears <count> times across outputs, expected <count>
 ```
 
 An ordinary `//` comment above a type that has no doc comment is outside the owned span.

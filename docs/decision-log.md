@@ -1224,7 +1224,9 @@ The split is on by default and has no flag.
     name at the call site: `foreach`, `await`, deconstruction, collection initializers,
     and query syntax all do it. No name scan can see that.
   - A using directive names a `file` type, as an alias or with `using static`. Every
-    output repeats every using directive, and rule 1 forbids pruning them.
+    output repeats every using directive, and rule 1 forbids pruning them. The check is by
+    name, like the scan: any identifier in a using directive counts, so `using
+    System.Text.Json;` beside `file class Json` is refused too.
   - The input holds text a preprocessor directive excludes. The tool parses with no
     symbols defined, so a scan cannot read that text.
   - The input declares at most one ordinary type. Nothing can move.
@@ -1240,20 +1242,22 @@ The split is on by default and has no flag.
 - A `file` type may sit at any namespace depth. Decision 29 made every such type a type
   the tool places and scans, so no rule here depends on depth.
 
-The maintainer's brief named the first two refusals in that list. The other two were
-added while building this, and the maintainer had not ruled on them when this was
-written: excluded text, and nothing to split. So were three more things. The note
+The maintainer's brief named the first two refusals in that list. The other two go
+beyond the brief: excluded text, and nothing to split. So do three more things. The note
 scopes its SA1402 claim, as above. The SA1402 guide said a `file` type is exempt from
 SA1402, and finding 1 says it is not, so the guide now says so. And `OutputVerifier`
-expected each declaration's text once across the outputs. Two `file` types written the
-same way in two namespace blocks both stay in the kept file, so it now expects that text
-as many times as the input declares it. The kept type exception was allowed by the brief, not required.
+expected each declaration's text once across the outputs. A `file` type shares the kept
+file with another type, so one text can now hold another: two `file` types written the
+same way, or `class Helper { }` inside `file class Helper { }`. For an input with a `file`
+type the check now expects each text as often as the input holds it. Other inputs still
+expect one. The kept type exception was allowed by the brief, not required.
 
 **Why a name scan is enough.** Leaving the file changes two lookups for a moved type:
 lookup of a simple name, and lookup of extension members. Three compiler rules close the
 other paths, and each was observed in the same scratch build. CS9051 forbids a `file` type
 in the signature of a member of an ordinary type. CS9053 forbids one as the base of an
-ordinary type. CS9071 forbids two types of one name in one file. So a moved type can only
+ordinary type. CS9071 forbids two types of one name in one namespace of one file. Two namespace blocks
+of one file may each hold a type of that name, and the name scan refuses a moved one. So a moved type can only
 reach a `file` type by writing its name in a body, an attribute, an interface list, or a
 comment. A binding made through a symbol is not a lookup by name. A `file` class named in a
 `CollectionBuilder` attribute was still bound from another file. That is one observation,
@@ -1268,7 +1272,8 @@ not know the sets.
 
 **Consequences.** This is a breaking change to default results. A file that was `skipped`
 with `contains file-local type; manual split required` is now `split`, or `skipped` with
-one of five new reasons. That old reason is gone. When the kept type is a class or record,
+one of five new reasons, or with any reason that applies to an ordinary input, such as a
+`#region` over two types. That old reason is gone. When the kept type is a class or record,
 one SA1402 warning stays for each `file` class or record, and a person must suppress it. The scan is conservative,
 so some safe inputs are skipped: a moved type that merely has a member named like the
 `file` type, and any input with an `#if` branch the parse excludes. How many inputs each
@@ -1278,8 +1283,8 @@ One hole is known and is not closed here. A `file` modifier inside an excluded `
 branch is never seen, so that type is planned as an ordinary one. `AGENTS.md` lists it
 under known issues.
 
-**Reversal warning.** Each item below was tested by removing it and compiling what the
-split would then write.
+**Reversal warning.** The first six items were each tested by removing the rule and
+compiling what the split would then write. Tests pin the last three without a compile.
 
 - Let the keep rule rename the file, and the `file` type's metadata name changes with no
   error. Reflection, logs, and serialized type names all read that name.

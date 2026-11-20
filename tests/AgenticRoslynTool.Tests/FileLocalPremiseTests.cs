@@ -16,7 +16,7 @@ public sealed class FileLocalPremiseTests : FileLocalTestBase
     {
         // CS9051: no file-local type in the signature of an ordinary type's member.
         // CS9053: no file-local type as the base of an ordinary type.
-        // CS9071: no two types of one name in one file.
+        // CS9071: no two types of one name in one namespace of one file.
         var compilation = FileLocalCompiler.Compile([(PathOf("Alpha.cs"), "namespace Sample;\n\n" + types)]);
 
         Assert.Contains(FileLocalCompiler.Diagnostics(compilation), d => d.StartsWith(diagnostic + " ", StringComparison.Ordinal));

@@ -350,7 +350,8 @@ The tool skips the file when it cannot prove the split is safe. It never guesses
 * **A `file` type declares extension methods or an extension block.** Code can call these
   without naming the class, so no check by name can find the callers.
 * **A `using` alias or `using static` names a `file` type.** Every new file repeats the
-  using directives, and the new file cannot see the type.
+  using directives, and the new file cannot see the type. The check is by name, so a
+  namespace segment that equals the type's name refuses the file too.
 * **The file has an `#if` branch that is excluded.** The tool cannot read excluded text.
 * **The file has only one other type.** There is nothing to move. The SA1402 warning on
   such a file was there before, and you suppress it the same way.

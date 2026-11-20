@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 42 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 415 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 420 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -40,7 +40,7 @@ Every source file, so you do not have to open one to find out whether it matters
 
 | File | Responsibility |
 |---|---|
-| `FileSplitter.cs` | The orchestrator. Runs a phase over the inputs and turns one input into one result row. Delegates the actual work to the six types below it, and the plan binding to `PlanBinding.cs`. Read this first. |
+| `FileSplitter.cs` | The orchestrator. Runs a phase over the inputs and turns one input into one result row. Delegates the actual work to `InputSource`, `SplitPlanner`, `DirectiveAnalyzer`, `FileLocalTypes`, `OutputBuilder`, `OutputVerifier`, and `WorkspaceWriter`, and the plan binding to `PlanBinding.cs`. Read this first. |
 | `InputSource.cs` | Turns whatever the caller supplied, a directory, a list file, a manifest, standard input, into an ordered list of absolute paths. |
 | `SplitPlanner.cs` | Decides what a split would do: which type stays, where each moved type lands, which inputs collide, which path a phase reads. Does not act. |
 | `DirectiveAnalyzer.cs` | Decides whether preprocessor directives make a split unsafe. Returns a verdict, never acts on one. |
@@ -91,7 +91,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 415 passed, 0 failed
+dotnet test  -c Release      # must be 420 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
