@@ -24,19 +24,20 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 31 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 113 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 33 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 168 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
 | `package/AGENTS.md` | Agent instructions packed at the NuGet package root. |
 | `.github/workflows/ci.yml` | The CI gate. Build and test on push and pull request. |
+| `.qualityrc.json` | One waiver for a local review scanner some agents run. Not read by the build or by CI. |
 
 Every source file, so you do not have to open one to find out whether it matters:
 
 | File | Responsibility |
 |---|---|
-| `FileSplitter.cs` | The orchestrator. Runs a phase over the inputs and turns one input into one result row. Delegates the actual work to the six types below it. Read this first. |
+| `FileSplitter.cs` | The orchestrator. Runs a phase over the inputs and turns one input into one result row. Delegates the actual work to the six types below it, and the plan binding to `PlanBinding.cs`. Read this first. |
 | `InputSource.cs` | Turns whatever the caller supplied, a directory, a list file, a manifest, standard input, into an ordered list of absolute paths. |
 | `SplitPlanner.cs` | Decides what a split would do: which type stays, where each moved type lands, which inputs collide, which path a phase reads. Does not act. |
 | `DirectiveAnalyzer.cs` | Decides whether preprocessor directives make a split unsafe. Returns a verdict, never acts on one. |
@@ -66,6 +67,8 @@ Every source file, so you do not have to open one to find out whether it matters
 | `FileResult.cs` | One manifest row. Owns the `split`, `skipped`, `failed` status vocabulary. |
 | `NewFileResult.cs` | One created file inside a manifest row. |
 | `ManifestWriter.cs` | Reads and writes the CSV manifest that carries state between phases. |
+| `ContentHash.cs` | Computes and compares the `sha256:` content hash a manifest row carries for its input. Owns the `stale plan:` refusal text. |
+| `PlanBinding.cs` | Binds the rows renames and content write to the plan manifest they read. Carries the planned hash and refuses a stale file. Decides, never acts. |
 | `CsvFieldReader.cs` | Quote aware CSV field parsing for the manifest and for CSV inputs. |
 
 The tool splits itself cleanly. Running it over `src/AgenticRoslynTool/` reports every file
@@ -76,7 +79,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 113 passed, 0 failed
+dotnet test  -c Release      # must be 168 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -149,6 +152,16 @@ weight.
     employer's copyright text and one repository's directory layout. Both made the tool
     useless everywhere else.
 
+12. **A run that starts a plan records content hashes. Every later phase only carries and
+    compares them.** Every manifest row for a file the plan read carries the SHA-256 of
+    the input's raw bytes. The content phase refuses a file whose bytes differ. The renames phase renames only a
+    file the manifest marks `split` whose bytes match. A manifest with no `contentHash`
+    column ends a renames or content run with exit 3. Never add a fallback to the
+    structural check, never hash decoded text, and never let renames or content write a
+    hash it computed: each row copies the hash of the manifest row it replaces, on every
+    status and every exit. Review found a launder path through each exit that forgot
+    this. The `ContentHash*Tests` classes pin all of it. See decision 22.
+
 ## Conventions for anything you write
 
 [CONTRIBUTING.md](CONTRIBUTING.md) owns the commit and style rules. The two that agents
@@ -172,6 +185,24 @@ agent does not pay again.
   travels with its type, put the comment immediately above the type declaration.
 - **The content phase overwrites the plan manifest** when both use the default path. Pass
   an explicit `--manifest` if you want to keep the plan for comparison.
+- **A test that edits a file between plan and content now gets `stale plan:`, not the
+  reason you were aiming for.** The hash check runs first. To reach a later guard, such as
+  the structural mismatch, leave the source alone and edit the manifest row instead.
+- **A renames test with a manifest on disk is now held to it.** A file the manifest does
+  not mark `split`, or has no row for, is refused. Delete the manifest, or plan first, if
+  the test wants renames to plan afresh.
+- **The renames phase needs a tracked file, not a commit.** `git init` and `git add` are
+  enough for `git mv`, so a test needs no author identity on the machine. See the helper
+  in `ContentHashTestBase`.
+- **A local size scanner gates new test files, and one of its scores is waived for tests.**
+  One review toolkit scores files by line counts. Split a test class before it fails
+  that gate: the content hash tests are eight classes for that reason, seven of them over
+  `ContentHashTestBase`, and each passes the cohesion and coupling scores as written. The repeated line
+  score is the exception. It counts `[Fact]`, `{`, and `}` as duplicates, so a class of
+  four short tests with no repeated statement scores 7.8 against a floor of 8.
+  `.qualityrc.json` lowers that one floor to 6.5 for test files only. Every other value in
+  it restates a scanner default, including the scanner's own floor of 3 for test
+  testability. Do not lower another floor to get a file through.
 - **The content phase never reruns the cross file collision pass.** It takes every output
   path from the manifest. So `--collision-naming` would be ignored there without the check
   in `SplitPlanner.BuildPlan` that refuses a row the plan resolved under the other value.
@@ -255,14 +286,17 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   to the plan path, so a content run that fails a row replaces its `split` plan with
   `failed`, and a retry answers `not present as split in plan manifest`. Recovery is to
   re-run the plan phase. See the decision log for why this waits on a decision.
+- A second content run, or a renames run, over a file content already split reports it as
+  `stale plan:`. The first run rewrote the kept file, so its bytes differ from the plan,
+  and the tool cannot tell its own write from an outside edit. The file is left alone.
+  Telling the two apart needs the content phase to record what it wrote, which belongs
+  with the decision about what the manifest means after a content run.
 - `CsvFieldReader` exists, but not for the reason previously recorded here. The claim was
   that `Microsoft.VisualBasic.FileIO.TextFieldParser` forces a Windows only target. That
   was tested on this machine and is false: it compiles and parses quoted commas correctly
   on plain `net10.0`. The custom reader is kept because it works, is covered by seven
   tests, and carries no dependency on a Visual Basic compatibility API. Replacing it with
   `TextFieldParser` is a legitimate simplification nobody has measured on Linux.
-- A stale plan manifest is detected structurally only. The manifest records paths and type
-  names, not a content hash, so an edit that preserves both passes the mismatch check.
 
 ## Where to record what you learn
 
