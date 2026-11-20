@@ -19,7 +19,11 @@ namespace AgenticRoslynTool;
 /// Empty by default: the tool ships with no opinion about which directories are generated.
 /// </param>
 /// <param name="Json">When true, the run prints a single JSON report to standard output instead of CSV.</param>
-internal sealed record Options(string InputPath, string ManifestPath, string RepoRoot, Phase Phase, string? RequiredHeader, IReadOnlyList<string>? Excludes = null, bool Json = false)
+/// <param name="CollisionNaming">
+/// How two outputs that collide across input files are qualified. Changes planned paths, so
+/// the plan, renames, and content runs of one split must all be given the same value.
+/// </param>
+internal sealed record Options(string InputPath, string ManifestPath, string RepoRoot, Phase Phase, string? RequiredHeader, IReadOnlyList<string>? Excludes = null, bool Json = false, CollisionNaming CollisionNaming = CollisionNaming.FileFirst)
 {
     /// <summary>
     /// Parses the raw argument array into an <see cref="Options"/> instance, resolving
@@ -36,6 +40,7 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
         string? requiredHeader = null;
         var excludes = new List<string>();
         var json = false;
+        var collisionNaming = CollisionNaming.FileFirst;
         string repoRoot = Directory.GetCurrentDirectory();
         var phase = Phase.Content;
         var dryRun = false;
@@ -71,6 +76,9 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
                 case "--json":
                     json = true;
                     break;
+                case "--collision-naming":
+                    collisionNaming = ParseCollisionNaming(RequireValue(args, ref i, "--collision-naming"));
+                    break;
 
                 // --help is handled by the caller before parsing, so asking for help never
                 // depends on the rest of the command line. Parsing must not print or exit:
@@ -94,7 +102,7 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
 
         var inputPath = input == StdinPath ? StdinPath : Path.GetFullPath(input);
         manifest ??= Path.Combine(DefaultManifestDirectory(inputPath, repoRoot), "sa1402-split-manifest.csv");
-        return new Options(inputPath, Path.GetFullPath(manifest), Path.GetFullPath(repoRoot), phase, requiredHeader, excludes, json);
+        return new Options(inputPath, Path.GetFullPath(manifest), Path.GetFullPath(repoRoot), phase, requiredHeader, excludes, json, collisionNaming);
     }
 
     /// <summary>The <c>--input</c> value that means "read newline-delimited paths from standard input".</summary>
@@ -102,7 +110,7 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
 
     /// <summary>Options that consume the token after them, so that token is a value and never a flag.</summary>
     private static readonly string[] ValueOptions =
-        ["--input", "--manifest", "--repo-root", "--phase", "--require-header", "--exclude"];
+        ["--input", "--manifest", "--repo-root", "--phase", "--require-header", "--exclude", "--collision-naming"];
 
     /// <summary>
     /// True when any of <paramref name="names"/> appears in an option position.
@@ -169,6 +177,16 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
             "renames" => Phase.Renames,
             "content" => Phase.Content,
             _ => throw new ArgumentException($"Unknown phase: {value}"),
+        };
+    }
+
+    private static CollisionNaming ParseCollisionNaming(string value)
+    {
+        return value.ToLowerInvariant() switch
+        {
+            "file-first" => CollisionNaming.FileFirst,
+            "type-first" => CollisionNaming.TypeFirst,
+            _ => throw new ArgumentException($"Unknown collision naming: {value}. Use file-first or type-first."),
         };
     }
 }

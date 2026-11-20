@@ -19,4 +19,8 @@ namespace AgenticRoslynTool;
 /// manifest handed to the content phase. These refusals are load-bearing.
 /// </param>
 /// <param name="Files">One planned output file per type the split will produce.</param>
-internal sealed record SplitPlan(TopLevelType Keep, string KeptPath, bool GitMove, string? Note, string? SkipReason, IReadOnlyList<PlannedFile> Files);
+/// <param name="SkipNote">
+/// Optional detail for the skipped row's note column, for a refusal whose reason alone does
+/// not say what to do next. <see cref="Note"/> is not copied onto a skipped row.
+/// </param>
+internal sealed record SplitPlan(TopLevelType Keep, string KeptPath, bool GitMove, string? Note, string? SkipReason, IReadOnlyList<PlannedFile> Files, string? SkipNote = null);

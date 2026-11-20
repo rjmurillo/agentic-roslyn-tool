@@ -102,7 +102,7 @@ internal sealed class FileSplitter
             results.Add(Process(path, Phase.Plan, null));
         }
 
-        return SplitPlanner.ResolvePlannedOutputCollisions(results);
+        return SplitPlanner.ResolvePlannedOutputCollisions(results, _options.CollisionNaming);
     }
 
     /// <summary>
@@ -344,10 +344,11 @@ internal sealed class FileSplitter
             return FileResult.Skip(originalPath, readPath, directiveSafety.Reason ?? "contains unsafe directive; manual split required");
         }
 
-        var plan = SplitPlanner.BuildPlan(originalPath, readPath, types, planned, directiveNote: directiveSafety.Note);
+        var plan = SplitPlanner.BuildPlan(originalPath, readPath, types, planned, directiveNote: directiveSafety.Note, collisionNaming: _options.CollisionNaming);
         if (plan.SkipReason is not null)
         {
-            return FileResult.Skip(originalPath, plan.KeptPath, plan.SkipReason);
+            var skipped = FileResult.Skip(originalPath, plan.KeptPath, plan.SkipReason);
+            return plan.SkipNote is null ? skipped : skipped with { Note = plan.SkipNote };
         }
 
         if (DirectiveAnalyzer.ProducesEmptyDirectiveShell(root, types, plan))
