@@ -19,6 +19,9 @@ internal sealed class WorkspaceWriter
     /// <summary>How long one <c>git mv</c> may run before the tool kills it.</summary>
     internal static readonly TimeSpan DefaultGitTimeout = TimeSpan.FromMinutes(2);
 
+    // Bounds every wait on a git that already exited or was killed.
+    private static readonly TimeSpan StreamDrainLimit = TimeSpan.FromSeconds(5);
+
     private readonly string _repoRoot;
     private readonly TimeSpan _gitTimeout;
 
@@ -97,24 +100,75 @@ internal sealed class WorkspaceWriter
         }
     }
 
-    /// <summary>Runs <c>git mv</c> from the configured repository root and throws with stderr and stdout attached on failure.</summary>
+    /// <summary>
+    /// Runs <c>git mv</c> from the configured repository root and throws with stderr and stdout attached on failure.
+    /// </summary>
+    /// <remarks>
+    /// Each path is its own argument, so no quote or backslash in a file name can be read as
+    /// argument syntax. The <c>--</c> keeps a path from being read as an option. Both output
+    /// streams are drained while git runs, so a full pipe cannot stall it. A git that runs
+    /// past the time limit is killed with its children, and every wait after the kill is
+    /// bounded too, so a stuck descendant holding a pipe cannot hang the run.
+    /// </remarks>
     /// <exception cref="InvalidOperationException">Thrown when the git process cannot be started or exits with a non-zero code.</exception>
+    /// <exception cref="TimeoutException">Thrown when git does not exit within the time limit and is killed.</exception>
     internal void RunGitMove(string source, string target)
     {
-        var psi = new ProcessStartInfo("git", $"mv \"{source}\" \"{target}\"")
+        var psi = new ProcessStartInfo("git")
         {
             WorkingDirectory = _repoRoot,
             RedirectStandardError = true,
             RedirectStandardOutput = true,
             UseShellExecute = false,
         };
+        psi.ArgumentList.Add("mv");
+        psi.ArgumentList.Add("--");
+        psi.ArgumentList.Add(source);
+        psi.ArgumentList.Add(target);
+
         using var process = Process.Start(psi) ?? throw new InvalidOperationException("failed to start git mv");
-        process.WaitForExit();
+        var error = process.StandardError.ReadToEndAsync();
+        var output = process.StandardOutput.ReadToEndAsync();
+        if (!process.WaitForExit(_gitTimeout))
+        {
+            Kill(process);
+            throw new TimeoutException(
+                $"git mv did not exit within {_gitTimeout.TotalSeconds} seconds and was killed. " +
+                "A killed git can leave an index.lock file in the repository's git directory. " +
+                "Remove it before the next run.");
+        }
+
         if (process.ExitCode != 0)
         {
-            throw new InvalidOperationException("git mv failed: " + process.StandardError.ReadToEnd() + process.StandardOutput.ReadToEnd());
+            try
+            {
+                Task.WaitAll([error, output], StreamDrainLimit);
+            }
+            catch (AggregateException)
+            {
+                // A failed read leaves that stream out of the message. The exit code still fails the row.
+            }
+
+            throw new InvalidOperationException("git mv failed: " + Drained(error) + Drained(output));
         }
     }
+
+    // Kill can throw when the process exits on its own between the timed wait and the
+    // kill. That race still ends in a dead process, so the timeout message stands.
+    private static void Kill(Process process)
+    {
+        try
+        {
+            process.Kill(entireProcessTree: true);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+        }
+
+        process.WaitForExit(StreamDrainLimit);
+    }
+
+    private static string Drained(Task<string> stream) => stream.IsCompletedSuccessfully ? stream.Result : string.Empty;
 
     /// <summary>
     /// Writes the text to disk, preserving the source encoding and BOM. When the
