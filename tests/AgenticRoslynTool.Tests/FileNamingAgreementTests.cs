@@ -5,32 +5,39 @@ using Xunit;
 namespace AgenticRoslynTool.Tests;
 
 // The convention shapes planned paths, so every phase has to use the same one. The content
-// phase refuses a plan it could not have made. The renames phase replays no manifest, so it
-// cannot see a disagreement; the last test pins that limit.
+// phase refuses a plan made under the other one. The renames phase replays no manifest, so
+// it cannot see a disagreement; the last test pins that limit.
 public sealed class FileNamingAgreementTests
 {
+    private const string MismatchReason = "content phase plan does not match manifest";
     private const string FooWithBar = "namespace N;\n\npublic class Foo<T>\n{\n}\n\npublic class Bar\n{\n}\n";
 
     [Theory]
-    [InlineData(FileNamingConvention.Metadata, FileNamingConvention.StyleCop, "Foo`1.cs", "Foo.cs")]
-    [InlineData(FileNamingConvention.StyleCop, FileNamingConvention.Metadata, "Foo.cs", "Foo`1.cs")]
-    public void ContentPhase_RefusesAPlanMadeUnderTheOtherConvention(object planNaming, object contentNaming, string manifestName, string computedName)
+    [InlineData("metadata", "stylecop", "Foo`1.cs", "Foo.cs")]
+    [InlineData("stylecop", "metadata", "Foo.cs", "Foo`1.cs")]
+    public void ContentPhase_RefusesAPlanMadeUnderTheOtherConvention(string planValue, string contentValue, string manifestName, string computedName)
     {
+        // Strings, not the enum: the enum is internal and a public test method cannot take it.
+        var planNaming = Options.Parse(["--input", "list.txt", "--file-naming", planValue]).FileNaming;
+        var contentNaming = Options.Parse(["--input", "list.txt", "--file-naming", contentValue]).FileNaming;
+
         // Only the moved file's name differs here; the kept path and the git move flag
-        // agree. The content phase substitutes manifest paths before it compares, so this
-        // is the case that slips through unless computed paths are compared as well.
+        // agree. The content phase writes the manifest's paths, so this is the case that
+        // slips through unless the other convention's name is recognized.
         using var ws = new TempWorkspace();
         var source = ws.WriteFile("A.cs", FileNamingRuns.AWithGenericFoo);
         var listPath = ws.WriteInputList(source);
 
-        var result = Assert.Single(FileNamingRuns.RunPlanThenContent(ws, listPath, Path.Combine(ws.Root, "m.csv"), (FileNamingConvention)planNaming, (FileNamingConvention)contentNaming));
+        var result = Assert.Single(FileNamingRuns.RunPlanThenContent(ws, listPath, Path.Combine(ws.Root, "m.csv"), planNaming, contentNaming));
 
-        // The reason names both paths. The skipped row replaces the plan row, so the reason
-        // is the only place the disagreeing manifest path survives.
+        // The reason is shared with ordinary plan drift, so the note has to name the cause.
+        // The skipped row replaces the plan row, so the note is also the only place the
+        // manifest's path survives.
         Assert.Equal("skipped", result.Status);
+        Assert.Equal(MismatchReason, result.Reason);
         Assert.Equal(
-            $"content phase plan does not match manifest: manifest has {Path.Combine(ws.Root, manifestName)}, this run computes {Path.Combine(ws.Root, computedName)}",
-            result.Reason);
+            $"manifest path {Path.Combine(ws.Root, manifestName)} is the --file-naming {planValue} name and this run used {contentValue}, which computes {Path.Combine(ws.Root, computedName)}; run the plan phase again and pass one value to every phase",
+            result.Note);
         Assert.Equal(FileNamingRuns.AWithGenericFoo, File.ReadAllText(source));
         Assert.Equal(new[] { "A.cs" }, FileNamingRuns.CsFiles(ws));
     }
@@ -47,9 +54,8 @@ public sealed class FileNamingAgreementTests
         var result = Assert.Single(FileNamingRuns.RunPlanThenContent(ws, listPath, Path.Combine(ws.Root, "m.csv"), FileNamingConvention.StyleCop, FileNamingConvention.Metadata));
 
         Assert.Equal("skipped", result.Status);
-        Assert.Equal(
-            $"content phase plan does not match manifest: manifest keeps {source}, this run keeps {Path.Combine(ws.Root, "Foo`1.cs")}",
-            result.Reason);
+        Assert.Equal(MismatchReason, result.Reason);
+        Assert.Equal($"manifest keeps {source}, this run keeps {Path.Combine(ws.Root, "Foo`1.cs")}", result.Note);
         Assert.Equal(FooWithBar, File.ReadAllText(source));
         Assert.Equal(new[] { "Foo.cs" }, FileNamingRuns.CsFiles(ws));
     }
@@ -59,7 +65,7 @@ public sealed class FileNamingAgreementTests
     {
         // Plan and renames under metadata move Foo.cs to Foo`1.cs. A content run without
         // the flag would keep Foo.cs. The skipped row records that computed path, so the
-        // reason has to carry the path the manifest held, which is where the file now is.
+        // note has to carry the path the manifest held, which is where the file now is.
         using var ws = new TempWorkspace();
         var source = ws.WriteFile("Foo.cs", FooWithBar);
         var listPath = ws.WriteInputList(source);
@@ -73,16 +79,17 @@ public sealed class FileNamingAgreementTests
         var result = Assert.Single(FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Content, FileNamingConvention.StyleCop));
 
         Assert.Equal("skipped", result.Status);
-        Assert.Equal(
-            $"content phase plan does not match manifest: manifest keeps {renamedPath}, this run keeps {source}",
-            result.Reason);
+        Assert.Equal(MismatchReason, result.Reason);
+        Assert.Equal($"manifest keeps {renamedPath}, this run keeps {source}", result.Note);
         Assert.Equal(FooWithBar, File.ReadAllText(renamedPath));
         Assert.Equal(new[] { "Foo`1.cs" }, FileNamingRuns.CsFiles(ws));
     }
 
     [Fact]
-    public void ContentPhase_RefusesAManifestPathNoPlanCouldHoldEvenWhenItIsFree()
+    public void ContentPhase_StillAppliesAHandEditedFreePath()
     {
+        // Only the other convention's own name is refused. A reviewer who retypes an output
+        // path is obeyed, as before the flag existed.
         using var ws = new TempWorkspace();
         var source = ws.WriteFile("A.cs", FileNamingRuns.AWithGenericFoo);
         var listPath = ws.WriteInputList(source);
@@ -96,11 +103,9 @@ public sealed class FileNamingAgreementTests
 
         var result = Assert.Single(FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Content, FileNamingConvention.StyleCop));
 
-        Assert.Equal("skipped", result.Status);
-        Assert.Equal(
-            $"content phase plan does not match manifest: manifest has {elsewhere}, this run computes {Path.Combine(ws.Root, "Foo.cs")}",
-            result.Reason);
-        Assert.Equal(new[] { "A.cs" }, FileNamingRuns.CsFiles(ws));
+        Assert.Equal("split", result.Status);
+        Assert.Equal(new[] { "A.cs", "Elsewhere.cs" }, FileNamingRuns.CsFiles(ws));
+        Assert.Contains("class Foo<T>", File.ReadAllText(elsewhere));
     }
 
     [Fact]

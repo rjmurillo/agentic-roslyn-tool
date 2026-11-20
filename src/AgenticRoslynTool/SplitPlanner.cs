@@ -15,33 +15,31 @@ namespace AgenticRoslynTool;
 /// </remarks>
 internal static class SplitPlanner
 {
-    /// <summary>
-    /// The skip reason for a content phase row whose manifest disagrees with this run's
-    /// plan. What differs is appended after it, so match it as a prefix.
-    /// </summary>
     private const string PlanMismatchReason = "content phase plan does not match manifest";
 
     /// <summary>
     /// Cross-file collision pass. If two different source files would each emit an
     /// output file with the same simple name (for example both emitting <c>Foo.cs</c>),
-    /// each is qualified as <c>OriginalFileName.TypeName.cs</c>. If the qualified form
-    /// still collides, the affected inputs are converted to skips with a manual-handling
-    /// reason.
+    /// each is qualified in the form <paramref name="collisionNaming"/> selects. If the
+    /// qualified form still collides, the affected inputs are converted to skips with a
+    /// manual-handling reason.
     /// </summary>
     /// <remarks>
-    /// The qualified fallback form violates StyleCop SA1649 (file name must match
-    /// first type). The tool prefers a StyleCop violation over a build break; the
-    /// alternative would be to refuse to split, which loses coverage.
-    /// <see cref="ApplyManifestPaths"/> depends on the forms this method can produce. In the
-    /// content phase it accepts a manifest path only when it is the computed path or its
-    /// <see cref="GetQualifiedPath"/> form. A third form added here must be added there,
-    /// or the content phase refuses every row that carries it.
+    /// The default form, <c>OriginalFileName.TypeName.cs</c>, violates StyleCop SA1649
+    /// (file name must match first type). The tool prefers a StyleCop violation over a
+    /// build break; the alternative would be to refuse to split, which loses coverage.
+    /// <see cref="CollisionNaming.TypeFirst"/> swaps the two parts so SA1649 passes. It is
+    /// opt-in because it changes planned paths, and a plan and its content run must agree.
+    /// This pass does not probe the disk for the qualified path. The content phase does,
+    /// in <see cref="BuildPlan"/>, before anything is written.
     /// </remarks>
-    internal static IReadOnlyList<FileResult> ResolvePlannedOutputCollisions(IReadOnlyList<FileResult> results)
+    /// <param name="results">One row per input, as the plan phase computed them.</param>
+    /// <param name="collisionNaming">Which qualified form to use for a colliding output.</param>
+    internal static IReadOnlyList<FileResult> ResolvePlannedOutputCollisions(IReadOnlyList<FileResult> results, CollisionNaming collisionNaming = CollisionNaming.FileFirst)
     {
         var entries = results
             .Where(r => r.Status == "split")
-            .SelectMany(r => r.NewFiles.Select(f => new PlannedOutputEntry(r.OriginalPath, f.Type, f.Path, GetQualifiedPath(r.OriginalPath, f.Path))))
+            .SelectMany(r => r.NewFiles.Select(f => new PlannedOutputEntry(r.OriginalPath, f.Type, f.Path, CollisionNames.GetQualifiedPath(r.OriginalPath, f.Path, collisionNaming))))
             .ToArray();
         // Two comparers, on purpose. Grouping by output path asks "could these two writes
         // hit the same file", which stays ignore-case so a same-name-different-case pair is
@@ -67,13 +65,25 @@ internal static class SplitPlanner
             .Where(g => g.Count() > 1)
             .SelectMany(g => g.Select(e => e.OriginalPath))
             .ToHashSet(PathComparison.Comparer);
+
+        // Type-first ends the name with the source file's base name. A source called G.cs
+        // or Designer.cs would yield Shared.G.cs, which Roslyn reads as generated code:
+        // analyzers skip it and nullable annotations switch off. That is a behavior change,
+        // so the input is handed back. File-first is left alone to keep its plans identical.
+        var refusedNames = collisionNaming != CollisionNaming.TypeFirst
+            ? new Dictionary<string, string>(PathComparison.Comparer)
+            : resolvedPaths
+                .Where(kvp => CollisionNames.HasGeneratedCodeName(kvp.Value))
+                .GroupBy(kvp => kvp.Key.OriginalPath, kvp => kvp.Value, PathComparison.Comparer)
+                .ToDictionary(g => g.Key, g => string.Join("; ", g.Order(StringComparer.Ordinal)), PathComparison.Comparer);
         var notesBySource = collisionGroups
             .SelectMany(group => group.Select(entry => new
             {
                 entry.OriginalPath,
                 Note = "resolved output path collision: " + string.Join("; ", group
+                    .Where(e => !refusedNames.ContainsKey(e.OriginalPath))
                     .OrderBy(e => e.OriginalPath, StringComparer.OrdinalIgnoreCase)
-                    .Select(e => $"{e.OriginalPath} -> {resolvedPaths[(e.OriginalPath, e.Type, e.Path)]}")),
+                    .Select(e => CollisionNames.FormatResolution(e.OriginalPath, resolvedPaths[(e.OriginalPath, e.Type, e.Path)]))),
             }))
             .GroupBy(x => x.OriginalPath, PathComparison.Comparer)
             .ToDictionary(g => g.Key, g => string.Join(" | ", g.Select(x => x.Note).Distinct(StringComparer.Ordinal)), PathComparison.Comparer);
@@ -83,6 +93,11 @@ internal static class SplitPlanner
             if (qualifiedCollisions.Contains(result.OriginalPath))
             {
                 return FileResult.Skip(result.OriginalPath, result.KeptPath, "qualified output path collision requires manual handling");
+            }
+
+            if (refusedNames.TryGetValue(result.OriginalPath, out var refused))
+            {
+                return FileResult.Skip(result.OriginalPath, result.KeptPath, CollisionNames.GeneratedNameReason) with { Note = "refused output name: " + refused };
             }
 
             var newFiles = result.NewFiles.Select(file =>
@@ -98,15 +113,6 @@ internal static class SplitPlanner
 
             return result with { NewFiles = newFiles, Note = note };
         }).ToArray();
-    }
-
-    /// <summary>Builds the qualified fallback path used to break same-simple-name collisions across two different source files.</summary>
-    internal static string GetQualifiedPath(string originalPath, string targetPath)
-    {
-        var directory = Path.GetDirectoryName(targetPath) ?? ".";
-        var sourceBaseName = Path.GetFileNameWithoutExtension(originalPath);
-        var targetFileName = Path.GetFileName(targetPath);
-        return Path.Combine(directory, sourceBaseName + "." + targetFileName);
     }
 
     /// <summary>
@@ -185,21 +191,24 @@ internal static class SplitPlanner
     /// already exists on disk (except when it happens to be the current input file),
     /// and refuses when the recomputed plan does not match the manifest handed to the
     /// content phase. Together these are what make the plan-then-apply workflow safe.
-    /// The manifest match has two halves: the plan shape, and each manifest path against
-    /// the path computed here before the manifest paths were substituted in.
+    /// The mismatch refusal also covers a manifest planned under the other
+    /// <c>--collision-naming</c> value, so a content run cannot apply names the caller did
+    /// not ask this run for. The same holds for a manifest planned under the other
+    /// <c>--file-naming</c> value.
     /// </remarks>
     /// <param name="originalPath">The input path the plan row is keyed by.</param>
     /// <param name="readPath">The path the source is read from, which is the kept path once a rename has landed.</param>
     /// <param name="types">Every top-level type in the input, in source order.</param>
     /// <param name="planned">The plan manifest row for this input in the content phase; null while planning.</param>
     /// <param name="directiveNote">A note from directive analysis to carry onto the plan.</param>
+    /// <param name="collisionNaming">Which qualified form a cross-file collision name takes.</param>
     /// <param name="convention">
     /// The SA1649 file naming convention. It decides both which type is kept and what each
     /// file is called, so it has no default: a caller that forgot it would plan
     /// <c>stylecop</c> names inside a <c>metadata</c> run.
     /// </param>
     /// <returns>A <see cref="SplitPlan"/>; a non-null <see cref="SplitPlan.SkipReason"/> means the split was refused.</returns>
-    internal static SplitPlan BuildPlan(string originalPath, string readPath, IReadOnlyList<TopLevelType> types, FileResult? planned, string? directiveNote, FileNamingConvention convention)
+    internal static SplitPlan BuildPlan(string originalPath, string readPath, IReadOnlyList<TopLevelType> types, FileResult? planned, string? directiveNote, CollisionNaming collisionNaming, FileNamingConvention convention)
     {
         var directory = Path.GetDirectoryName(readPath) ?? ".";
         var baseName = Path.GetFileNameWithoutExtension(originalPath);
@@ -255,10 +264,14 @@ internal static class SplitPlanner
         var files = paths.Select(kvp => new PlannedFile(kvp.Key, kvp.Value, ReferenceEquals(kvp.Value, keep))).ToArray();
         if (planned is not null)
         {
-            var (substituted, refusal) = ApplyManifestPaths(originalPath, files, planned, keptPath, gitMove);
+            // The name each moved type would get under the other --file-naming value. The
+            // content phase uses it to recognize a plan made under that value.
+            var other = convention == FileNamingConvention.Metadata ? FileNamingConvention.StyleCop : FileNamingConvention.Metadata;
+            var otherNames = files.Where(f => !f.IsKept).ToDictionary(f => f.Type.Key, f => Path.Combine(directory, OutputBuilder.GetFileName(f.Type, types, other)), StringComparer.Ordinal);
+            var (substituted, refusal, refusalNote) = ApplyManifestPaths(originalPath, keptPath, gitMove, files, planned, collisionNaming, convention, otherNames);
             if (refusal is not null)
             {
-                return new SplitPlan(keep, keptPath, gitMove, note, refusal, Array.Empty<PlannedFile>());
+                return new SplitPlan(keep, keptPath, gitMove, note, refusal, Array.Empty<PlannedFile>(), SkipNote: refusalNote);
             }
 
             files = substituted;
@@ -268,94 +281,113 @@ internal static class SplitPlanner
         return new SplitPlan(keep, keptPath, gitMove, note, null, files);
     }
 
-    /// <summary>
-    /// Replaces each computed new file path with the path the plan manifest recorded, and
-    /// refuses when the manifest could not have come from this run's own plan.
-    /// </summary>
-    /// <remarks>
-    /// The order is load-bearing. Existence and uniqueness of the substituted paths are
-    /// checked first, then the plan shape, then each manifest path against the computed
-    /// one. The shape check compares path sets, which is only sound once uniqueness has
-    /// held. A mismatch reason names the manifest's value wherever the manifest has one,
-    /// because the row that reports it replaces the plan row that held it.
-    /// </remarks>
-    /// <param name="originalPath">The input path the plan row is keyed by.</param>
-    /// <param name="files">The files this run computed, before any manifest path is used.</param>
-    /// <param name="planned">The plan manifest row for this input.</param>
-    /// <param name="keptPath">The kept path this run computed.</param>
-    /// <param name="gitMove">Whether this run plans a rename of the kept file.</param>
-    /// <returns>The files with manifest paths applied, or a refusal reason and nothing to write.</returns>
-    private static (PlannedFile[] Files, string? Refusal) ApplyManifestPaths(string originalPath, PlannedFile[] files, FileResult planned, string keptPath, bool gitMove)
-    {
-        var computedByType = files.Where(f => !f.IsKept).ToDictionary(f => f.Type.Key, f => f.Path, StringComparer.Ordinal);
-        var plannedByType = planned.NewFiles.ToDictionary(f => f.Type, f => f.Path, StringComparer.Ordinal);
-        var substituted = files.Select(file =>
-        {
-            if (file.IsKept)
-            {
-                return file;
-            }
 
-            return plannedByType.TryGetValue(file.Type.Key, out var plannedPath) ? file with { Path = plannedPath } : file;
-        }).ToArray();
+    /// <summary>
+    /// Content phase only. Swaps each moved type's computed path for the path the manifest
+    /// planned, then checks the result against the disk and against the manifest row.
+    /// </summary>
+    /// <returns>The substituted files, or a refusal reason with an optional note for the skipped row.</returns>
+    private static (PlannedFile[] Files, string? Refusal, string? RefusalNote) ApplyManifestPaths(string originalPath, string keptPath, bool gitMove, PlannedFile[] computed, FileResult planned, CollisionNaming collisionNaming, FileNamingConvention convention, IReadOnlyDictionary<string, string> otherConventionPaths)
+    {
+        var plannedByType = planned.NewFiles.ToDictionary(f => f.Type, f => f.Path, StringComparer.Ordinal);
+        var computedPaths = computed.Where(f => !f.IsKept).ToDictionary(f => f.Type.Key, f => f.Path, StringComparer.Ordinal);
+        var files = computed
+            .Select(file => !file.IsKept && plannedByType.TryGetValue(file.Type.Key, out var plannedPath) ? file with { Path = plannedPath } : file)
+            .ToArray();
+        var moved = files.Where(f => !f.IsKept).ToArray();
 
         // The path written is the substituted one, so it needs its own existence check.
         // No originalPath or readPath exemption here: a legitimate planned path never
         // equals either, so exempting them only lets an edited manifest aim a write at
         // the file being read.
         var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { keptPath };
-        foreach (var file in substituted.Where(f => !f.IsKept))
+        foreach (var file in moved)
         {
             if (File.Exists(file.Path))
             {
-                return (Array.Empty<PlannedFile>(), $"target path already exists: {file.Path}");
+                return (files, $"target path already exists: {file.Path}", null);
             }
 
             if (!claimed.Add(file.Path))
             {
-                return (Array.Empty<PlannedFile>(), $"target path collision within split: {file.Path}");
+                return (files, $"target path collision within split: {file.Path}", null);
             }
         }
 
-        var actualNewFiles = substituted.Where(f => !f.IsKept).Select(f => f.Path).ToArray();
-        if (DescribeShapeMismatch(planned, keptPath, gitMove, actualNewFiles) is { } shapeMismatch)
+        // The collision pass does not run in this phase, so the manifest is the only place
+        // a collision name can come from. One the plan phase resolved under the other
+        // --collision-naming value is a plan this run was not asked to apply. This runs
+        // after the checks above so those keep their own, more specific reasons.
+        foreach (var file in moved)
         {
-            return (Array.Empty<PlannedFile>(), $"{PlanMismatchReason}: {shapeMismatch}");
-        }
-
-        // The path set comparison above runs after substitution, so on its own it compares
-        // the manifest's new file paths with themselves. An unedited plan can only hold the
-        // path this run computes or its cross-file qualified form. Anything else means the
-        // plan was made under other rules, such as a different --file-naming, or was edited
-        // after review.
-        foreach (var file in substituted.Where(f => !f.IsKept))
-        {
-            var computed = computedByType[file.Type.Key];
-            if (!StringComparer.OrdinalIgnoreCase.Equals(file.Path, computed)
-                && !StringComparer.OrdinalIgnoreCase.Equals(file.Path, GetQualifiedPath(originalPath, computed)))
+            var mismatch = CollisionNames.DescribeOtherNamingForm(originalPath, computedPaths[file.Type.Key], file.Path, planned.Note, collisionNaming)
+                ?? DescribeOtherConventionForm(originalPath, computedPaths[file.Type.Key], otherConventionPaths[file.Type.Key], file.Path, convention);
+            if (mismatch is not null)
             {
-                return (Array.Empty<PlannedFile>(), $"{PlanMismatchReason}: manifest has {file.Path}, this run computes {computed}");
+                return (files, PlanMismatchReason, mismatch);
             }
         }
 
-        return (substituted, null);
+        var plannedNewFiles = planned.NewFiles.Select(f => f.Path).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+        var actualNewFiles = moved.Select(f => f.Path).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+        var matches = StringComparer.OrdinalIgnoreCase.Equals(planned.KeptPath, keptPath)
+            && planned.GitMove == gitMove
+            && plannedNewFiles.SequenceEqual(actualNewFiles, StringComparer.OrdinalIgnoreCase);
+        return matches ? (files, null, null) : (files, PlanMismatchReason, DescribeShapeMismatch(planned, keptPath, gitMove, actualNewFiles));
     }
 
     /// <summary>
-    /// Compares the plan shape, which is the kept path, the git move flag, and the set of
-    /// new file paths, and says what differs.
+    /// Describes a manifest path that is the name the other <c>--file-naming</c> value
+    /// gives this type, or returns null when the path is not one.
     /// </summary>
     /// <remarks>
-    /// The text names the manifest's value wherever the manifest has one. A path only
-    /// this run plans has none, so that reason names the run's path. The row that carries
-    /// the reason replaces the plan row, and that row records this run's kept path, so the
-    /// reason is the only place the manifest's value survives.
+    /// The content phase writes the manifest's paths, so nothing else notices that a plan
+    /// was made under the other convention. Only that one name is refused, alone or in
+    /// either cross-file qualified form. Any other free path a reviewer typed into the
+    /// manifest is still applied, as it was before the flag existed. A type that is not
+    /// generic has one name under both conventions and is never refused here.
+    /// A manifest row carries no record of the convention, so a reviewer who types the
+    /// other convention's exact name by hand is refused too. Nothing tells the two apart.
+    /// </remarks>
+    /// <param name="originalPath">The input path the plan row is keyed by.</param>
+    /// <param name="computedPath">The path this run computes for the type.</param>
+    /// <param name="otherPath">The path the other convention computes for the type.</param>
+    /// <param name="plannedPath">The path the manifest holds for the type.</param>
+    /// <param name="convention">The convention this run was given.</param>
+    /// <returns>A note for the skipped row, or null when the path is not the other convention's.</returns>
+    private static string? DescribeOtherConventionForm(string originalPath, string computedPath, string otherPath, string plannedPath, FileNamingConvention convention)
+    {
+        var comparer = StringComparer.OrdinalIgnoreCase;
+        if (comparer.Equals(otherPath, computedPath) || IsPathOrQualifiedForm(originalPath, computedPath, plannedPath) || !IsPathOrQualifiedForm(originalPath, otherPath, plannedPath))
+        {
+            return null;
+        }
+
+        var (used, planned) = convention == FileNamingConvention.Metadata ? ("metadata", "stylecop") : ("stylecop", "metadata");
+        return $"manifest path {plannedPath} is the --file-naming {planned} name and this run used {used}, which computes {computedPath}; run the plan phase again and pass one value to every phase";
+    }
+
+    private static bool IsPathOrQualifiedForm(string originalPath, string path, string candidate) =>
+        StringComparer.OrdinalIgnoreCase.Equals(candidate, path)
+        || StringComparer.OrdinalIgnoreCase.Equals(candidate, CollisionNames.GetQualifiedPath(originalPath, path, CollisionNaming.FileFirst))
+        || StringComparer.OrdinalIgnoreCase.Equals(candidate, CollisionNames.GetQualifiedPath(originalPath, path, CollisionNaming.TypeFirst));
+
+    /// <summary>
+    /// Says what differs between the manifest row and this run's plan shape, which is the
+    /// kept path, the rename flag, and the set of new file paths.
+    /// </summary>
+    /// <remarks>
+    /// The text goes into the skipped row's note. It names the manifest's value wherever the
+    /// manifest has one, because that row replaces the plan row and records this run's kept
+    /// path. A path only this run plans has no manifest value, so that text names the run's
+    /// path. The caller checks uniqueness of the run's paths first, and the last branch
+    /// relies on that.
     /// </remarks>
     /// <param name="planned">The plan manifest row for this input.</param>
     /// <param name="keptPath">The kept path this run computed.</param>
     /// <param name="gitMove">Whether this run plans a rename of the kept file.</param>
     /// <param name="actualNewFiles">This run's new file paths, after manifest paths were applied.</param>
-    /// <returns>What differs, or null when the shape matches.</returns>
+    /// <returns>What differs, or null when nothing here explains the mismatch.</returns>
     private static string? DescribeShapeMismatch(FileResult planned, string keptPath, bool gitMove, IReadOnlyList<string> actualNewFiles)
     {
         if (!StringComparer.OrdinalIgnoreCase.Equals(planned.KeptPath, keptPath))
@@ -380,8 +412,7 @@ internal static class SplitPlanner
             return $"this run plans {onlyInRun}, which the manifest lacks";
         }
 
-        // The run's paths are distinct, because the caller checks uniqueness first. With
-        // equal sets, a longer manifest list can only mean a repeated manifest path.
+        // With equal sets and distinct run paths, a longer manifest list repeats a path.
         var repeated = plannedNewFiles.GroupBy(p => p, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
         return repeated is null ? null : $"manifest lists {repeated.Key} more than once";
     }

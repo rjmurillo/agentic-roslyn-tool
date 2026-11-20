@@ -164,9 +164,11 @@ Promises:
   rename instead of a delete plus an add, and the file history survives.
 
 - Does not compare against the reviewed manifest. It recomputes the plan and `Program`
-  writes the result over the manifest. So a `--file-naming` value that differs from the
-  plan is not refused here: the renames follow the value this run was given, and the
-  content phase then checks against the rewritten manifest, not the reviewed one.
+  writes the result over the manifest. So a `--file-naming` or `--collision-naming` value
+  that differs from the plan is not refused here. The renames follow the values this run
+  was given, and a different `--collision-naming` replaces the reviewed collision names
+  with the other form. The content phase then checks against the rewritten manifest, not
+  the reviewed one. Pass the same values here as in the plan run.
 
 Requires a real git repository. Most of the test suite avoids this phase by keeping every
 fixture file name equal to its primary type name, so no `git` process starts.
@@ -191,15 +193,28 @@ Promises:
   one ends the whole run, not just the file.
 - Refuses a file when the recomputed plan disagrees with the manifest it was handed. The
   comparison is structural: it covers the kept path, the git move flag, and the set of
-  output paths. Each planned output path must also be one this run could have planned: the
-  path it computes for that type, or the cross-file qualified form of it. That is what
-  catches a plan made under a different `--file-naming`. The reason starts with
-  `content phase plan does not match manifest` and then says what differs: the kept
-  path, the rename, or a new file path, with the manifest's value wherever it has one. The
-  skipped row replaces the plan row, so that text is the only record of the manifest's
-  value. The manifest carries no content hash, so an edit that leaves type names and paths
-  alone passes this check. Treat it as drift detection on the plan shape, not as proof the
-  source is unchanged.
+  output paths. The manifest carries no content hash, so an edit that leaves type names
+  and paths alone passes this check. Treat it as drift detection on the plan shape, not as
+  proof the source is unchanged.
+- Refuses a row the plan phase resolved under the `--collision-naming` value this run
+  was not given. Two things must hold: the output path has the other value's qualified
+  form, and the row's note records that the collision pass chose that path. The reason is
+  the same `content phase plan does not match manifest`, and the skipped row's note names
+  the path and both values. The content phase never reruns the collision pass, so this
+  check is the only thing that keeps the flag in step with the plan. A path typed into the
+  manifest by hand has no such note and is accepted as before. An edit that rewrites the
+  note to name the new path as well is refused, because it then reads as the plan's own. The skipped row replaces
+  the `split` row when the manifest is written back, so recovery is to run the plan phase
+  again.
+- Refuses a row planned under the `--file-naming` value this run was not given. A moved
+  type's manifest path is refused when it is the name the other value gives that type,
+  alone or in either cross-file qualified form, and that name differs from this run's.
+  A changed kept path or rename is caught by the structural comparison above. The reason
+  is the same `content phase plan does not match manifest`, and the skipped row's note
+  says what differs: the two values and both paths, or the two kept paths. A type that
+  is not generic has one name under both values, so its row is never refused this way.
+  Any other free path typed into the manifest is accepted as before. The manifest holds
+  no record of the value, so typing the other value's exact name by hand is refused too.
 - Writes its own manifest to the same default path, which **overwrites the plan
   manifest**. Pass an explicit `--manifest` when you want to keep both.
 
@@ -373,7 +388,13 @@ The things that would surprise a reader who only skimmed the signatures.
 4. **The content phase can overwrite the plan manifest.** Same default path.
 5. **A cross file name collision is usually resolved to `FileName.TypeName.cs`**, which
    satisfies SA1402 but violates SA1649, so those files need a human decision afterwards.
-   When the qualified names collide too, the tool gives up and skips every input involved
-   with `qualified output path collision requires manual handling`.
+   `--collision-naming type-first` resolves it to `TypeName.FileName.cs` instead, which
+   passes SA1649. Under either value, when the qualified names collide too, the tool gives
+   up and skips every input involved with
+   `qualified output path collision requires manual handling`. The plan does not probe the
+   disk for a qualified name. The content phase does, and refuses with
+   `target path already exists`. Under `type-first`, an input whose qualified name would
+   end in `.g`, `.g.i`, `.designer`, or `.generated` is skipped with
+   `qualified output name would be read as generated code; manual handling required`.
 6. **The tool trusts the plan manifest as a review artifact**, and refuses to proceed when
    reality has drifted from it. That refusal is a feature.

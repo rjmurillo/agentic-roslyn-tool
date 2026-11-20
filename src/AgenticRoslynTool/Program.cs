@@ -129,6 +129,10 @@ static void PrintUsage(TextWriter w)
     w.WriteLine("  --json                           Print one JSON report to stdout instead of CSV.");
     w.WriteLine("  --require-header <text>          Require and prepend this file header. Off by default.");
     w.WriteLine("  --exclude <path-substring>       Skip inputs whose path contains this substring. Repeatable.");
+    w.WriteLine("  --collision-naming file-first|type-first");
+    w.WriteLine("                                   Name for two inputs that emit the same file name. file-first, the default,");
+    w.WriteLine("                                   gives A.Shared.cs. type-first gives Shared.A.cs, which passes SA1649.");
+    w.WriteLine("                                   Pass the same value to every phase.");
     w.WriteLine("  --file-naming stylecop|metadata  SA1649 convention for generic file names. Defaults to stylecop: Foo.cs,");
     w.WriteLine("                                   or Foo{T}.cs when a same-name type shares the file. metadata names");
     w.WriteLine("                                   them Foo`1.cs. Pass the same value to every phase.");

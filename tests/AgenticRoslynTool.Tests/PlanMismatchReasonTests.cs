@@ -5,12 +5,12 @@ using Xunit;
 
 namespace AgenticRoslynTool.Tests;
 
-// A content phase row that disagrees with its plan is skipped, and the skipped row replaces
-// the plan row. The reason is then the only record of what the manifest held, so each
-// cause has its own text. These tests edit one thing in a reviewed plan and pin the text.
+// A content phase row that disagrees with its plan is skipped with one shared reason, and
+// the skipped row replaces the plan row. The note is then the only record of what the
+// manifest held, so each cause has its own note. These tests edit one thing in a reviewed
+// plan and pin the text.
 public sealed class PlanMismatchReasonTests
 {
-    private const string Prefix = "content phase plan does not match manifest: ";
     private const string ThreeTypes = "namespace N;\n\npublic class Foo\n{\n}\n\npublic class Bar\n{\n}\n\npublic class Baz\n{\n}\n";
 
     [Fact]
@@ -24,7 +24,7 @@ public sealed class PlanMismatchReasonTests
 
         var result = ContentAfterEdit(ws, source, row => row with { GitMove = false });
 
-        Assert.Equal(Prefix + "manifest plans no rename, this run renames the kept file", result.Reason);
+        Assert.Equal("manifest plans no rename, this run renames the kept file", result.Note);
         AssertNothingWritten(ws, source, "X.cs");
     }
 
@@ -37,7 +37,7 @@ public sealed class PlanMismatchReasonTests
 
         var result = ContentAfterEdit(ws, source, row => row with { NewFiles = row.NewFiles.Append(new NewFileResult(extra, "Extra")).ToArray() });
 
-        Assert.Equal(Prefix + $"manifest has {extra}, which this run does not plan", result.Reason);
+        Assert.Equal($"manifest has {extra}, which this run does not plan", result.Note);
         AssertNothingWritten(ws, source, "Foo.cs");
     }
 
@@ -49,7 +49,7 @@ public sealed class PlanMismatchReasonTests
 
         var result = ContentAfterEdit(ws, source, row => row with { NewFiles = row.NewFiles.Where(f => f.Type != "Baz").ToArray() });
 
-        Assert.Equal(Prefix + $"this run plans {Path.Combine(ws.Root, "Baz.cs")}, which the manifest lacks", result.Reason);
+        Assert.Equal($"this run plans {Path.Combine(ws.Root, "Baz.cs")}, which the manifest lacks", result.Note);
         AssertNothingWritten(ws, source, "Foo.cs");
     }
 
@@ -64,7 +64,7 @@ public sealed class PlanMismatchReasonTests
 
         var result = ContentAfterEdit(ws, source, row => row with { NewFiles = row.NewFiles.Append(new NewFileResult(bar, "Ghost")).ToArray() });
 
-        Assert.Equal(Prefix + $"manifest lists {bar} more than once", result.Reason);
+        Assert.Equal($"manifest lists {bar} more than once", result.Note);
         AssertNothingWritten(ws, source, "Foo.cs");
     }
 
@@ -78,6 +78,7 @@ public sealed class PlanMismatchReasonTests
 
         var result = Assert.Single(FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Content, FileNamingConvention.StyleCop));
         Assert.Equal("skipped", result.Status);
+        Assert.Equal("content phase plan does not match manifest", result.Reason);
         return result;
     }
 
