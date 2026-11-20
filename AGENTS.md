@@ -31,6 +31,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
 | `package/AGENTS.md` | Agent instructions packed at the NuGet package root. |
 | `.github/workflows/ci.yml` | The CI gate. Build and test on push and pull request. |
+| `.qualityrc.json` | Settings for a local review scanner some agents run. Not read by the build or by CI. |
 
 Every source file, so you do not have to open one to find out whether it matters:
 
@@ -191,6 +192,11 @@ agent does not pay again.
 - **The renames phase needs a tracked file, not a commit.** `git init` and `git add` are
   enough for `git mv`, so a test needs no author identity on the machine. See the helper
   in `ManifestContentHashTests`.
+- **The local size scanner misreads C#.** One review toolkit scores files by line counts.
+  It counts every `using` line as a dependency, including `using var`, so 20 of the 23
+  test files failed it when measured. `.qualityrc.json` sets `minConfidence` to 0.7, which
+  turns those low confidence scores into warnings. A regression in a file that already
+  exists still blocks. Do not reshape code or tests to raise that score.
 - **Exit codes are 0, 1, 2, 3, and they mean different things.** 0 the run completed with
   no failures, 1 a row is `failed`, 2 the command line was wrong, 3 the run could not
   complete. Skips are not failures, so a run that skips everything exits 0. Read
