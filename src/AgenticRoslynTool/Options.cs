@@ -113,6 +113,13 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
 
         var inputPath = input == StdinPath ? StdinPath : Path.GetFullPath(input);
         manifest ??= Path.Combine(DefaultManifestDirectory(inputPath, repoRoot), "sa1402-split-manifest.csv");
+        // A trailing separator survives every path call below and hides the file name from
+        // any comparison of names. "plan.csv/" and "plan.csv" would then read as two files.
+        if (Path.EndsInDirectorySeparator(manifest))
+        {
+            throw new ArgumentException("--manifest must name a file. Remove the trailing directory separator.");
+        }
+
         var manifestPath = Path.GetFullPath(manifest);
 
         // The plan phase writes the manifest and no report, so the flag would do nothing

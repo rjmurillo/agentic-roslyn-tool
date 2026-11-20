@@ -34,7 +34,7 @@ internal static class ReportFile
     /// </summary>
     /// <param name="reportPath">Absolute path the run will write its report to.</param>
     /// <param name="manifestPath">Absolute path of the plan manifest.</param>
-    /// <exception cref="InvalidOperationException">Thrown when the manifest path is a link, or the report path is the manifest, is a link or a directory, names a file that is not a report, or sits in a directory that cannot be written.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the manifest path is a link or a directory, when either path cannot be examined, or when the report path is the manifest, is a link or a directory, names a file that is not a report, or sits in a directory that cannot be written.</exception>
     public static void Prepare(string reportPath, string manifestPath)
     {
         string? refusal;
@@ -62,6 +62,8 @@ internal static class ReportFile
                 }
             }
         }
+        // Filtered, unlike the catch in Write. Nothing has changed yet, so any other
+        // exception may end the run as it is.
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             throw new InvalidOperationException($"Cannot write the report at {reportPath}: {ex.Message}", ex);
@@ -134,7 +136,16 @@ internal static class ReportFile
         // A linked manifest names a file somewhere else, and finding that somewhere means
         // resolving the link by hand. Three versions of this type did that and each got a
         // case wrong. Refusing the link leaves nothing to resolve.
-        var manifest = Look(manifestPath);
+        // The name comparison in ReachesManifest reads the last part of this path as text.
+        // A trailing separator leaves that part empty while the operating system still
+        // finds the file, so such a path is refused before anything compares names. A
+        // directory cannot be a manifest either.
+        var manifest = Path.EndsInDirectorySeparator(manifestPath) ? Seen.Directory : Look(manifestPath);
+        if (manifest == Seen.Directory)
+        {
+            return $"The manifest path {manifestPath} is a directory. Pass a file path to --manifest.";
+        }
+
         if (manifest == Seen.Unknown)
         {
             return $"Cannot examine the manifest path {manifestPath}, so the report cannot be shown to miss it. Pass a shorter or readable --manifest path.";
@@ -230,6 +241,9 @@ internal static class ReportFile
     /// <param name="manifestPath">Absolute path of the plan manifest. Never a link, see <see cref="Refusal"/>.</param>
     private static bool ReachesManifest(string reportPath, string sibling, string manifestPath)
     {
+        // Both paths end in a file name by now. Refusal turned away a trailing separator and
+        // a directory on either side, so the last part of each path is the name the
+        // operating system uses.
         if (!StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(reportPath), Path.GetFileName(manifestPath)))
         {
             return false;

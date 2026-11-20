@@ -158,6 +158,10 @@ Two CSV files with one format and two jobs.
 - **A manifest path that is a symbolic link is refused in `renames` and `content`.** The
   run ends with exit code 3 before any work. Pass the path of the file the link names.
   The `plan` phase still accepts a linked manifest path and writes through it.
+- **A manifest path must end in a file name.** `--manifest` with a trailing directory
+  separator is rejected with exit code 2 in every phase. A manifest path that is a
+  directory ends `renames` and `content` with exit code 3. The name comparison below
+  reads the last part of the path, so that part has to be the file's name.
 - **A path that cannot be examined is refused.** The checks tell "nothing is there" from
   "the look failed", for example on a path longer than the operating system allows. A
   failed look ends the run with exit code 3. It is never read as an absent file.

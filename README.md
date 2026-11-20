@@ -212,7 +212,9 @@ here, or the path you pass with `--report`. Each run that completes replaces the
 report. The tool checks the report path before it changes anything. It exits 3 without
 touching a source file when the path cannot be written, is a symbolic link, or names an
 existing file that is not an earlier report. It also exits 3 when `--manifest` is a
-symbolic link, so pass the path of the real file to `renames` and `content`. Any file in the manifest format counts as an
+symbolic link, so pass the path of the real file to `renames` and `content`.
+[docs/behavior-contracts.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/behavior-contracts.md)
+lists every refusal under "Manifest and report". Any file in the manifest format counts as an
 earlier report, so do not point `--report` at a second plan you want to keep.
 
 Because the plan stays as you reviewed it, a content run can be repeated. When a row

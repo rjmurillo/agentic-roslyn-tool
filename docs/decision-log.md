@@ -613,6 +613,12 @@ and `content` phases write what they did to a report file in the same CSV format
   answers false for the last two. A manifest directory about 4,060 characters long made
   the look for the probe fail, that read as a different directory, and the report
   replaced the plan. Only a look that proves absence counts as absence now.
+- **A manifest path must end in a file name.** A fifth version compared the two file
+  names as text and met `--manifest plan.csv/`. The operating system still found the
+  file, the last part of the path read as empty, and the names looked different. The
+  renames phase never opens the manifest, so the report replaced the plan. A trailing
+  separator on `--manifest` is now a rejected command line, and `ReportFile` refuses a
+  manifest path that ends in one or names a directory.
 - **A linked manifest path is refused in `renames` and `content`.** That removes the last
   path the tool had to resolve. A report path that is a link was already refused. The
   directories either path runs through are followed by the operating system, never by
@@ -672,7 +678,9 @@ apply a plan nobody had reviewed. A caller that read results from the manifest p
 content run against a manifest an older version already rewrote behaves as before: its
 `failed` rows are not `split`, so re-run the plan once.
 
-**Known limits.** The file system can give one file two names in one directory, such as
+**Known limits.** A manifest directory within about 40 characters of the path limit
+makes the look for the probe fail. A report with the manifest's file name is then
+refused even when it sits in another directory. The file system can give one file two names in one directory, such as
 a Windows short name or a second Unicode spelling on macOS. A report path that uses the
 other name is not seen as the manifest. A named pipe at the report path makes the format
 check wait for a writer. A manifest reached through a symbolic link must be passed by its real

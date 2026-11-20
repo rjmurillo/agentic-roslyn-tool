@@ -374,6 +374,10 @@ public sealed class SeparateRunReportTests
             Assert.Equal(3, content.ExitCode);
             Assert.StartsWith("error: ", content.StandardError, StringComparison.Ordinal);
             Assert.DoesNotContain("   at ", content.StandardError, StringComparison.Ordinal);
+            if (target == directory)
+            {
+                Assert.Contains($"The report path {directory} is a directory", content.StandardError, StringComparison.Ordinal);
+            }
         }
 
         Assert.Equal(TwoTypes, File.ReadAllText(input));
@@ -817,6 +821,68 @@ public sealed class SeparateRunReportTests
         Assert.Equal(TwoTypes, File.ReadAllText(input));
         Assert.False(File.Exists(Path.Combine(workspace.Root, "Beta.cs")));
         Assert.Equal(["Alpha.cs", "inputs.txt", "plan.csv"], Directory.GetFiles(workspace.Root).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void ManifestPathEndingInASeparator_IsRejectedAndThePlanIsKept()
+    {
+        // "plan.csv/" still finds the file, and its last part reads as empty. Compared as
+        // text it is not "plan.csv", so the report could be aimed at the plan itself. The
+        // renames phase never opens the manifest, so nothing else would object.
+        using var workspace = new TempWorkspace();
+        var misnamed = workspace.WriteFile("Zed.cs", OtherTwoTypes);
+        var listPath = workspace.WriteInputList(misnamed);
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath).ExitCode);
+        var planBytes = File.ReadAllBytes(manifestPath);
+        var withSeparator = manifestPath + Path.DirectorySeparatorChar;
+
+        foreach (var phase in new[] { "renames", "content", "plan" })
+        {
+            string[] extra = phase == "plan" ? [] : ["--report", manifestPath];
+            var run = Phase(phase, workspace, listPath, withSeparator, extra);
+
+            Assert.Equal(2, run.ExitCode);
+            Assert.Contains("error: --manifest must name a file.", run.StandardError, StringComparison.Ordinal);
+            Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+        }
+
+        // The same refusal one level down, for a caller that builds the paths itself.
+        var rows = new[] { FileResult.Failed(misnamed, misnamed, "a failed rename") };
+        Assert.Contains("is a directory", Assert.Throws<InvalidOperationException>(() => ReportFile.Prepare(manifestPath, withSeparator)).Message, StringComparison.Ordinal);
+        Assert.Contains("is a directory", ReportFile.Write(rows, manifestPath, withSeparator), StringComparison.Ordinal);
+        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+        Assert.Equal(["Zed.cs", "inputs.txt", "plan.csv"], Directory.GetFiles(workspace.Root).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void ManifestPathThatIsADirectory_IsRefusedBeforeAnyWork()
+    {
+        using var workspace = new TempWorkspace();
+        var misnamed = workspace.WriteFile("Zed.cs", OtherTwoTypes);
+        var listPath = workspace.WriteInputList(misnamed);
+        var manifestPath = Squat(workspace, "plans");
+
+        var renames = Phase("renames", workspace, listPath, manifestPath);
+
+        Assert.Equal(3, renames.ExitCode);
+        Assert.Contains($"The manifest path {manifestPath} is a directory", renames.StandardError, StringComparison.Ordinal);
+        Assert.Equal(["Zed.cs", "inputs.txt"], Directory.GetFiles(workspace.Root).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void WriteThatThrowsAnythingAtAll_ReturnsAReason()
+    {
+        // The sources are already rewritten when Write runs. An exception that escaped
+        // would end the run with no rows printed, so every kind becomes a reason.
+        using var workspace = new TempWorkspace();
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var reportPath = Path.Combine(workspace.Root, "run.csv");
+
+        var reason = ReportFile.Write(null!, reportPath, manifestPath);
+
+        Assert.False(string.IsNullOrWhiteSpace(reason));
+        Assert.Empty(Directory.GetFileSystemEntries(workspace.Root));
     }
 
     [Fact]

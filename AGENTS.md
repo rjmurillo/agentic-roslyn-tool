@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 31 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 163 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 166 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -76,7 +76,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 163 passed, 0 failed
+dotnet test  -c Release      # must be 166 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -191,10 +191,15 @@ agent does not pay again.
   `ReportFile` now resolves nothing. It refuses a report path or a manifest path that is
   itself a link, and `ReachesManifest` observes the rest: a file created beside the report
   path is visible under the manifest's directory exactly when the two are one directory.
+- **A path read as text is not the path the system opens.** `plan.csv/` opens the file
+  `plan.csv`, and `Path.GetFileName` returns an empty name for it. A check that compared
+  names missed that the report and the manifest were one file. Reject a trailing
+  separator before any code compares file names.
 - **`File.Exists` cannot tell absent from unknown.** It answers false when the look
   fails, for example on a path past the system limit. `ReportFile.Look` keeps the two
   apart, and every caller treats a failed look as the unsafe case. A guard built on
-  `File.Exists` fails open, and one such guard let the report replace the plan.
+  `File.Exists` fails open where it protects a file, and one such guard let the report
+  replace the plan.
 - **Nothing in `ReportFile` opens an existing file for writing.** The probe and the report
   both go to a new sibling file. An earlier version probed with `FileMode.Create` on the
   report path. That truncated a plan reached through a hard link, at exit code 0.
