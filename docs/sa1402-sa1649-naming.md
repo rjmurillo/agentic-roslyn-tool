@@ -147,8 +147,9 @@ With the flag, the rules in the section above change in four ways:
 * A generic type kept in a plain named file is renamed. `Foo.cs` holding `Foo<T>` and `Bar`
   becomes ``Foo`1.cs`` in the renames phase, and `Bar` moves to `Bar.cs`. When two inputs
   would take the same name, such as `Foo.cs` and `Foo.Extra.cs` each holding a part of
-  `Foo<T>`, the first is renamed and the second keeps its name, with a `rename collision`
-  note. SA1649 skips a file whose first type is `partial`, so that second file passes.
+  `Foo<T>`, the first in input order is renamed and the other keeps its name, with a
+  `rename collision` note. A directory input is read in sorted order, so `Foo.Extra.cs`
+  comes first there. SA1649 skips a file whose first type is `partial`, so that second file passes.
 * Only arity tells two same-name types apart. `Box<T>` and `Box<U>` both map to
   ``Box`1.cs``, so that file is skipped with `target path collision within split`. The
   `stylecop` convention splits it, as `Box{T}.cs` and `Box{U}.cs`.
