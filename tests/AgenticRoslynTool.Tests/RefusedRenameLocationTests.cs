@@ -2,8 +2,8 @@ using Xunit;
 
 namespace AgenticRoslynTool.Tests;
 
-// A plan that wants to rename a kept file and then refuses the split must report where the
-// file is. The file never moved, so keptPath is the original path, not the rename target.
+// A refused row must report where the file is, never a rename target nothing applied. That
+// is the original path, unless an earlier renames run moved the file.
 public sealed class RefusedRenameLocationTests : IDisposable
 {
     // Order2 does not own the name Stuff.cs, so the plan asks for a rename to Order2.cs.
@@ -141,8 +141,7 @@ public sealed class RefusedRenameLocationTests : IDisposable
 
     private IReadOnlyList<FileResult> Plan(string input, string? requiredHeader)
     {
-        var manifest = Path.Combine(_workspace.Root, "manifest.csv");
-        return new FileSplitter(new Options(_workspace.WriteInputList(input), manifest, _workspace.Root, Phase.Plan, requiredHeader)).Run();
+        return new FileSplitter(new Options(_workspace.WriteInputList(input), ManifestPath, _workspace.Root, Phase.Plan, requiredHeader)).Run();
     }
 
     private static void AssertReportsOriginal(string original, FileResult row)
