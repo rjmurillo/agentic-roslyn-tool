@@ -782,6 +782,39 @@ value that may contradict the manifest. Return a suggestion for standard input a
 next run plans nothing and exits 0. Move the field after `files` and a truncated read
 loses it.
 
+### Decision 26. The package ships an Agent Skill as well as `AGENTS.md`
+
+**Context.** The .NET team now delivers Agent Skills inside NuGet packages, at
+`skills/<name>/SKILL.md`. Restore puts the file on disk, and `dotnet-inspect` lists it.
+This package already shipped `AGENTS.md` at its root for NuGet MCP. Whether the skill
+convention works for a tool package was tested rather than assumed. The results are in
+[agent-skills-in-nuget.md](agent-skills-in-nuget.md).
+
+**Decision.** Ship `package/skills/split-types/SKILL.md` at `skills/split-types/SKILL.md`.
+Keep the full workflow in `package/AGENTS.md` too, and have it name the skill.
+`PackagedAgentDocsTests` checks both files: every documented command parses under the
+current `Options`, and the skill meets the format rules. CI and the release workflow run
+`.github/scripts/verify-package-contents.sh`, which matches exact entry names.
+
+**Rejected.** Shrinking `AGENTS.md` to a pointer at the skill. NuGet MCP returns
+`AGENTS.md` and does not read skills yet, so its users would get a pointer and nothing to
+follow. Several skills, one per phase, were rejected: `nextArgs` already walks a caller
+through the phases, and every extra skill is more text every model has to read. A
+`scripts/` folder was rejected because the tool is the script.
+
+**Consequences.** Two files describe one workflow, and they can disagree in prose. The test
+only proves their commands still parse. Project-graph tools never see the skill: a tool
+package cannot be a `PackageReference`, and restore says so with `NU1212`. Agents find it
+through `dotnet-inspect package`, through the install path, or through a copy committed
+to a repository. No evaluation has shown the skill helps any model. The NuGet team reports
+small gains for frontier models, and warns that a skill can raise cost.
+
+**Reversal warning.** Move the `PackagePath` and the entry name changes. Two plausible
+values were wrong, and only the exact match in `verify-package-contents.sh` caught them.
+Drop the workflow from `AGENTS.md` and NuGet MCP users lose it. Delete
+`PackagedAgentDocsTests` and the next renamed flag leaves both documents giving commands
+that exit 2.
+
 ## Unrecorded decisions
 
 Recorded so nobody assumes these were considered.

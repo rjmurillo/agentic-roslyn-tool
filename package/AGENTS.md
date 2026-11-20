@@ -3,6 +3,7 @@
 AgenticRoslynTool is a .NET command line tool that splits C# files for StyleCop SA1402.
 It is not an MCP server. Use a Roslyn MCP server for symbol and reference questions.
 Use `agentic-roslyn-tool split-types` to split top-level types into separate files.
+The same workflow ships as an Agent Skill at `skills/split-types/SKILL.md` in this package.
 
 ## Splitting C# files (SA1402)
 

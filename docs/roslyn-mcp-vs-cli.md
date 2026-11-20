@@ -151,6 +151,10 @@ We pack [`package/AGENTS.md`](../package/AGENTS.md) as `AGENTS.md` at the root o
 Earlier versions return the README. Look for `# AgenticRoslynTool agent context` in the
 result. That heading confirms NuGet MCP found the packaged instructions.
 
+The package also ships the same workflow as an Agent Skill at
+`skills/split-types/SKILL.md`. NuGet MCP does not read skills yet. See
+[Agent Skills in a .NET tool package](agent-skills-in-nuget.md) for how agents can find it.
+
 NuGet MCP only supplies context. Run `agentic-roslyn-tool` through the shell to split
 files. The repository's root `AGENTS.md` guides contributors; `package/AGENTS.md`
 supplies package consumers.

@@ -287,6 +287,8 @@ One production run processed 7,818 files and split 461 of them. Roslyn parsed ev
 
 **Does `dotnet format` fix SA1402?** No. StyleCop's SA1402 code fix has no Fix All provider, so `dotnet format analyzers --diagnostics SA1402` exits 0 and leaves every file unchanged, as [the whole-repository guide](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/fix-sa1402-whole-repo.md) shows.
 
+**Does the package ship an Agent Skill?** Yes. The package holds `skills/split-types/SKILL.md`, which tools such as `dotnet-inspect` list. A tool package cannot be a `PackageReference`, so tools that scan a project's packages do not find it. [docs/agent-skills-in-nuget.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/agent-skills-in-nuget.md) shows where it lands and how to load it.
+
 **Is this an MCP server?** No, it is a command line tool. From Claude Code or GitHub Copilot agent mode, run `agentic-roslyn-tool split-types --input src --dry-run --json` as a shell command, then read the JSON and the exit code, as [docs/roslyn-mcp-vs-cli.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/roslyn-mcp-vs-cli.md) explains.
 
 ## Documentation
@@ -299,6 +301,7 @@ One production run processed 7,818 files and split 461 of them. Roslyn parsed ev
 | [docs/one-type-per-file-without-resharper.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/one-type-per-file-without-resharper.md) | How to move every C# type into its own file without ReSharper, with a worked example and a comparison of the options. |
 | [docs/verification.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/verification.md) | How to verify a large split: what each check proves, and a before/after type scan you run yourself. |
 | [docs/roslyn-mcp-vs-cli.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/roslyn-mcp-vs-cli.md) | When an agent needs a Roslyn MCP server and when it needs this command line tool. |
+| [docs/agent-skills-in-nuget.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/agent-skills-in-nuget.md) | The Agent Skill in the NuGet package: where it lands, what finds it, and how to check it. |
 | [docs/sa1402-sa1649-naming.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/sa1402-sa1649-naming.md) | What file name SA1649 expects for generic and same-name types, and how to fix the names the tool cannot choose. |
 | [docs/fix-sa1402-whole-repo.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/fix-sa1402-whole-repo.md) | Why `dotnet format` cannot fix SA1402, and how to split every multi-type file in a repository in three steps. |
 | [CONTRIBUTING.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/CONTRIBUTING.md) | Build, test, commit conventions, and the CI gate. |
