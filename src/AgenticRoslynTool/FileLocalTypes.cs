@@ -26,6 +26,11 @@ namespace AgenticRoslynTool;
 /// type can hide a type of the same name from a namespace or a using directive, and the
 /// moved code would bind to that other type with no error. See decision 29.
 /// </para>
+/// <para>
+/// Call <see cref="DescribeRefusal"/> first and <see cref="PlanAround"/> second. The
+/// first refuses the inputs no choice of kept type could make safe. The second assumes
+/// those are gone.
+/// </para>
 /// </remarks>
 internal static class FileLocalTypes
 {
@@ -51,12 +56,19 @@ internal static class FileLocalTypes
     /// <summary>A type that would move names a <c>file</c> type.</summary>
     internal const string MovedTypeReason = "moved type names a file-local type; manual split required";
 
+    /// <summary>
+    /// How the note on a split row starts when a <c>file</c> type stayed. Published: the
+    /// packaged agent documents tell a caller to match on it, and
+    /// <c>PackagedAgentDocsTests</c> holds them to this text.
+    /// </summary>
+    internal const string StayNotePrefix = "file-local type";
+
     private const string AttributeSuffix = "Attribute";
 
     /// <summary>
     /// Refuses an input no choice of kept type could make safe. Returns null for an input
-    /// with no <c>file</c> type, and for one that <see cref="DescribeDependency"/> must
-    /// still clear.
+    /// with no <c>file</c> type, and for one that <see cref="PlanAround"/> must still
+    /// clear.
     /// </summary>
     /// <param name="root">The parsed input.</param>
     /// <param name="types">Every top-level type in the input, in source order.</param>
@@ -68,16 +80,15 @@ internal static class FileLocalTypes
             return null;
         }
 
-        // A type the tool did not find sits in a nested namespace. Every output would
-        // repeat that block: a file-local type in it would be copied, and an ordinary type
-        // in it could name a file-local type where no scan below reads.
-        if (FindNamespaceLevelTypes(root).Count() != types.Count)
+        // Every output would repeat a nested namespace block: a file-local type in it
+        // would be copied, and an ordinary type in it could name a file-local type where
+        // no scan below reads.
+        if (FindNamespaceLevelTypes(root).Any(IsInNestedNamespace))
         {
             return (NestedNamespaceReason, null);
         }
 
         var fileLocal = types.Where(t => t.HasFileModifier).ToArray();
-
         if (types.Count - fileLocal.Length < 2)
         {
             return (NothingToSplitReason, null);
@@ -99,65 +110,44 @@ internal static class FileLocalTypes
     }
 
     /// <summary>
-    /// Picks the type that stays with the <c>file</c> types. The type the keep rule chose
-    /// stands whenever the file is named for it. Otherwise the keep rule only took the
-    /// first type, and the one ordinary type that names a <c>file</c> type is kept instead.
+    /// Plans around the <c>file</c> types of an input <see cref="DescribeRefusal"/> let
+    /// through: picks the type that stays with them, then either refuses the input because
+    /// a type that would move names a <c>file</c> type, or writes the note for the row.
     /// </summary>
     /// <remarks>
-    /// This is safe because a type that names a <c>file</c> type can never move. Keeping it
-    /// turns a refusal into a split whose every moved type still passes the same scan. With
-    /// two such types one of them would have to move, so the first choice stands and
-    /// <see cref="DescribeDependency"/> refuses the input.
+    /// The type the keep rule chose stands whenever the file is named for it, by its
+    /// simple name or under the naming convention. Otherwise the keep rule only took the
+    /// first type, and the one ordinary type that names a <c>file</c> type is kept
+    /// instead. That is safe because such a type can never move: keeping it turns a
+    /// refusal into a split whose every moved type still passes the same scan. With two
+    /// such types one of them would have to move, so the first choice stands and the
+    /// input is refused.
     /// </remarks>
     /// <param name="byRule">The type the keep rule chose among the ordinary types.</param>
-    /// <param name="namedForFile">True when the file name matches <paramref name="byRule"/>.</param>
+    /// <param name="ownsFileName">True when the file is already named for <paramref name="byRule"/>, so the keep rule plans no rename.</param>
+    /// <param name="baseName">The input's file name without its extension.</param>
     /// <param name="ordinary">The types declared without the <c>file</c> modifier.</param>
     /// <param name="fileLocal">The types declared with it.</param>
-    internal static TopLevelType ChooseKept(TopLevelType byRule, bool namedForFile, IReadOnlyList<TopLevelType> ordinary, IReadOnlyList<TopLevelType> fileLocal)
+    /// <returns>
+    /// The kept type, then the note for a split row or null, then null or the note for a
+    /// row skipped with <see cref="MovedTypeReason"/>.
+    /// </returns>
+    internal static (TopLevelType Keep, string? Note, string? Refusal) PlanAround(TopLevelType byRule, bool ownsFileName, string baseName, IReadOnlyList<TopLevelType> ordinary, IReadOnlyList<TopLevelType> fileLocal)
     {
-        if (namedForFile)
-        {
-            return byRule;
-        }
-
-        var naming = ordinary.Where(type => FindNamed(type.Node, fileLocal) is not null).Take(2).ToArray();
-        return naming.Length == 1 ? naming[0] : byRule;
-    }
-
-    /// <summary>
-    /// Says which moved type names which <c>file</c> type, or returns null when no moved
-    /// type names one. Any identifier counts, including one in a documentation comment and
-    /// an attribute written without its <c>Attribute</c> suffix.
-    /// </summary>
-    /// <param name="moved">The types the plan would move out.</param>
-    /// <param name="fileLocal">The types declared with the <c>file</c> modifier.</param>
-    internal static string? DescribeDependency(IEnumerable<TopLevelType> moved, IReadOnlyList<TopLevelType> fileLocal)
-    {
-        foreach (var type in moved)
+        // Under the metadata convention a generic type matched by its simple name does not
+        // own the file name, yet the keep rule still chose it for that name. Only the plain
+        // fallback to the first type may be replaced.
+        var namedForFile = ownsFileName || StringComparer.OrdinalIgnoreCase.Equals(byRule.Name, baseName);
+        var keep = namedForFile ? byRule : ChooseNaming(byRule, ordinary, fileLocal);
+        foreach (var type in ordinary.Where(t => !ReferenceEquals(t, keep)))
         {
             if (FindNamed(type.Node, fileLocal) is { } named)
             {
-                return $"{type.Key} names {named}";
+                return (keep, null, $"{type.Key} names {named}");
             }
         }
 
-        return null;
-    }
-
-    /// <summary>
-    /// The note for a split row whose kept file still holds a <c>file</c> type. The content
-    /// phase searches a row's note for collision paths, so this text carries no path.
-    /// </summary>
-    /// <param name="fileLocal">The types that stay.</param>
-    /// <param name="renameWithheld">True when the keep rule would have renamed the file.</param>
-    internal static string DescribeStay(IReadOnlyList<TopLevelType> fileLocal, bool renameWithheld)
-    {
-        var stayed = (fileLocal.Count == 1 ? "file-local type stayed in this file: " : "file-local types stayed in this file: ")
-            + string.Join(", ", fileLocal.Select(type => type.Key))
-            + "; SA1402 still flags the file";
-        return renameWithheld
-            ? stayed + "; the file keeps its name because a rename changes a file-local type's metadata name"
-            : stayed;
+        return (keep, DescribeStay(keep, fileLocal, renameWithheld: !ownsFileName), null);
     }
 
     /// <summary>
@@ -170,7 +160,7 @@ internal static class FileLocalTypes
     internal static string? FindNamedInOutput(CompilationUnitSyntax output, IReadOnlyList<TopLevelType> fileLocal)
     {
         return FindUsings(output)
-            .Concat<SyntaxNode>(TopLevelType.Find(output).Select(type => type.Node))
+            .Concat<SyntaxNode>(FindNamespaceLevelTypes(output))
             .Select(node => FindNamed(node, fileLocal))
             .FirstOrDefault(name => name is not null);
     }
@@ -184,9 +174,42 @@ internal static class FileLocalTypes
         return FindNamespaceLevelTypes(root).Where(TopLevelType.IsFileLocal);
     }
 
+    /// <summary>
+    /// The one ordinary type that names a <c>file</c> type, or <paramref name="byRule"/>
+    /// when none does or more than one does.
+    /// </summary>
+    private static TopLevelType ChooseNaming(TopLevelType byRule, IReadOnlyList<TopLevelType> ordinary, IReadOnlyList<TopLevelType> fileLocal)
+    {
+        var naming = ordinary.Where(type => FindNamed(type.Node, fileLocal) is not null).Take(2).ToArray();
+        return naming.Length == 1 ? naming[0] : byRule;
+    }
+
+    /// <summary>
+    /// The note for a split row whose kept file still holds a <c>file</c> type. The content
+    /// phase searches a row's note for collision paths, so this text carries no path.
+    /// </summary>
+    /// <remarks>
+    /// With its default settings StyleCop SA1402 checks classes and records only. It was
+    /// measured to flag a file that holds two of them, and to stay quiet when the
+    /// <c>file</c> types beside one class were structs, interfaces, enums, or delegates.
+    /// The note says which of the two holds, so it never promises a warning the build
+    /// does not raise.
+    /// </remarks>
+    private static string DescribeStay(TopLevelType keep, IReadOnlyList<TopLevelType> fileLocal, bool renameWithheld)
+    {
+        var names = fileLocal.Select(type => type.Key).Distinct(StringComparer.Ordinal).ToArray();
+        var classes = fileLocal.Append(keep).Count(type => type.Node.IsKind(SyntaxKind.ClassDeclaration) || type.Node.IsKind(SyntaxKind.RecordDeclaration));
+        var stayed = StayNotePrefix + (names.Length == 1 ? " stayed in this file: " : "s stayed in this file: ")
+            + string.Join(", ", names)
+            + (classes >= 2 ? "; SA1402 still flags the file" : "; SA1402 flags the file only where it checks more than classes");
+        return renameWithheld
+            ? stayed + "; the file keeps its name because a rename changes a file-local type's metadata name"
+            : stayed;
+    }
+
     private static IEnumerable<MemberDeclarationSyntax> FindNamespaceLevelTypes(CompilationUnitSyntax root)
     {
-        return root.DescendantNodes(IsNamespaceLevel).OfType<MemberDeclarationSyntax>().Where(node => node is BaseTypeDeclarationSyntax or DelegateDeclarationSyntax);
+        return root.DescendantNodes(IsNamespaceLevel).OfType<MemberDeclarationSyntax>().Where(TopLevelType.IsTypeDeclaration);
     }
 
     private static IEnumerable<UsingDirectiveSyntax> FindUsings(CompilationUnitSyntax root)
@@ -197,6 +220,11 @@ internal static class FileLocalTypes
     private static bool IsNamespaceLevel(SyntaxNode node)
     {
         return node is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax;
+    }
+
+    private static bool IsInNestedNamespace(MemberDeclarationSyntax type)
+    {
+        return type.Parent is BaseNamespaceDeclarationSyntax { Parent: BaseNamespaceDeclarationSyntax };
     }
 
     private static bool DeclaresExtensionMembers(TopLevelType type)

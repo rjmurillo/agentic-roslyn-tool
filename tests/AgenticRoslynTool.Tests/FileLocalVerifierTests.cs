@@ -41,6 +41,17 @@ public sealed class FileLocalVerifierTests
     }
 
     [Fact]
+    public void MovedOutputThatNamesAFileLocalTypeInANestedNamespace_FailsTheRow()
+    {
+        // The planner looks one namespace down. This check looks at every depth, so a type
+        // the planner never saw cannot carry the name out.
+        var error = Assert.Throws<InvalidOperationException>(() =>
+            Verify((ReadPath, Kept), ("/work/Caller.cs", "namespace Sample\n{\n    internal class Caller\n    {\n    }\n\n    namespace Inner\n    {\n        internal class Deep\n        {\n            public object Make() => new AlphaHelper();\n        }\n    }\n}\n")));
+
+        Assert.Equal("/work/Caller.cs names file-local type AlphaHelper, which stays in /work/Alpha.cs", error.Message);
+    }
+
+    [Fact]
     public void FileLocalTypeInAMovedOutput_FailsTheRow()
     {
         var error = Assert.Throws<InvalidOperationException>(() =>
@@ -55,6 +66,20 @@ public sealed class FileLocalVerifierTests
         var error = Assert.Throws<InvalidOperationException>(() => Verify(("/work/AlphaRenamed.cs", Kept)));
 
         Assert.Equal("/work/Alpha.cs: a file that declares a file-local type would be renamed", error.Message);
+    }
+
+    [Fact]
+    public void VerifyOutputs_RunsTheCheck_OnAnOtherwiseFaithfulSplit()
+    {
+        // Every older check passes here: the outputs parse, and no type or line is lost.
+        // Only the file-local check can fail this row, so this pins that it is called.
+        var (types, outputs) = FileLocalCompiler.BuildUnchecked(
+            ReadPath,
+            Prologue + "internal class Alpha\n{\n}\n\ninternal class Caller\n{\n    public object Make() => new AlphaHelper();\n}\n\nfile class AlphaHelper\n{\n}\n");
+
+        var error = Assert.Throws<InvalidOperationException>(() => OutputVerifier.VerifyOutputs(ReadPath, types, outputs, ParseOptions, null));
+
+        Assert.Equal("/work/Caller.cs names file-local type AlphaHelper, which stays in /work/Alpha.cs", error.Message);
     }
 
     [Fact]

@@ -57,6 +57,22 @@ public sealed class FileLocalOutrightRefusalTests : FileLocalTestBase
         Assert.Contains(FileLocalCompiler.Diagnostics(CompileUncheckedSplit(alpha)), d => d.StartsWith("CS0103 ", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData("using Helper = Sample.Totals;", "typeof(Helper).Name.Length", "CS0234 ")]
+    [InlineData("using static Sample.Totals;", "Twice(2)", "CS0103 ")]
+    public void UsingDirectiveInsideANamespaceBlock_IsScannedToo(string directive, string expression, string diagnostic)
+    {
+        // A using directive may sit inside the namespace block. Every output repeats that
+        // block's opening lines, so it is copied like one at the top of the file.
+        var alpha = Write("Alpha.cs", "namespace Sample\n{\n    " + directive + "\n\n    internal class Alpha\n    {\n    }\n\n"
+            + "    internal class Caller\n    {\n        public int Run() => " + expression + ";\n    }\n\n"
+            + "    file static class Totals\n    {\n        public static int Twice(int value) => value * 2;\n    }\n}\n");
+
+        AssertRefused(alpha, FileLocalTypes.UsingDirectiveReason, "a using directive names Totals");
+
+        Assert.Contains(FileLocalCompiler.Diagnostics(CompileUncheckedSplit(alpha)), d => d.StartsWith(diagnostic, StringComparison.Ordinal));
+    }
+
     [Fact]
     public void ConditionallyExcludedText_CannotBeScanned_SoTheInputIsRefused()
     {

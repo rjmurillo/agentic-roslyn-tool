@@ -5,7 +5,11 @@ namespace AgenticRoslynTool;
 /// pairs a target on-disk path with the top-level type that will live in it.
 /// </summary>
 /// <param name="Path">Absolute path of the output file, either the kept file or a new sibling.</param>
-/// <param name="Type">The top-level type that will be the only type declaration in the output.</param>
+/// <param name="Type">
+/// The top-level type the output is planned for. It is the only type a new sibling file
+/// declares. The kept file also declares every <c>file</c> type of the input; see
+/// <see cref="Holds"/>.
+/// </param>
 /// <param name="IsKept">
 /// True when this entry represents the file being kept in place (possibly under a new name
 /// via <c>git mv</c>); false for every new sibling file created by the split.

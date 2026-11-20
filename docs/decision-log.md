@@ -1156,9 +1156,9 @@ that exit 2.
 
 ### Decision 29. A file that holds a `file` type is split around it
 
-**Context.** Decision 13 lists `file` scoped types among the inputs refused whole. One
-`file` helper beside several ordinary types is a common shape, and every such file was left
-for a human. Three facts were measured before this changed. The build was a scratch project
+**Context.** Decision 13 lists `file` scoped types among the inputs refused whole. So a
+file with one `file` helper beside several ordinary types was left whole for a human. No
+count of such files was taken. Three facts were measured before this changed. The build was a scratch project
 on `net10.0` with StyleCop.Analyzers `1.2.0-beta.556`, and only SA1402 and SA1649 enabled.
 
 1. **SA1402 flags a file that holds a `file` class beside another class.** `internal class
@@ -1166,8 +1166,10 @@ on `net10.0` with StyleCop.Analyzers `1.2.0-beta.556`, and only SA1402 and SA164
    SA1402 at lines 8 and 12. After `Sibling` moved out, the warning at line 8 was still
    there. No split makes such a file SA1402 clean. In these builds SA1402 left alone the
    class the file is named for, or the first class when none matched, and flagged each
-   other class. Two `file` classes beside `Alpha` raised two warnings. SA1402 checks
-   classes only by default, so a `file struct` beside a class raised nothing.
+   other class. Two `file` classes beside `Alpha` raised two warnings, and a `file record`
+   raised one. By default SA1402 checks classes and records only. A `file` struct,
+   interface, enum, or delegate beside one class raised nothing, and so did a `file class`
+   beside one struct.
 2. **Renaming the file changes the `file` type's metadata name.** `typeof(AlphaHelper).FullName`
    was `Probe.<Alpha>F6987AE8...__AlphaHelper`. After `Alpha.cs` became `AlphaRenamed.cs`
    it was `Probe.<AlphaRenamed>FD638230...__AlphaHelper`. An edit to the file's text left
@@ -1207,15 +1209,20 @@ The split is on by default and has no flag.
     output and never scans it. A `file` type there would be copied. An ordinary type
     there would be declared twice, and could name a `file` type unseen.
   - The input declares at most one ordinary type. Nothing can move.
-- The split row's `note` says which `file` types stayed and that SA1402 still flags the
-  file. The note carries no path, because the content phase searches notes for collision
-  paths.
+- The split row's `note` says which `file` types stayed and whether SA1402 still flags
+  the file. The brief asked for a note that says SA1402 still flags it. Finding 1 narrowed
+  that: the warning needs two classes or records in the kept file. So the note says `SA1402
+  still flags the file` when the kept file holds two, and `SA1402 flags the file only
+  where it checks more than classes` when it does not. A note that promised a warning the
+  build never raised would send a caller to suppress nothing. The note carries no path,
+  because the content phase searches notes for collision paths.
 - `OutputVerifier` asks again about the rendered text. One output must be written to the
   path that was read, and no other output may declare or name a `file` type.
 
-Richard's brief named the first two refusals in that list. The other three were added
-while building this, without consulting him: excluded text, a nested namespace, and
-nothing to split. The kept type exception above was allowed by the brief, not required.
+The maintainer's brief named the first two refusals in that list. The other three were
+added while building this, and the maintainer had not ruled on them when this was
+written: excluded text, a nested namespace, and nothing to split. So was the two-form
+note above. The kept type exception was allowed by the brief, not required.
 
 **Why a name scan is enough.** Leaving the file changes two lookups for a moved type:
 lookup of a simple name, and lookup of extension members. Three compiler rules close the
@@ -1224,7 +1231,9 @@ in the signature of a member of an ordinary type. CS9053 forbids one as the base
 ordinary type. CS9071 forbids two types of one name in one file. So a moved type can only
 reach a `file` type by writing its name in a body, an attribute, an interface list, or a
 comment. A binding made through a symbol is not a lookup by name. A `file` class named in a
-`CollectionBuilder` attribute was still bound from another file.
+`CollectionBuilder` attribute was still bound from another file. That is one observation,
+not a survey of every attribute the compiler reads. `FileLocalPremiseTests` pins the three
+rules and that observation, so a compiler that relaxes one fails a test.
 
 **Rejected.** Moving the `file` type with the types that use it: the new file has a new
 name, so the metadata name changes. An opt in flag: a first run would still skip every
@@ -1234,10 +1243,15 @@ not know the sets.
 
 **Consequences.** This is a breaking change to default results. A file that was `skipped`
 with `contains file-local type; manual split required` is now `split`, or `skipped` with
-one of six new reasons. That old reason is gone. One SA1402 warning stays for each such
-file, and a person must suppress it. The scan is conservative, so some safe inputs are
-skipped: a moved type that merely has a member named like the `file` type, and any input
-with an `#if` branch the parse excludes.
+one of six new reasons. That old reason is gone. One SA1402 warning stays for each `file`
+class or record in such a file, and a person must suppress it. The scan is conservative,
+so some safe inputs are skipped: a moved type that merely has a member named like the
+`file` type, and any input with an `#if` branch the parse excludes. How many inputs each
+refusal still skips was not measured.
+
+One hole is known and is not closed here. A `file` modifier inside an excluded `#if`
+branch is never seen, so that type is planned as an ordinary one. `AGENTS.md` lists it
+under known issues.
 
 **Reversal warning.** Each item below was tested by removing it and compiling what the
 split would then write.
@@ -1254,6 +1268,20 @@ split would then write.
   in another.
 - Compare raw token text in place of the identifier's value, and `@AlphaHelper` passes
   the scan.
+- Drop the nested namespace refusal, and each output repeats the nested block. A `file`
+  type in it becomes two types, and that compiles clean. An ordinary type in it is
+  declared twice, and could name a `file` type where no scan reads.
+- Let the kept type exception apply when the file is named for a type, and that type
+  moves out to a file of its own name, which is the file being read.
+- Drop the check in `OutputVerifier`, and a planning mistake reaches disk. The planner is
+  then the only guard.
+- Reword the start of the note, and the packaged agent documents stop matching it.
+  `PackagedAgentDocsTests` fails on that.
+
+Re-check this proof when the C# language version or the Roslyn package changes. The tool
+parses with the preview language version, so new syntax parses with no error. A new way to
+bind to a type with no name at the use site needs a new refusal here. Extension blocks in
+C# 14 were one.
 
 ## Credit
 

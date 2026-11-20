@@ -29,7 +29,7 @@ internal static class OutputVerifier
     /// leaves that file names one (see <see cref="VerifyFileLocalTypesStay"/>).
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown as soon as any invariant fails, so the failure is surfaced without partial output being written.</exception>
-    internal static void VerifyOutputs(string originalPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions, string? requiredHeader)
+    internal static void VerifyOutputs(string readPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions, string? requiredHeader)
     {
         foreach (var output in outputs)
         {
@@ -46,26 +46,31 @@ internal static class OutputVerifier
             }
         }
 
-        foreach (var inputType in inputTypes)
+        // An input declares each text once, except for two file-local types written the
+        // same way in two namespace blocks. Both stay in the kept file, so that text is
+        // expected twice. Ordinary types written the same way share a name and are refused
+        // as a collision before this runs.
+        var declarations = inputTypes.Select(GetTypeOwnedText).ToArray();
+        for (var index = 0; index < inputTypes.Count; index++)
         {
-            var declaration = GetTypeOwnedText(inputType);
-            var count = outputs.Sum(o => CountOccurrences(o.Text, declaration));
-            if (count != 1)
+            var expected = declarations.Count(text => StringComparer.Ordinal.Equals(text, declarations[index]));
+            var count = outputs.Sum(o => CountOccurrences(o.Text, declarations[index]));
+            if (count != expected)
             {
-                throw new InvalidOperationException($"{originalPath}: declaration and owned trivia for {inputType.Key} appears {count} times across outputs");
+                throw new InvalidOperationException($"{readPath}: declaration and owned trivia for {inputTypes[index].Key} appears {count} times across outputs");
             }
         }
 
-        VerifyLineConservation(originalPath, inputTypes, outputs);
+        VerifyLineConservation(readPath, inputTypes, outputs);
 
         var outputTypes = outputs.SelectMany(o => TopLevelType.Find(CSharpSyntaxTree.ParseText(o.Text, parseOptions, path: o.Path).GetCompilationUnitRoot())).Select(t => t.Key).Order(StringComparer.Ordinal).ToArray();
         var inputKeys = inputTypes.Select(t => t.Key).Order(StringComparer.Ordinal).ToArray();
         if (!inputKeys.SequenceEqual(outputTypes, StringComparer.Ordinal))
         {
-            throw new InvalidOperationException($"{originalPath}: output top-level type set does not match input");
+            throw new InvalidOperationException($"{readPath}: output top-level type set does not match input");
         }
 
-        VerifyFileLocalTypesStay(originalPath, inputTypes, outputs, parseOptions);
+        VerifyFileLocalTypesStay(readPath, inputTypes, outputs, parseOptions);
     }
 
     /// <summary>

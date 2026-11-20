@@ -253,6 +253,13 @@ internal static class SplitPlanner
         // file whatever the plan decides, so the plan is made over the ordinary types.
         var fileLocal = types.Where(t => t.HasFileModifier).ToArray();
         var candidates = fileLocal.Length == 0 ? types : types.Where(t => !t.HasFileModifier).ToArray();
+        if (fileLocal.Length != 0 && candidates.Count < 2)
+        {
+            // FileLocalTypes.DescribeRefusal refuses this input first. Asked again here so
+            // this method never picks a kept type from an empty list.
+            return new SplitPlan(types[0], originalPath, false, null, FileLocalTypes.NothingToSplitReason, Array.Empty<PlannedFile>());
+        }
+
         var (keep, keepOwnsFileName) = ChooseKept(candidates, baseName, convention);
         var gitMove = false;
         string? note = null;
@@ -261,16 +268,13 @@ internal static class SplitPlanner
         if (fileLocal.Length != 0)
         {
             // No rename, in any phase: the compiler builds a file-local type's metadata
-            // name from the file's name, so a rename is a behavior change.
-            var namedForFile = keepOwnsFileName || StringComparer.OrdinalIgnoreCase.Equals(keep.Name, baseName);
-            keep = FileLocalTypes.ChooseKept(keep, namedForFile, candidates, fileLocal);
-            var dependency = FileLocalTypes.DescribeDependency(candidates.Where(t => !ReferenceEquals(t, keep)), fileLocal);
+            // name from the file's name, so a rename is a behavior change. The kept path
+            // stays the input path and gitMove stays false.
+            (keep, note, var dependency) = FileLocalTypes.PlanAround(keep, keepOwnsFileName, baseName, candidates, fileLocal);
             if (dependency is not null)
             {
-                return new SplitPlan(keep, keptPath, gitMove, note, FileLocalTypes.MovedTypeReason, Array.Empty<PlannedFile>(), SkipNote: dependency);
+                return new SplitPlan(keep, keptPath, gitMove, null, FileLocalTypes.MovedTypeReason, Array.Empty<PlannedFile>(), SkipNote: dependency);
             }
-
-            note = FileLocalTypes.DescribeStay(fileLocal, renameWithheld: !keepOwnsFileName);
         }
         else if (!keepOwnsFileName)
         {

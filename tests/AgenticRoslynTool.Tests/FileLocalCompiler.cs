@@ -84,6 +84,12 @@ internal static class FileLocalCompiler
     // test compiles this to show what a refusal prevents. Nothing is written to disk.
     public static (string Path, string Text)[] SplitUnchecked(string path, string text)
     {
+        return BuildUnchecked(path, text).Outputs.Select(output => (output.Path, output.Text)).ToArray();
+    }
+
+    // The same unchecked split, as the types and rendered outputs the verifier takes.
+    public static (TopLevelType[] Types, OutputFile[] Outputs) BuildUnchecked(string path, string text)
+    {
         var root = CSharpSyntaxTree.ParseText(text, ParseOptions, path: path).GetCompilationUnitRoot();
         var types = TopLevelType.Find(root).ToArray();
         var keep = types.First(type => type.Name == Path.GetFileNameWithoutExtension(path));
@@ -95,6 +101,6 @@ internal static class FileLocalCompiler
             .ToArray();
         var plan = new SplitPlan(keep, path, GitMove: false, Note: null, SkipReason: null, files);
         var source = EncodedSource.FromBytes(Encoding.UTF8.GetBytes(text));
-        return OutputBuilder.BuildOutputs(source, root, types, plan, string.Empty).Select(output => (output.Path, output.Text)).ToArray();
+        return (types, OutputBuilder.BuildOutputs(source, root, types, plan, string.Empty));
     }
 }

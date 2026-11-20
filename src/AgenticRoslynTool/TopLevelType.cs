@@ -45,8 +45,16 @@ internal sealed class TopLevelType
     /// <param name="node">A type or delegate declaration. Any other node answers false.</param>
     internal static bool IsFileLocal(MemberDeclarationSyntax node)
     {
-        return node is BaseTypeDeclarationSyntax or DelegateDeclarationSyntax
-            && node.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.FileKeyword));
+        return IsTypeDeclaration(node) && node.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.FileKeyword));
+    }
+
+    /// <summary>
+    /// True for the declarations <see cref="Find"/> turns into a <see cref="TopLevelType"/>:
+    /// a class, struct, record, interface, enum, or delegate.
+    /// </summary>
+    internal static bool IsTypeDeclaration(MemberDeclarationSyntax node)
+    {
+        return node is BaseTypeDeclarationSyntax or DelegateDeclarationSyntax;
     }
 
     /// <summary>

@@ -595,10 +595,15 @@ measurements behind each rule here.
   `cref` in a documentation comment. The scan compares the identifier's value, so
   `@AlphaHelper` matches. It is a scan by name only. A member that merely shares the name
   refuses the input too.
-- **The split row carries a note.** It reads `file-local type stayed in this file:
-  <names>; SA1402 still flags the file`. When the keep rule would have renamed the file,
-  the note adds `; the file keeps its name because a rename changes a file-local type's
-  metadata name`. Any directive note or collision note follows after ` | `.
+- **The split row carries a note.** It starts `file-local type stayed in this file:
+  <names>`, or `file-local types` for more than one. It ends `; SA1402 still flags the
+  file` when the kept file holds two or more classes or records, which is what SA1402
+  checks by default. Otherwise it ends `; SA1402 flags the file only where it checks more
+  than classes`. When the keep rule would have renamed the file, the note adds `; the file
+  keeps its name because a rename changes a file-local type's metadata name`. Any
+  directive note or collision note follows after ` | `. Callers may match on the leading
+  `file-local type`. A content retry reports the row as `already applied` with no note, so
+  read the note from the plan manifest.
 
 The split leaves the file with more than one type, so SA1402 can still report it. See
 [fix-sa1402-whole-repo.md](fix-sa1402-whole-repo.md#files-that-hold-a-file-type) for how
@@ -607,8 +612,8 @@ to suppress that warning.
 Nothing else about the workflow changes. The row carries a content hash, and the content
 phase refuses a changed file as `stale plan:`. A retry reports the row as `already
 applied`. A moved type takes its name from `--file-naming`, and a colliding one from
-`--collision-naming`. Verified by the six `FileLocal*Tests` classes. Five of them compile
-the source before and after with the C# compiler, because a parse cannot show a binding.
+`--collision-naming`. Verified by the seven `FileLocal*Tests` classes. Six of them compile
+source with the C# compiler, because a parse cannot show a binding.
 
 ### VerifyOutputs
 
@@ -618,6 +623,8 @@ when any of these hold:
 - An output does not start with the required header, when `--require-header` is set.
 - An output does not parse.
 - A type's declaration plus its owned trivia appears in more than one output, or in none.
+  One case expects two: two `file` types written the same way in two namespace blocks
+  both stay in the kept file.
 - The set of top level types across all outputs does not equal the input set.
 - The input declares a `file` type, and no output is written to the path that was read.
   That would be a rename.

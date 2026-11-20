@@ -89,6 +89,18 @@ public sealed class FileLocalKeptTypeTests : FileLocalTestBase
     }
 
     [Fact]
+    public void GenericTypeNamedForTheFile_IsKeptUnderMetadataNaming_EvenWhenAnotherTypeNamesTheFileLocalType()
+    {
+        // Under metadata naming Foo<T> does not own Foo.cs, but the keep rule still chose
+        // it for its name. Gadget names the file-local type and would have to move, so the
+        // input is refused. Gadget is not kept in Foo<T>'s place.
+        Naming = FileNamingConvention.Metadata;
+        var foo = Write("Foo.cs", "namespace Sample;\n\ninternal class Foo<T>\n{\n}\n\n" + Gadget + Helper);
+
+        AssertRefused(foo, FileLocalTypes.MovedTypeReason, "Gadget names WidgetHelper");
+    }
+
+    [Fact]
     public void TypeNamedForTheFile_IsKept_EvenWhenAnotherTypeNamesTheFileLocalType()
     {
         // Keeping Gadget would mean moving Widgets out of Widgets.cs, which the keep rule

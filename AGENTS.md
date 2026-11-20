@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 40 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 379 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 394 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -89,7 +89,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 379 passed, 0 failed
+dotnet test  -c Release      # must be 394 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -192,8 +192,9 @@ weight.
     visible only there, and the compiler builds its metadata name from the file's name.
     `gitMove` is false for such an input in every phase. An ordinary type moves out only
     when no identifier in it equals a `file` type's name. An input is refused outright
-    when a `file` type declares extension members, when a using directive names one, or
-    when an `#if` excludes text the scan cannot read. Never relax the name scan to "looks
+    when a `file` type declares extension members, when a using directive names one,
+    when an `#if` excludes text the scan cannot read, or when any type sits in a nested
+    namespace. Never relax the name scan to "looks
     unrelated": a `file` type hides a same-named type from another namespace, and the
     moved code would compile clean against that other type. `OutputVerifier` checks the
     rendered text again. The `FileLocal*Tests` classes pin each rule by compiling. See
@@ -419,9 +420,12 @@ agent does not pay again.
   shadowing case compiles clean and binds to another type, so assert on the bound symbol
   there, not on diagnostics.
 - **StyleCop SA1402 does not exempt a `file` type.** This repository's SA1402 guide said it
-  did. A build with StyleCop.Analyzers `1.2.0-beta.556` flagged a `file class` beside
-  another class. SA1402 checks classes only by default, so a `file struct` raised nothing.
-  Measure a StyleCop claim in a scratch project before you write it down.
+  did. A build with StyleCop.Analyzers `1.2.0-beta.556` flagged a `file class` and a `file
+  record` beside another class. By default it checks classes and records only: a `file`
+  struct, interface, enum, or delegate beside one class raised nothing, and so did a
+  `file class` beside one struct. The row's note follows that count, so do not reword it
+  to promise a warning. Measure a StyleCop claim in a scratch project before you write it
+  down.
 - **An extension block is a `TypeDeclarationSyntax`.** `OfType<TypeDeclarationSyntax>()`
   returns it beside the classes, with an empty identifier. Find it by
   `SyntaxKind.ExtensionBlockDeclaration`.
@@ -439,6 +443,12 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   fails with a duplicate type. The line count check allows it, because text outside every
   found type counts as shared. An input that also declares a `file` type, at any depth,
   is refused, as decision 29 records. Every other input with this shape still splits.
+
+- A `#nullable` or `#pragma` directive placed above one type travels only with that type.
+  With `#nullable enable` above the second of three types, the third type's new file has
+  no such line, and its `string?` raises CS8632. The directive sits in the leading trivia
+  of the type below it, and each output removes every other type with its trivia. This is
+  true with or without a `file` type.
 
 - A `file` modifier inside an excluded `#if` branch is not seen. In `#if X` / `file` /
   `#else` / `internal` / `#endif` / `class Maybe`, the parse reads `Maybe` as `internal`

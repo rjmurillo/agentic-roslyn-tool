@@ -1,5 +1,7 @@
 # Fix SA1402 across a whole repository: why dotnet format does nothing and how to split every file
 
+<!-- doc-accuracy: external-sdk StyleCop.Analyzers -- the C# samples are user code and StyleCop attributes, not this tool's own types -->
+
 `dotnet format` cannot fix SA1402 across a repository. StyleCop's SA1402 code fix has no
 Fix All provider, because the fix creates new files and the batch fixer cannot do that. To
 clear SA1402 everywhere, run `agentic-roslyn-tool split-types` three times: once with
@@ -299,16 +301,21 @@ internal class Sibling
 The plan row is a split, and its `note` says what stays:
 
 ```csv
-"Alpha.cs","Alpha.cs",false,"split","","file-local type stayed in this file: AlphaHelper; SA1402 still flags the file","Sibling.cs","Sibling"
+originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash,collisionNaming
+"Alpha.cs","Alpha.cs",false,"split","","file-local type stayed in this file: AlphaHelper; SA1402 still flags the file","Sibling.cs","Sibling","sha256:39f75a1df2a6add50368b5c947ee8b17b25ae63df86a9a56e967515230846f43","file-first"
 ```
 
 `Sibling` moves to `Sibling.cs`. `Alpha` and `AlphaHelper` stay in `Alpha.cs`.
 
 **One SA1402 warning stays, and the tool cannot remove it.** That build reported SA1402
 twice before the split, at `AlphaHelper` and at `Sibling`. After the split it reported
-once, at `Alpha.cs(8,12)`, the `file` class. Expect one warning for each `file` class. A
-`file struct` raised none, because SA1402 checks classes only by default. Suppress the
-warning in one of two ways. Both were run against that build.
+once, at `Alpha.cs(8,12)`, the `file` class. Expect one warning for each `file` class or
+`file` record. A `file` struct, interface, enum, or delegate beside one class raised
+none, because SA1402 checks classes and records only by default. The row's `note` follows
+that rule: it ends `SA1402 still flags the file` when two classes or records stay, and
+`SA1402 flags the file only where it checks more than classes` when they do not. Build
+first, and suppress only a warning the build reports. There are two ways. Both were run
+against that build.
 
 * **A section in `.editorconfig`.** It leaves the source alone, and works wherever the
   warning lands:
@@ -346,6 +353,8 @@ The tool skips the file when it cannot prove the split is safe. It never guesses
 * **A `using` alias or `using static` names a `file` type.** Every new file repeats the
   using directives, and the new file cannot see the type.
 * **The file has an `#if` branch that is excluded.** The tool cannot read excluded text.
+* **The file has a nested namespace that declares a type.** The tool places types one
+  namespace down and no deeper, so it cannot place or check that type.
 * **The file has only one other type.** There is nothing to move. The SA1402 warning on
   such a file was there before, and you suppress it the same way.
 
