@@ -107,7 +107,8 @@ The results in this section come from a separate build: StyleCop.Analyzers
 `1.2.0-beta.556` on .NET SDK 11.0.100, with `fileNamingConvention` set to `metadata`. It
 accepted ``Foo`1.cs``, ``Pair`2.cs``, a generic delegate in ``Make`1.cs``, and a plain
 `Plain.cs`. It reported SA1649 for `Foo<T>` in `Foo.cs`, for `Foo<T>` in `Foo{T}.cs`, for a
-generic delegate in a plain named file, and for ``A.Shared`1.cs``. The delegate rule
+generic delegate in a plain named file, and for ``A.Shared`1.cs``. It accepted
+``Shared`1.A.cs``. The delegate rule
 depends on the StyleCop version. The `1.1.118` source has no delegate case in
 `FileNameHelpers`, so check a generic delegate against the version you build with.
 
@@ -120,11 +121,11 @@ each of the three runs:
 
 Pass the flag to all three phases. It decides file names, so each phase must agree. The
 content phase skips a file whose manifest row the other convention would have planned
-differently and writes nothing for it. The reason starts with
-`content phase plan does not match manifest` and then names the manifest path and the path
-this run computes. For a kept file the two conventions name differently, it reads
-``manifest keeps Foo`1.cs, this run keeps Foo.cs``, with full paths. A file whose paths
-come out the same under both conventions still splits. That covers every file with no
+differently and writes nothing for it. The reason is
+`content phase plan does not match manifest`. The row's note names both flag values, the
+manifest path, and the path this run computes. For a kept file the two conventions name
+differently, the note reads ``manifest keeps Foo`1.cs, this run keeps Foo.cs``, with full
+paths. A file whose paths come out the same under both conventions still splits. That covers every file with no
 generic type. The run exits 0 and its rows replace the plan, so run the plan phase again
 before you retry.
 
@@ -154,9 +155,11 @@ Three things the flag does not do:
 * It does not rename a file that needs no split. A lone `Foo<T>` in `Foo.cs` is skipped as
   nothing to split, so rename it by hand, for example with
   ``git mv 'Foo.cs' 'Foo`1.cs'``. The single quotes keep the backtick literal.
-* It does not fix the qualified form used for a
+* It does not fix the default qualified form used for a
   [cross-file collision](#same-type-name-in-two-namespaces). That becomes
-  ``A.Shared`1.cs``, which SA1649 reads as `A` and still rejects.
+  ``A.Shared`1.cs``, which SA1649 reads as `A` and still rejects. Add
+  `--collision-naming type-first` to every phase and the name becomes ``Shared`1.A.cs``,
+  which SA1649 reads as ``Shared`1`` and accepts.
 * It does not change your StyleCop settings. If nothing depends on `metadata`, switching
   the repository to `stylecop` also works. See
   [Configure the convention](#configure-the-convention).

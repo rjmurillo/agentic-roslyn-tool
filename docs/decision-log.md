@@ -588,8 +588,8 @@ generic type or delegate is named ``Name`N.cs`` with N its arity, and a type tha
 generic keeps `Name.cs`. That matches `FileNameHelpers.GetConventionalFileName` in
 StyleCop.Analyzers, read at commit `45026329`. A build with `1.2.0-beta.556` confirmed
 it. The delegate case is newer than `1.1.118`, whose `FileNameHelpers` source has none.
-Two planner rules follow from the name. The
-kept type is the one whose arity name matches the file, so `Foo<T>` stays in ``Foo`1.cs``.
+Two planner rules follow from the name. The kept type is the one whose arity name matches
+the file, so `Foo<T>` stays in ``Foo`1.cs``.
 A generic type kept in a plain named file is renamed, so `Foo.cs` becomes ``Foo`1.cs``.
 
 **Rejected.** Reading `stylecop.json` or `.editorconfig`. That is decision 14 again: the
@@ -604,19 +604,30 @@ name its cause. The column alone would not close that gap. The renames phase rep
 manifest at all today, so it would also have to start reading one. That is a change to
 what the renames phase does, and it is left for its own decision.
 
-**Consequences.** The content phase gained a check that applies with or without the flag.
-It substitutes manifest paths into the plan and then compared output path sets, which
-compared the manifest with itself. A plan made under the other convention differs only in
-a moved file's name, so it passed and was applied. Each substituted path must now equal the
-path computed before substitution, or its cross-file qualified form. Those are the only two
-paths an unedited plan can hold. A manifest edited to send a type to some other free path
-used to be applied and is now skipped as a mismatch. The existence and uniqueness checks
-still run first, so `ManifestPathTamperingTests` reports the same reasons. Every mismatch
-reason names what differs: the kept path, the rename, or a new file path. It gives the
-manifest's value wherever the manifest has one, and the computed value beside it when both
-exist. The skipped row replaces the plan row, so the reason is the only place the
-manifest's value survives. It still cannot name the
-convention, because the manifest does not record one.
+**Consequences.** The content phase gained a check. It writes the paths the manifest
+holds, so a plan made under the other convention was applied as it stood. It differs only
+in a moved file's name, and the path set comparison runs after those paths are substituted
+in. A moved type's manifest path is now refused when it is the name the other convention
+gives that type, alone or in either cross-file qualified form. A changed kept path or
+rename was already refused by the shape comparison.
+
+Every other free path a reviewer types into the manifest is still applied. Decision 21
+pins that for collision names with `ContentPhase_StillAcceptsAHandEditedFreePath`, and an
+earlier draft of this check broke it by refusing any path the run had not computed. One
+edit is refused that used to be applied: typing the other convention's exact name by hand.
+The manifest records no convention, so nothing tells that edit from a plan made under the
+other value.
+
+The reason stays `content phase plan does not match manifest`, as for decision 21. The
+skipped row's note says what differs: both flag values and both paths for a moved file,
+the two kept paths for a kept file, and the path or rename for other shape drift. The
+skipped row replaces the plan row, so the note is the only place the manifest's value
+survives. The existence and uniqueness checks still run first, so
+`ManifestPathTamperingTests` reports the same reasons.
+
+The two flags compose. Under `metadata` with `--collision-naming type-first`, a colliding
+`Shared<T>` from `A.cs` becomes ``Shared`1.A.cs``. SA1649 reads that as ``Shared`1`` and
+accepts it. A build with StyleCop.Analyzers `1.2.0-beta.556` confirmed it.
 
 Under `metadata`, `Box<T>` and `Box<U>` in one file share ``Box`1.cs`` and are refused as
 `target path collision within split`. Under `stylecop` they split by parameter name.
@@ -626,8 +637,7 @@ content under the other: a file the two conventions plan differently is skipped 
 is written for it. A file they plan the same way still splits, which covers every file
 with no generic type. The run exits 0 and its rows replace the plan, so recovery is to run
 the plan phase again, after undoing any rename that landed or listing the renamed path.
-Renames under a value that differs from the plan
-is not caught. The renames phase does not replay the manifest. It runs its own renames
+Renames under a value that differs from the plan is not caught. The renames phase does not replay the manifest. It runs its own renames
 and rewrites the manifest, and a content run under that same value then applies it at exit
 0. The docs tell the caller to pass the flag to every phase and to plan again after
 changing it. `AGENTS.md` lists this as a known issue.
@@ -638,9 +648,10 @@ same rename target both show as `split`. The renames phase moves the first, `git
 on the second, and the run exits 3 with one rename landed. Nothing is overwritten.
 `AGENTS.md` lists this as a known issue too.
 
-**Reversal warning.** Remove the computed path comparison and a content run whose flag
+**Reversal warning.** Remove the other convention check and a content run whose flag
 differs from the manifest it was handed applies that manifest at exit 0, with names from
-the other convention. Drop the kept type rule and every correctly named ``Foo`1.cs`` loses
+the other convention. Widen it to refuse every path the run did not compute and decision
+21's hand-edited path test fails. Drop the kept type rule and every correctly named ``Foo`1.cs`` loses
 `Foo<T>` to a new file, which is the opposite of what the flag is for. Change the default
 and every existing plan and test that involves a generic type changes names.
 

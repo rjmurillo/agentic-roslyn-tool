@@ -286,9 +286,10 @@ Two refusals here are what make the plan then apply workflow trustworthy:
    row is `skipped` and no output is written for it, so a reviewed plan is applied or
    nothing is. Other files in the run are unaffected. See the structural limit noted
    under the `content` phase above. The comparison of output path sets runs after the
-   manifest paths are substituted in, so it cannot see a changed path by itself. A second
-   comparison holds each substituted path against the path computed before substitution,
-   and accepts only that path or its `<OriginalFileName>.<name>` qualified form.
+   manifest paths are substituted in, so it cannot see a changed path by itself. Two
+   narrower checks cover the paths a flag decides. One refuses a collision name resolved
+   under the other `--collision-naming`. The other refuses the name the other
+   `--file-naming` gives a moved type. Any other free path in the manifest is applied.
 
 File names come from `--file-naming`. Under `stylecop`, the default, a generic type is
 named `Name{T1,T2}.cs` only when another type in the input shares its simple name, and the

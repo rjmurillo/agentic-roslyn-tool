@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 32 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 148 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 151 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -77,7 +77,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 148 passed, 0 failed
+dotnet test  -c Release      # must be 151 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -190,13 +190,15 @@ agent does not pay again.
   output.
 - **`--file-naming` must be the same in every phase, and only the content phase checks.**
   It decides planned paths. The content phase skips a file whose manifest row was made
-  under the other value, because the planner compares each manifest path with the path it
-  computed before substitution. The renames phase recomputes the plan and its rows replace
+  under the other value. `SplitPlanner` refuses a moved type whose manifest path is the name
+  the other value gives it, and the shape check catches a changed kept path. The skipped
+  row's note says which. Any other hand-edited free path is still applied, which
+  `CollisionNamingContentTests` pins, so do not widen the check. The renames phase recomputes the plan and its rows replace
   the manifest. So a renames run under another value rewrites the reviewed plan, and the
   content check then compares against the rewritten plan and passes. Changed the flag?
   Run the plan phase again. If a rename already landed, a list file still names the old
   path and the new plan reports `input file does not exist`. Undo the rename with git, or
-  list the file's current path, before you plan again. See decision 21 and the known
+  list the file's current path, before you plan again. See decision 22 and the known
   issue below.
 - **A backtick in a path is escaped in `--json` output.** ``Foo`1.cs`` is written as
   `Foo\u00601.cs`. Parse the JSON before you search it for a file name. The CSV manifest

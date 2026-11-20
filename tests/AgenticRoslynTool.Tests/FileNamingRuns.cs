@@ -24,9 +24,9 @@ internal static class FileNamingRuns
     }
 
     // Runs one phase and writes its manifest rows back, as Program does between processes.
-    public static FileResult[] RunPhase(TempWorkspace ws, string listPath, string manifestPath, Phase phase, FileNamingConvention naming)
+    public static FileResult[] RunPhase(TempWorkspace ws, string listPath, string manifestPath, Phase phase, FileNamingConvention naming, CollisionNaming collisionNaming = CollisionNaming.FileFirst)
     {
-        var options = new Options(listPath, manifestPath, ws.Root, phase, RequiredHeader: null, FileNaming: naming);
+        var options = new Options(listPath, manifestPath, ws.Root, phase, RequiredHeader: null, CollisionNaming: collisionNaming, FileNaming: naming);
         var outcome = new FileSplitter(options).Run();
         ManifestWriter.Write(outcome.ManifestRows, manifestPath);
         return outcome.ReportRows.ToArray();

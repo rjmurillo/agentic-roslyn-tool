@@ -276,8 +276,8 @@ public enum WidgetKind
 
 To keep such a file as it is, pass `--exclude` with part of its path, or leave it out of
 the list file. Do this for the plan and for every later phase. Do not edit the manifest by
-hand, to drop a row or to change a path: the content phase recomputes the plan and refuses
-a file whose plan does not match.
+hand to drop a row: the content phase recomputes the plan and refuses a file whose plan
+does not match.
 
 ## File naming and SA1649
 
