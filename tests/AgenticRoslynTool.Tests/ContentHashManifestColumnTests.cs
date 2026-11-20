@@ -99,7 +99,7 @@ public sealed class ContentHashManifestColumnTests : ContentHashTestBase
         Assert.Equal(2, read[0].NewFiles.Count);
 
         var lines = File.ReadAllLines(ManifestPath);
-        // contentHash stays the ninth column. Decision 24 appended collisionNaming after it.
+        // contentHash stays the ninth column. Decision 25 appended collisionNaming after it.
         Assert.Equal("originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash,collisionNaming", lines[0]);
         Assert.Equal(6, lines.Length);
         Assert.All(lines.Skip(1).Take(2), line => Assert.EndsWith($",\"{hashA}\",\"file-first\"", line, StringComparison.Ordinal));

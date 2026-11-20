@@ -17,7 +17,7 @@ namespace AgenticRoslynTool;
 /// </para>
 /// <para>
 /// <c>--collision-naming</c> is never repeated. The plan recorded it in the manifest, and a
-/// later phase reads it from there. See decision 24.
+/// later phase reads it from there. See decision 25.
 /// </para>
 /// </remarks>
 internal static class NextStep

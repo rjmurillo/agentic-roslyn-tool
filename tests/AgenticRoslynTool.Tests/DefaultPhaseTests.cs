@@ -3,7 +3,7 @@ using Xunit;
 
 namespace AgenticRoslynTool.Tests;
 
-// A run with no --phase plans and changes no source file. Decision 23.
+// A run with no --phase plans and changes no source file. Decision 24.
 public sealed class DefaultPhaseTests
 {
     [Fact]

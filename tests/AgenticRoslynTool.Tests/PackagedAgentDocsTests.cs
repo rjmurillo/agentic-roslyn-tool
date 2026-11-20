@@ -5,7 +5,7 @@ namespace AgenticRoslynTool.Tests;
 
 // The package ships two agent documents: AGENTS.md at the root, which NuGet MCP returns,
 // and skills/split-types/SKILL.md, which skill tools find. Both carry the workflow, so both
-// can drift from the command line. These tests fail the build when one does. Decision 26.
+// can drift from the command line. These tests fail the build when one does. Decision 27.
 public sealed partial class PackagedAgentDocsTests
 {
     private static readonly string PackageDir = Path.Combine(RepositoryRoot(), "package");

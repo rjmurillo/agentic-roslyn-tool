@@ -3,7 +3,7 @@ using Xunit;
 namespace AgenticRoslynTool.Tests;
 
 // The manifest's collisionNaming column: how it is written, and what a strict read refuses.
-// Decision 24 in docs/decision-log.md records why the column exists.
+// Decision 25 in docs/decision-log.md records why the column exists.
 public sealed class ManifestCollisionNamingTests
 {
     private const string Header = "originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash,collisionNaming";

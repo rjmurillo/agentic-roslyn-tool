@@ -3,7 +3,7 @@ using Xunit;
 namespace AgenticRoslynTool.Tests;
 
 // How a renames or content run picks its collision naming from the flag and the manifest.
-// Decision 24.
+// Decision 25.
 public sealed class CollisionNamingFlagTests
 {
     [Theory]

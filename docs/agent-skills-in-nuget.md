@@ -63,7 +63,7 @@ Drift between the two is handled by `PackagedAgentDocsTests`. It fails the build
 command line in either file stops parsing under the current options, when a skill breaks the
 format rules below, or when `AGENTS.md` stops naming the skill. A test that injects
 `--bogus` into a command and renames the skill to `Split_Types` failed two of its four
-cases, which is how the test was checked. See decision 26.
+cases, which is how the test was checked. See decision 27.
 
 ## Format rules the skill must follow
 
@@ -128,10 +128,10 @@ trade." Testing only with cheap models is called "an anti-pattern."
 That points away from writing more prose for weaker models, and toward a command line that
 is hard to misuse. These changes shipped with the skill, and each one is in the decision log:
 
-- A run with no `--phase` plans and changes nothing. Decision 23.
+- A run with no `--phase` plans and changes nothing. Decision 24.
 - The plan records `--collision-naming`, and a later phase that contradicts it exits 3.
-  Decision 24.
-- The JSON report carries `nextArgs`, the exact arguments for the next phase. Decision 25.
+  Decision 25.
+- The JSON report carries `nextArgs`, the exact arguments for the next phase. Decision 26.
 - `--help` prints the three step workflow and says that exit 0 can mean nothing happened.
 
 The skill itself is short and leans on `nextArgs`, so a model follows one literal command

@@ -2,7 +2,7 @@ using Xunit;
 
 namespace AgenticRoslynTool.Tests;
 
-// The Next: line on standard error. Decision 25.
+// The Next: line on standard error. Decision 26.
 public sealed class NextStepDescribeTests
 {
     [Fact]

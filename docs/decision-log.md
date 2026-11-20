@@ -510,7 +510,7 @@ possibly compromised version merge itself within minutes.
 
 ### Decision 21. Collision naming is a flag, and the default keeps the SA1649 violation
 
-**Superseded in part by decision 24.** The plan now records the value in the manifest.
+**Superseded in part by decision 25.** The plan now records the value in the manifest.
 The rejection of a column below, and the consequences of a forgotten flag, describe the
 behavior before that change. The note dependency and the per-row content check still hold.
 
@@ -673,7 +673,7 @@ afresh one phase early. Make the missing column a fallback and every old manifes
 loses the guarantee. Hash decoded text instead of bytes and a newline or encoding change
 slips through.
 
-### Decision 23. A run with no phase plans
+### Decision 24. A run with no phase plans
 
 **Context.** `--phase` defaulted to `content`, the one phase that rewrites source. No entry
 in this log recorded why. Every doc had to warn the reader to pass `--dry-run`, and the
@@ -700,7 +700,7 @@ means the same on version 0.1.1 and on later versions.
 **Reversal warning.** Restore `content` as the default and the first bare call from an
 agent rewrites source before anyone has reviewed a plan.
 
-### Decision 24. The plan records `--collision-naming` in the manifest
+### Decision 25. The plan records `--collision-naming` in the manifest
 
 **Context.** Decision 21 made the value a flag that every phase had to repeat, and it
 rejected a manifest column because the column "changes the manifest CSV for every caller,
@@ -751,11 +751,11 @@ the exit 0 trap back in place. Let `Write` default the value and a future caller
 renames run rewrites reviewed names. Accept a blank value as "not recorded" and an edited
 manifest silently falls back to the flag.
 
-### Decision 25. The report says what to run next
+### Decision 26. The report says what to run next
 
 **Context.** The workflow is three runs with the same options, and the commonest mistake is
 a dropped option between them: a missing `--manifest`, a missing `--exclude`, or before
-decision 24 a missing `--collision-naming`. A frontier model reads the docs and carries the
+decision 25 a missing `--collision-naming`. A frontier model reads the docs and carries the
 options forward. An economical model follows a literal command far more reliably than a
 paragraph of advice. The NuGet team's skill evaluation found the same gap between tiers.
 
@@ -782,7 +782,7 @@ value that may contradict the manifest. Return a suggestion for standard input a
 next run plans nothing and exits 0. Move the field after `files` and a truncated read
 loses it.
 
-### Decision 26. The package ships an Agent Skill as well as `AGENTS.md`
+### Decision 27. The package ships an Agent Skill as well as `AGENTS.md`
 
 **Context.** The .NET team now delivers Agent Skills inside NuGet packages, at
 `skills/<name>/SKILL.md`. Restore puts the file on disk, and `dotnet-inspect` lists it.
