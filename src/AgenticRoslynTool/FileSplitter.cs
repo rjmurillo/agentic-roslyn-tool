@@ -498,30 +498,22 @@ internal sealed class FileSplitter
         }
 
         var plan = SplitPlanner.BuildPlan(originalPath, readPath, types, planned, directiveNote: directiveSafety.Note, collisionNaming: collisionNaming, convention: _options.FileNaming);
+        // A refused row reports readPath, where the file is. plan.KeptPath can be a rename
+        // target that nothing moved the file to, because a refusal never renames.
         if (plan.SkipReason is not null)
         {
-            var skipped = FileResult.Skip(originalPath, plan.KeptPath, plan.SkipReason);
+            var skipped = FileResult.Skip(originalPath, readPath, plan.SkipReason);
             return plan.SkipNote is null ? skipped : skipped with { Note = plan.SkipNote };
         }
 
         if (DirectiveAnalyzer.ProducesEmptyDirectiveShell(root, types, plan))
         {
-            return FileResult.Skip(originalPath, plan.KeptPath, "splitting would leave an empty directive shell; manual split required");
+            return FileResult.Skip(originalPath, readPath, "splitting would leave an empty directive shell; manual split required");
         }
 
+        // The renames phase never reaches this method. Its git mv runs in ApplyPlannedRename.
         try
         {
-            if (phase == Phase.Renames)
-            {
-                _writer.ApplyRenameOnly(originalPath, originalBytes, plan.KeptPath);
-                return FileResult.Split(
-                    originalPath,
-                    plan.KeptPath,
-                    plan.GitMove,
-                    plan.Note,
-                    plan.Files.Where(f => !f.IsKept).Select(f => new NewFileResult(f.Path, f.Type.Key)).ToArray());
-            }
-
             var headerText = OutputBuilder.NormalizeHeaderText(_options.RequiredHeader, source.NewLine);
             var outputs = OutputBuilder.BuildOutputs(source, root, types, plan, headerText);
             OutputVerifier.VerifyOutputs(readPath, types, outputs, parseOptions, headerText);
@@ -542,7 +534,8 @@ internal sealed class FileSplitter
         }
         catch (Exception ex)
         {
-            return FileResult.Failed(originalPath, plan.KeptPath, ex.Message);
+            // WriteOutputs restores the input on failure, so the file is still at readPath.
+            return FileResult.Failed(originalPath, readPath, ex.Message);
         }
     }
 

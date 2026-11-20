@@ -286,6 +286,11 @@ Promises:
 - Every row carries the run's `collisionNaming`: the flag's value, or `file-first` when
   the flag is absent. A plan never reads the value from an existing manifest, because a
   plan starts afresh. Verified by `CollisionNamingFlagTests` and `CollisionNamingRecordedTests`.
+- A `skipped` or `failed` row names the file's original path as `keptPath`, with
+  `gitMove` false. A refusal never renames. That holds for a `BuildPlan` refusal, an
+  empty directive shell, a verification failure, and a collision refusal, even when the
+  plan first chose a rename target. Only a `split` row names a planned rename target.
+  `RefusedRenameLocationTests` pins it.
 - Runs when `--phase` is absent. See decision 25.
 
 You can run `plan` as many times as you like. It is the review step, and it is the reason
