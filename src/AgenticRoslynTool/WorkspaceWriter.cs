@@ -16,12 +16,23 @@ namespace AgenticRoslynTool;
 /// </remarks>
 internal sealed class WorkspaceWriter
 {
+    /// <summary>How long one <c>git mv</c> may run before the tool kills it.</summary>
+    internal static readonly TimeSpan DefaultGitTimeout = TimeSpan.FromMinutes(2);
+
     private readonly string _repoRoot;
+    private readonly TimeSpan _gitTimeout;
 
     /// <summary>Creates a writer bound to the repository <c>git mv</c> runs inside.</summary>
     internal WorkspaceWriter(string repoRoot)
+        : this(repoRoot, DefaultGitTimeout)
+    {
+    }
+
+    /// <summary>Creates a writer with a custom <c>git mv</c> time limit. Tests use a short one.</summary>
+    internal WorkspaceWriter(string repoRoot, TimeSpan gitTimeout)
     {
         _repoRoot = repoRoot;
+        _gitTimeout = gitTimeout;
     }
 
 
