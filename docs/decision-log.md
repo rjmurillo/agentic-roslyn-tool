@@ -1026,7 +1026,7 @@ edits the column and leaves the paths and notes alone, and
 runs plan, renames, and content through the real executable with the flag only on the plan,
 and checks that a contradicting flag leaves the manifest, the sources, and the report path
 untouched. `ReportFile.Prepare` runs before the check and probes the report directory, but
-it never creates the report file. `MetadataCollisionTests` pins both guards on a backtick
+it never creates the report file. `MetadataCollisionGuardTests` pins both guards on a backtick
 name from decision 24.
 
 Decision 21 said to revisit a manifest column "if a second flag ever changes planned

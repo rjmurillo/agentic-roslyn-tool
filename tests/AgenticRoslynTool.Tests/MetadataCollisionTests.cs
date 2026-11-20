@@ -105,43 +105,7 @@ public sealed class MetadataCollisionTests
         Assert.Equal(new[] { "A.cs", "B.cs" }, FileNamingRuns.CsFiles(ws));
     }
 
-    [Fact]
-    public void MetadataQualifiedName_ContentUnderAContradictingCollisionFlag_EndsTheRun()
-    {
-        // Decision 26: the manifest records the collision naming, so a content run told the
-        // other value stops before it reads a source file. It used to skip every row.
-        using var ws = new TempWorkspace();
-        var (a, b, listPath, manifestPath) = WriteSharedGenericPair(ws);
-        var before = new[] { File.ReadAllText(a), File.ReadAllText(b) };
-        FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Plan, FileNamingConvention.Metadata, CollisionNaming.TypeFirst);
-
-        var error = Assert.Throws<InvalidOperationException>(() =>
-            FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Content, FileNamingConvention.Metadata, CollisionNaming.FileFirst));
-
-        Assert.Contains("--collision-naming file-first contradicts the plan manifest", error.Message, StringComparison.Ordinal);
-        Assert.Equal(before, new[] { File.ReadAllText(a), File.ReadAllText(b) });
-    }
-
-    [Fact]
-    public void MetadataQualifiedName_UnderAnEditedCollisionColumn_IsStillRefusedPerRow()
-    {
-        // The per-row refusal from decision 21 now fires only when someone edits the
-        // collisionNaming column and leaves the paths and notes alone. It must still work
-        // on a backtick name.
-        using var ws = new TempWorkspace();
-        var (a, b, listPath, manifestPath) = WriteSharedGenericPair(ws);
-        var before = new[] { File.ReadAllText(a), File.ReadAllText(b) };
-        var planned = FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Plan, FileNamingConvention.Metadata, CollisionNaming.TypeFirst, recordAs: CollisionNaming.FileFirst);
-        Assert.Equal(Path.Combine(ws.Root, "Shared`1.A.cs"), Assert.Single(planned[0].NewFiles).Path);
-
-        var applied = FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Content, FileNamingConvention.Metadata);
-
-        Assert.All(applied, r => Assert.Equal("content phase plan does not match manifest", r.Reason));
-        Assert.All(applied, r => Assert.Contains("--collision-naming type-first form and this run used file-first", r.Note ?? string.Empty, StringComparison.Ordinal));
-        Assert.Equal(before, new[] { File.ReadAllText(a), File.ReadAllText(b) });
-    }
-
-    private static (string A, string B, string ListPath, string ManifestPath) WriteSharedGenericPair(TempWorkspace ws)
+    internal static (string A, string B, string ListPath, string ManifestPath) WriteSharedGenericPair(TempWorkspace ws)
     {
         var a = ws.WriteFile("A.cs", "namespace One;\n\npublic class A\n{\n}\n\npublic class Shared<T>\n{\n}\n");
         var b = ws.WriteFile("B.cs", "namespace Two;\n\npublic class B\n{\n}\n\npublic class Shared<T>\n{\n}\n");
