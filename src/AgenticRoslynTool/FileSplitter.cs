@@ -287,7 +287,7 @@ internal sealed class FileSplitter
     /// results with a diagnostic reason; unexpected exceptions become <c>failed</c>.
     /// </summary>
     /// <param name="path">Absolute or relative input path.</param>
-    /// <param name="phase">The phase currently running.</param>
+    /// <param name="phase"><see cref="Phase.Plan"/> or <see cref="Phase.Content"/>. The renames phase plans with <see cref="Phase.Plan"/>.</param>
     /// <param name="planned">The manifest row for this input, or null in the plan and renames phases.</param>
     /// <param name="collisionNaming">The run's resolved collision naming. Read only by the content phase's manifest path check.</param>
     /// <returns>A result describing the outcome for this input.</returns>
@@ -330,7 +330,7 @@ internal sealed class FileSplitter
     /// unexpected throw, funnels through the one guard in the caller.
     /// </summary>
     /// <param name="path">Absolute or relative input path.</param>
-    /// <param name="phase">The phase currently running.</param>
+    /// <param name="phase"><see cref="Phase.Plan"/> or <see cref="Phase.Content"/>. The renames phase plans with <see cref="Phase.Plan"/>.</param>
     /// <param name="planned">The manifest row for this input, or null in the plan and renames phases.</param>
     /// <param name="collisionNaming">The run's resolved collision naming. Read only by the content phase's manifest path check.</param>
     /// <returns>A result describing the outcome for this input.</returns>
@@ -511,7 +511,8 @@ internal sealed class FileSplitter
             return FileResult.Skip(originalPath, readPath, "splitting would leave an empty directive shell; manual split required");
         }
 
-        // The renames phase never reaches this method. Its git mv runs in ApplyPlannedRename.
+        // No caller passes Phase.Renames. The renames phase plans through here with
+        // Phase.Plan and runs its git mv later, in ApplyPlannedRename.
         try
         {
             var headerText = OutputBuilder.NormalizeHeaderText(_options.RequiredHeader, source.NewLine);
@@ -534,7 +535,8 @@ internal sealed class FileSplitter
         }
         catch (Exception ex)
         {
-            // WriteOutputs restores the input on failure, so the file is still at readPath.
+            // Nothing here moves the file. Everything before WriteOutputs leaves it alone,
+            // and WriteOutputs writes the input back to readPath on failure.
             return FileResult.Failed(originalPath, readPath, ex.Message);
         }
     }

@@ -389,6 +389,10 @@ Promises:
 
 - **Acts only on rows the plan marked `split`.** Anything else is skipped with the reason
   `not present as split in plan manifest`.
+- **A refused row names where the file is.** Its `keptPath` is the path the phase read:
+  the renamed path once the rename has landed, and the original path otherwise. It is
+  never a rename target this run computed but did not apply. `RefusedRenameLocationTests`
+  pins it.
 - **Finds a renamed file by its kept path.** A directory scan after the renames phase
   supplies the kept path, not the original. An input that equals the kept path of exactly
   one `split` row with a git move is applied as that row. An original path match wins over

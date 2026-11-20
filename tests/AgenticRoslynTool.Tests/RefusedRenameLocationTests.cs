@@ -66,6 +66,7 @@ public sealed class RefusedRenameLocationTests : IDisposable
 
         Assert.All(resolved, r => Assert.Equal("qualified output path collision requires manual handling", r.Reason));
         Assert.All(resolved, r => Assert.Equal(r.OriginalPath, r.KeptPath));
+        Assert.All(resolved, r => Assert.False(r.GitMove));
     }
 
     [Fact]
@@ -83,6 +84,7 @@ public sealed class RefusedRenameLocationTests : IDisposable
 
         Assert.Equal(CollisionNames.GeneratedNameReason, refused.Reason);
         Assert.Equal(results[0].OriginalPath, refused.KeptPath);
+        Assert.False(refused.GitMove);
     }
 
     [Fact]
@@ -97,6 +99,45 @@ public sealed class RefusedRenameLocationTests : IDisposable
         Assert.True(row.GitMove);
         Assert.Equal(Path.Combine(_workspace.Root, "Order2.cs"), row.KeptPath);
     }
+
+    [Fact]
+    public void ContentSkip_RunComputesAnUnplannedRename_ReportsTheOriginalPath()
+    {
+        // Planned under stylecop, Foo.cs keeps its name. Content under metadata computes a
+        // rename to Foo`1.cs that never happened, and refuses the row.
+        var source = _workspace.WriteFile("Foo.cs", FooWithBar);
+        var listPath = _workspace.WriteInputList(source);
+
+        var row = Assert.Single(FileNamingRuns.RunPlanThenContent(_workspace, listPath, ManifestPath, FileNamingConvention.StyleCop, FileNamingConvention.Metadata));
+
+        Assert.Equal("skipped", row.Status);
+        Assert.Equal(source, row.KeptPath);
+        Assert.True(File.Exists(source));
+    }
+
+    [Fact]
+    public void ContentSkip_AfterALandedRename_ReportsTheRenamedPath()
+    {
+        // Plan and renames under metadata move Foo.cs to Foo`1.cs. Content under stylecop
+        // would keep Foo.cs, which no longer holds the file.
+        var source = _workspace.WriteFile("Foo.cs", FooWithBar);
+        var listPath = _workspace.WriteInputList(source);
+        var renamed = Path.Combine(_workspace.Root, "Foo`1.cs");
+        GitFixture.InitAndTrack(_workspace.Root, "Foo.cs");
+        FileNamingRuns.RunPhase(_workspace, listPath, ManifestPath, Phase.Plan, FileNamingConvention.Metadata);
+        FileNamingRuns.RunPhase(_workspace, listPath, ManifestPath, Phase.Renames, FileNamingConvention.Metadata);
+
+        var row = Assert.Single(FileNamingRuns.RunPhase(_workspace, listPath, ManifestPath, Phase.Content, FileNamingConvention.StyleCop));
+
+        Assert.Equal("skipped", row.Status);
+        Assert.Equal(renamed, row.KeptPath);
+        Assert.True(File.Exists(renamed));
+        Assert.False(File.Exists(source));
+    }
+
+    private const string FooWithBar = "namespace N;\n\npublic class Foo<T>\n{\n}\n\npublic class Bar\n{\n}\n";
+
+    private string ManifestPath => Path.Combine(_workspace.Root, "manifest.csv");
 
     private IReadOnlyList<FileResult> Plan(string input, string? requiredHeader)
     {

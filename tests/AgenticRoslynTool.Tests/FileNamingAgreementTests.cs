@@ -64,8 +64,8 @@ public sealed class FileNamingAgreementTests
     public void ContentPhase_NamesTheLandedRenameWhenTheFlagIsDroppedAfterRenames()
     {
         // Plan and renames under metadata move Foo.cs to Foo`1.cs. A content run without
-        // the flag would keep Foo.cs. The skipped row records that computed path, so the
-        // note has to carry the path the manifest held, which is where the file now is.
+        // the flag would keep Foo.cs. The note names both kept paths: the one the manifest
+        // held, which is where the file now is, and the one this run computed.
         using var ws = new TempWorkspace();
         var source = ws.WriteFile("Foo.cs", FooWithBar);
         var listPath = ws.WriteInputList(source);
