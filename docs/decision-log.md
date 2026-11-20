@@ -1072,7 +1072,10 @@ still expands, and later that zsh expands a leading `=` and PowerShell splats a 
 `nextArgs` being `null` does not mean the split is done. A repeated renames run ends with
 `null` and every row `input file does not exist`. The packaged skill therefore defines
 done positively: the last report's `phase` is `content`, `summary.failed` is 0, and no
-skipped row starts with `stale plan:`.
+skipped row starts with `stale plan:` or `content phase plan does not match manifest`.
+Review reproduced the second case: after a metadata plan and a repeated renames run, a
+content run without `--file-naming` skipped the file at exit 0. The skill's fallback now
+repeats every option the plan had.
 
 **Rejected.** A full command line string. The command name differs by install method, and
 quoting differs by shell, so a string would be wrong for some caller. An argument array

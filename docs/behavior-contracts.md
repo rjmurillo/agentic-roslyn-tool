@@ -236,8 +236,10 @@ reader that truncates the document still sees it. The rules live in `NextStep.Fo
   so suggesting content there is sure to fail.
 - `null` does not mean the split is done. The packaged skill says the split is done only
   when the last report's `phase` is `content`, `summary.failed` is 0, and no skipped row
-  starts with `stale plan:`. A repeated renames run, for example, ends with `null`
-  `nextArgs` and every row `input file does not exist`, while content has not run.
+  starts with `stale plan:` or `content phase plan does not match manifest`. A repeated
+  renames run, for example, ends with `null` `nextArgs` and every row `input file does not
+  exist`, while content has not run. A content run without the plan's `--file-naming`
+  ends with `null` and a plan mismatch row, while the file is still unsplit.
 - It repeats `--input`, `--manifest`, `--repo-root`, `--require-header`, every
   `--exclude`, and `--json` when this run had it. It repeats `--report` only when the
   caller chose a path, and `--file-naming` only when it is `metadata`, because the

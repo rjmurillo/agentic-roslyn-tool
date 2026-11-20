@@ -40,7 +40,8 @@ tool), or `dnx AgenticRoslynTool --` (no install). Below, `<tool>` means whichev
    After a `renames` step, commit only the renamed files before you run the next step.
 5. When `nextArgs` is `null`, the split is done only when all three hold: the report's
    `phase` is `content`, `summary.failed` is `0`, and no `skipped` row's reason starts
-   with `stale plan:`. Then build and run the tests. Otherwise, in this order:
+   with `stale plan:` or `content phase plan does not match manifest`. Then build and run
+   the tests. Otherwise, in this order:
    - A `skipped` row whose reason starts with `stale plan:` means that file changed after
      the plan, and nothing was applied to it. Re-run steps 1 and 2, then continue. Step 1
      matters: after a committed rename, the old list names the file's old path, and a
@@ -48,9 +49,13 @@ tool), or `dnx AgenticRoslynTool --` (no install). Below, `<tool>` means whichev
    - `summary.failed` above `0`: read `reason` on each `failed` row, fix the cause, and
      run the same command again.
    - The input came from standard input: `nextArgs` is always `null` then. Use a list file.
-   - The report's `phase` is `plan` or `renames`: run `--phase content` with the same
-     `--input` and `--manifest`. This happens after renames ran twice, when every row
-     says `input file does not exist` because the files already moved.
+   - A `skipped` row whose reason is `content phase plan does not match manifest`: this
+     run did not use the plan's `--file-naming`. Run content again with the value the plan
+     used.
+   - The report's `phase` is `plan` or `renames`: run `--phase content` with every option
+     the plan had, including `--file-naming metadata` when the plan used it. This happens
+     after renames ran twice, when every row says `input file does not exist` because the
+     files already moved.
 
 ## Exit codes
 
