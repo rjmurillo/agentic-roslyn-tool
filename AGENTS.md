@@ -24,7 +24,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 34 files. |
+| `src/AgenticRoslynTool/` | The entire product. 35 files. |
 | `tests/AgenticRoslynTool.Tests/` | xUnit tests. 206 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
@@ -56,6 +56,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `CollisionNaming.cs` | The `file-first`, `type-first` enum behind `--collision-naming`. |
 | `CollisionNames.cs` | Builds the qualified name for a cross file collision, and recognizes one the plan phase wrote. |
 | `FileNamingConvention.cs` | The `stylecop`, `metadata` enum behind `--file-naming`. Selects the naming rule `OutputBuilder` and `SplitPlanner` apply. |
+| `PlanMismatch.cs` | Words the note for a content phase row that disagrees with its manifest: the other `--file-naming` name, or what differs in the plan shape. |
 | `EncodedSource.cs` | Reads bytes into text while capturing encoding, byte order mark, and newline style, then writes them back unchanged. |
 | `TopLevelType.cs` | One top level type declaration plus the file name it maps to. |
 | `SplitPlan.cs` | The decision for one input: keep, rename, split, or refuse. |
@@ -223,7 +224,7 @@ agent does not pay again.
   It decides planned paths. The content phase skips a file whose manifest row was made
   under the other value. `SplitPlanner` refuses a moved type whose manifest path is the name
   the other value gives it, and the shape check catches a changed kept path. The skipped
-  row's note says which. Any other hand-edited free path is still applied, which
+  row's note says which, in words from `PlanMismatch`. Any other hand-edited free path is still applied, which
   `CollisionNamingContentTests` pins, so do not widen the check. The renames phase recomputes the plan and its rows replace
   the manifest. So a renames run under another value rewrites the reviewed plan, and the
   content check then compares against the rewritten plan and passes. Changed the flag?
