@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 36 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 212 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 270 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -44,12 +44,12 @@ Every source file, so you do not have to open one to find out whether it matters
 | `OutputBuilder.cs` | Renders the text of every output file: name, carved source, required header, trailing newline. |
 | `OutputVerifier.cs` | The correctness checks, run against in-memory outputs before anything is written. A failure here means nothing reaches disk. |
 | `WorkspaceWriter.cs` | The only place the tool touches the working tree. Every rename runs through `git mv`; every write preserves encoding and byte order mark. |
-| `Program.cs` | Top level statements. Verb dispatch, error handling, exit codes, output selection. Declares no type. |
+| `Program.cs` | Top level statements. Verb dispatch, error handling, exit codes, output selection. Decides which file a run writes: the manifest in `plan`, the report otherwise. Declares no type. |
 | `Options.cs` | Command line parsing and the option record. Add a new flag here. |
-| `RunReport.cs` | Builds the `--json` report and the one-line summary from the report rows. |
-| `RunOutcome.cs` | Splits a run into manifest rows and report rows. They differ only in the content phase. Read this before changing what the content phase writes. |
+| `RunReport.cs` | Builds the `--json` report and the one-line summary from the rows a run returned. |
+| `ReportFile.cs` | Owns the report file. Refuses an unsafe report path before a renames or content run changes anything, then writes the report by moving a staged file into place. Never opens an existing file for writing. |
 | `RunSummary.cs` | The aggregate counts inside that report. |
-| `FileReport.cs` | One manifest row in JSON form. Field names mirror the CSV columns. |
+| `FileReport.cs` | One manifest or report row in JSON form. Field names mirror the CSV columns. |
 | `NewFileReport.cs` | One created file inside a `FileReport`, carrying its path and type name. |
 | `PathComparison.cs` | The path equality rule used for identity. Platform aware on purpose. |
 | `Phase.cs` | The `plan`, `renames`, `content` enum. |
@@ -67,11 +67,11 @@ Every source file, so you do not have to open one to find out whether it matters
 | `BlankLineCollapser.cs` | Collapses the blank line runs left behind when a type is removed. |
 | `DirectiveInfo.cs` | One preprocessor directive and its span. |
 | `DirectiveSafety.cs` | Verdict on whether directives make a file unsafe to split. |
-| `FileResult.cs` | One manifest row. Owns the `split`, `skipped`, `failed` status vocabulary. |
-| `NewFileResult.cs` | One created file inside a manifest row. |
-| `ManifestWriter.cs` | Reads and writes the CSV manifest that carries state between phases. |
+| `FileResult.cs` | One manifest or report row. Owns the `split`, `skipped`, `failed` status vocabulary. |
+| `NewFileResult.cs` | One created file inside a manifest or report row. |
+| `ManifestWriter.cs` | Reads and writes the CSV format shared by the plan manifest and the run report. |
 | `ContentHash.cs` | Computes and compares the `sha256:` content hash a manifest row carries for its input. Owns the `stale plan:` refusal text. |
-| `PlanBinding.cs` | Binds the rows renames and content write to the plan manifest they read. Carries the planned hash and refuses a stale file. Decides, never acts. |
+| `PlanBinding.cs` | Binds the rows renames and content report to the plan manifest they read. Carries the planned hash and refuses a stale file. Decides, never acts. |
 | `CsvFieldReader.cs` | Quote aware CSV field parsing for the manifest and for CSV inputs. |
 
 The tool splits itself cleanly. Running it over `src/AgenticRoslynTool/` reports every file
@@ -82,7 +82,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 212 passed, 0 failed
+dotnet test  -c Release      # must be 270 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -160,8 +160,8 @@ weight.
     the input's raw bytes. The content phase refuses a file whose bytes differ. The renames phase renames only a
     file the manifest marks `split` whose bytes match. A manifest with no `contentHash`
     column ends a renames or content run with exit 3. Never add a fallback to the
-    structural check, never hash decoded text, and never let renames or content write a
-    hash it computed: each row copies the hash of the manifest row it replaces, on every
+    structural check, never hash decoded text, and never let renames or content report a
+    hash it computed: each row copies the hash of the manifest row for that file, on every
     status and every exit. Review found a launder path through each exit that forgot
     this. The `ContentHash*Tests` classes pin all of it. See decision 22.
 
@@ -186,8 +186,41 @@ agent does not pay again.
 - **A comment placed above a `using` is not the first type's trivia.** Roslyn attaches it
   to the `using` token, so it correctly appears in every output. To test that a comment
   travels with its type, put the comment immediately above the type declaration.
-- **The content phase overwrites the plan manifest** when both use the default path. Pass
-  an explicit `--manifest` if you want to keep the plan for comparison.
+- **Only the plan phase writes the manifest.** `renames` and `content` write the report
+  file, by default the manifest path with `.report.csv` as its extension. A test that calls
+  `FileSplitter` directly cannot see this, because the choice of file lives in
+  `Program.cs`. Test it through the real executable, as `SeparateRunReportTests` does.
+- **A content retry meets rows that already succeeded.** Their bytes no longer match the
+  plan's hash, so the hash check meets them first. It asks `SplitPlanner.IsAlreadyApplied`
+  and skips them as `already applied`. Anything else that changed is `stale plan:`. The
+  check only ever picks the reason on a skip. Do not turn it into an exemption from the
+  hash check or from the existence checks in rule 10. `ContentRetryTests` pins the states
+  that only look applied. Callers match on the words `already applied`, so do not reword
+  the start of that reason.
+- **The report path is checked before the run, and again at the write.** `ReportFile.Prepare`
+  runs before `FileSplitter.Run`. Move it after and an unusable `--report` path is found
+  only once every source file is rewritten. `ReportFile.Write` asks again, because the run
+  may have created a source file at that path. Drop the second check and `--report
+  src/Beta.cs` replaces a type the run just split out, at exit code 0.
+- **Do not work out by hand whether two paths name one file.** Three versions of
+  `ReportFile` resolved symbolic links themselves. One took each link target as final, one
+  collapsed `..` as text, and one called `File.ResolveLinkTarget`, whose `FullName` also
+  collapses `..` as text. Each let `--report` reach the manifest and replace the plan.
+  `ReportFile` now resolves nothing. It refuses a report path or a manifest path that is
+  itself a link, and `ReachesManifest` observes the rest: a file created beside the report
+  path is visible under the manifest's directory exactly when the two are one directory.
+- **A path read as text is not the path the system opens.** `plan.csv/` opens the file
+  `plan.csv`, and `Path.GetFileName` returns an empty name for it. A check that compared
+  names missed that the report and the manifest were one file. Reject a trailing
+  separator before any code compares file names.
+- **`File.Exists` cannot tell absent from unknown.** It answers false when the look
+  fails, for example on a path past the system limit. `ReportFile.Look` keeps the two
+  apart, and every caller treats a failed look as the unsafe case. A guard built on
+  `File.Exists` fails open where it protects a file, and one such guard let the report
+  replace the plan.
+- **Nothing in `ReportFile` opens an existing file for writing.** The probe and the report
+  both go to a new sibling file. An earlier version probed with `FileMode.Create` on the
+  report path. That truncated a plan reached through a hard link, at exit code 0.
 - **A test that edits a file between plan and content now gets `stale plan:`, not the
   reason you were aiming for.** The hash check runs first. To reach a later guard, such as
   the structural mismatch, leave the source alone and edit the manifest row instead.
@@ -218,21 +251,20 @@ agent does not pay again.
   `summary` from `--json`, or the summary line on standard error, to learn whether work
   happened.
 - **Standard output is one document or nothing, standard error is everything else.** The
-  manifest path, the summary line, and every `error:` message go to standard error so a
-  caller can pipe standard output straight into a parser. Do not add chatter to standard
-  output.
-- **`--file-naming` must be the same in every phase, and only the content phase checks.**
-  It decides planned paths. The content phase skips a file whose manifest row was made
-  under the other value. `SplitPlanner` refuses a moved type whose manifest path is the name
-  the other value gives it, and the shape check catches a changed kept path. The skipped
-  row's note says which, in words from `PlanMismatch`. Any other hand-edited free path is
-  still applied, which `CollisionNamingContentTests` pins, so do not widen the check. The
-  renames phase recomputes the plan and its rows replace the manifest. So a renames run
-  under another value rewrites the reviewed plan, and the content check then compares
-  against the rewritten plan and passes. Changed the flag? Run the plan phase again. If a
-  rename already landed, a list file still names the old path and the new plan reports
-  `input file does not exist`. Undo the rename with git, or list the file's current path,
-  before you plan again. See decision 23 and the known issue below.
+  manifest path, the report path, the summary line, and every `error:` message go to
+  standard error so a caller can pipe standard output straight into a parser. Do not add
+  chatter to standard output. When the report file cannot be written, its rows print to
+  standard output as that one document, and the run exits 3.
+- **`--file-naming` must be the same in every phase.** It decides planned paths. The
+  content phase skips a file whose manifest row was made under the other value.
+  `SplitPlanner` refuses a moved type whose manifest path is the name the other value gives
+  it, and the shape check catches a changed kept path. The skipped row's note says which,
+  in words from `PlanMismatch`. Any other hand-edited free path is still applied, which
+  `CollisionNamingContentTests` pins, so do not widen the check. The plan keeps its `split`
+  row, so run the content phase again with the plan's value. The renames phase is not held
+  to planned paths. Under another value it can rename a file the plan left in place, and
+  the content phase then reports `input file does not exist`. Undo that rename with git.
+  See decision 24 and the known issue below.
 - **A backtick in a path is escaped in `--json` output.** ``Foo`1.cs`` is written as
   `Foo\u00601.cs`. Parse the JSON before you search it for a file name. The CSV manifest
   holds the character itself.
@@ -302,12 +334,13 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
 
 - The renames phase does not compare its recomputed paths with the reviewed manifest. It
   holds each file to the manifest's hash and status only. A renames run with a different
-  `--file-naming` over unchanged files follows that value at exit 0 and replaces the
-  planned names. The content phase then applies the replaced plan.
-  `RenamesPhase_FollowsItsOwnConventionAndReplacesThePlan` pins the manifest replacement.
-  No test pins a rename made this way. A fix means the renames phase refusing a row whose
-  paths differ from the manifest, or the manifest recording both naming flags. Either
-  changes what that phase does today and waits on a decision. See decision 23.
+  `--file-naming` over unchanged files follows that value. It can rename a kept file the
+  plan left in place, or leave out a rename the plan asked for. The plan is not rewritten,
+  so the content phase then skips that file and writes nothing.
+  `RenamesPhase_UnderAnotherConvention_CanRenameAFileThePlanLeftInPlace` pins this. A fix
+  means the renames phase refusing a row whose paths differ from the manifest, or the
+  manifest recording both naming flags. Either changes what that phase does today and waits
+  on a decision. See decision 24.
 - A kept file's rename target is checked against other kept renames, not against new
   files. `KeptRenameCollisions` gives a rename target to the first input that claims it.
   `ResolvePlannedOutputCollisions` looks at new files only. So if one input plans to rename
@@ -315,15 +348,10 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   `split`. After the rename lands, the content phase skips the second input with
   `target path already exists`. Nothing is overwritten. `--file-naming metadata` makes this
   easier to reach, because a generic type kept in a plain named file is renamed.
-- The manifest is both the plan and the run report. `Program` writes each run's rows back
-  to the plan path, so a content run that fails a row replaces its `split` plan with
-  `failed`, and a retry answers `not present as split in plan manifest`. Recovery is to
-  re-run the plan phase. See the decision log for why this waits on a decision.
-- A second content run, or a renames run, over a file content already split reports it as
-  `stale plan:`. The first run rewrote the kept file, so its bytes differ from the plan,
-  and the tool cannot tell its own write from an outside edit. The file is left alone.
-  Telling the two apart needs the content phase to record what it wrote, which belongs
-  with the decision about what the manifest means after a content run.
+- A renames run over a file the content phase already split reports it as `stale plan:`.
+  The content run rewrote the kept file, so its bytes differ from the plan. The content
+  phase tells its own earlier write from an outside edit and says `already applied`. The
+  renames phase does not make that check. The file is left alone either way.
 - `CsvFieldReader` exists, but not for the reason previously recorded here. The claim was
   that `Microsoft.VisualBasic.FileIO.TextFieldParser` forces a Windows only target. That
   was tested on this machine and is false: it compiles and parses quoted commas correctly

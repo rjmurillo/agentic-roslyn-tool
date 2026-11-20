@@ -65,7 +65,7 @@ public sealed class ContentHashManifestColumnTests : ContentHashTestBase
         var tampered = hash == "UPPERCASE" ? "sha256:" + planned[0].ContentHash![7..].ToUpperInvariant() : hash;
         ManifestWriter.Write(planned.Select(r => r with { ContentHash = tampered }).ToArray(), ManifestPath);
 
-        var row = Assert.Single(Content(source).ReportRows);
+        var row = Assert.Single(Content(source));
 
         Assert.Equal("skipped", row.Status);
         Assert.StartsWith(

@@ -127,17 +127,20 @@ manifest path, and the path this run computes. For a kept file the two conventio
 differently, the note starts ``manifest keeps Foo`1.cs, this run keeps Foo.cs``, with full
 paths, and then says what to run next. A file whose paths come out the same under both
 conventions still splits. That covers every file with no generic type. The run exits 0
-and its rows replace the plan, so run the plan phase again before you retry.
+and the plan is unchanged, so run the content phase again with the flag the plan was made
+with.
 
 The renames phase has no such check. It recomputes the plan and holds each file to the
-manifest's hash and status, not to its planned names. A renames run without the flag applies
-the `stylecop` renames and rewrites the manifest to match. A content run without the flag
-then agrees with that manifest and writes `stylecop` names. If you changed the flag after
-planning, run the plan phase again.
+manifest's hash and status, not to its planned names. A renames run without the flag
+applies the `stylecop` renames. That can leave out a rename the plan asked for, and a
+renames run with the flag over a `stylecop` plan can rename a file the plan left in place.
+The content phase then skips that file. Undo an unplanned rename with `git mv`, then run
+the phases again with one value.
 
-Planning again after a rename has landed needs one more step. A list file still names the
-old path, and the tool reports `input file does not exist` for it. Undo the rename with
-`git mv`, or put the file's current path in the list, then plan.
+If you decide to change the flag, plan again. After a rename has landed that needs one more
+step. A list file still names the old path, and the tool reports `input file does not
+exist` for it. Undo the rename with `git mv`, or put the file's current path in the list,
+then plan.
 
 With the flag, the rules in the section above change in four ways:
 
@@ -228,14 +231,14 @@ to know:
   flag differs from the one the plan used skips each affected file with
   `content phase plan does not match manifest` and writes no source for it. The `note`
   column names the path and both values.
-* **The renames phase writes the manifest again.** It recomputes the plan under the value
-  it is given and replaces the manifest with the result. A renames run with a different
-  value therefore swaps the reviewed names for the other form. Give it the same value as
-  the plan run.
-* **A mismatched content run uses up the plan.** Skips are not failures, so the run exits
-  0, and files with no collision are still split. The content phase then writes its rows
-  back to the manifest, so the skipped files lose their `split` rows. Run the plan phase
-  again with the value you want before you retry.
+* **The renames phase cannot check the value.** It recomputes the plan under the value it
+  is given and does not compare collision names with the manifest. It does not write the
+  manifest either, so the reviewed names stay as planned. Give it the same value as the plan run, so its report shows the
+  same paths.
+* **A mismatched content run leaves the plan alone.** Skips are not failures, so the run
+  exits 0, and files with no collision are still split. The skipped rows go to the report
+  file, and the manifest keeps their `split` rows. Run the content phase again with the
+  value the plan used.
 * **The check reads the plan's own note.** The content phase refuses a path only when the
   `note` column records that the plan chose it under the other value. A path you typed
   into the manifest by hand is still accepted when it is free, whatever its shape. Leave

@@ -24,18 +24,23 @@ public abstract class ContentHashTestBase : IDisposable
     }
 
     private protected IReadOnlyList<FileResult> Plan(params string[] inputs) =>
-        RunAndWriteManifest(Phase.Plan, inputs).ManifestRows;
+        RunPhase(Phase.Plan, inputs);
 
-    private protected RunOutcome Content(params string[] inputs) =>
-        new FileSplitter(new Options(Workspace.WriteInputList(inputs), ManifestPath, Workspace.Root, Phase.Content, null)).Run();
+    private protected IReadOnlyList<FileResult> Content(params string[] inputs) =>
+        RunPhase(Phase.Content, inputs);
 
-    // Runs one phase and writes its manifest rows back to the manifest path, which is what
-    // Program does after every phase. Tests that chain phases need that write to be real.
-    private protected RunOutcome RunAndWriteManifest(Phase phase, params string[] inputs)
+    // Runs one phase and does with its rows what Program does: the plan phase writes them
+    // to the manifest, and no later phase writes the manifest at all. Tests that chain
+    // phases need the manifest on disk to be the one a real run would leave.
+    private protected IReadOnlyList<FileResult> RunPhase(Phase phase, params string[] inputs)
     {
-        var outcome = new FileSplitter(new Options(Workspace.WriteInputList(inputs), ManifestPath, Workspace.Root, phase, null)).Run();
-        ManifestWriter.Write(outcome.ManifestRows, ManifestPath);
-        return outcome;
+        var rows = new FileSplitter(new Options(Workspace.WriteInputList(inputs), ManifestPath, Workspace.Root, phase, null)).Run();
+        if (phase == Phase.Plan)
+        {
+            ManifestWriter.Write(rows, ManifestPath);
+        }
+
+        return rows;
     }
 
     // The renames phase runs git mv, which needs a repository and a tracked file. Nothing is

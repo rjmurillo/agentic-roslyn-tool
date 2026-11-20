@@ -22,13 +22,17 @@ internal static class FileNamingRuns
         return RunPhase(ws, listPath, manifestPath, Phase.Content, contentNaming);
     }
 
-    // Runs one phase and writes its manifest rows back, as Program does between processes.
+    // Runs one phase the way Program does: only the plan phase writes the manifest.
     public static FileResult[] RunPhase(TempWorkspace ws, string listPath, string manifestPath, Phase phase, FileNamingConvention naming, CollisionNaming collisionNaming = CollisionNaming.FileFirst)
     {
         var options = new Options(listPath, manifestPath, ws.Root, phase, RequiredHeader: null, CollisionNaming: collisionNaming, FileNaming: naming);
-        var outcome = new FileSplitter(options).Run();
-        ManifestWriter.Write(outcome.ManifestRows, manifestPath);
-        return outcome.ReportRows.ToArray();
+        var rows = new FileSplitter(options).Run();
+        if (phase == Phase.Plan)
+        {
+            ManifestWriter.Write(rows, manifestPath);
+        }
+
+        return rows.ToArray();
     }
 
     public static string Git(string workingDirectory, params string[] args)

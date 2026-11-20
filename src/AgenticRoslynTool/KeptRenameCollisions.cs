@@ -8,8 +8,8 @@ namespace AgenticRoslynTool;
 /// <para>
 /// <see cref="SplitPlanner.BuildPlan"/> plans one input at a time and probes the disk, so it
 /// drops a rename whose target already exists. It cannot see a target that another input in
-/// the same run is about to create. Left alone, the renames phase moved the first file, then
-/// <c>git mv</c> failed on the second and the run stopped with one rename landed.
+/// the same run is about to create. Left alone, the renames phase moved the first file and
+/// <c>git mv</c> failed on the second, so the plan promised a rename that could not land.
 /// <c>--file-naming metadata</c> made that easy to reach: a generic type split across
 /// <c>Foo.cs</c> and <c>Foo.Extra.cs</c> plans <c>Foo`1.cs</c> twice.
 /// </para>

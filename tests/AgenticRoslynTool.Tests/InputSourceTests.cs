@@ -157,13 +157,13 @@ public sealed class InputSourceTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var planOptions = new Options(workspace.WriteInputList(planned), manifestPath, workspace.Root, Phase.Plan, null);
-        ManifestWriter.Write(new FileSplitter(planOptions).Run().ReportRows, manifestPath);
+        ManifestWriter.Write(new FileSplitter(planOptions).Run(), manifestPath);
 
         // Content phase runs with an empty input list. The plan row must not vanish.
         var emptyList = Path.Combine(workspace.Root, "empty.txt");
         File.WriteAllText(emptyList, string.Empty);
         var contentOptions = new Options(emptyList, manifestPath, workspace.Root, Phase.Content, null);
-        var results = new FileSplitter(contentOptions).Run().ReportRows;
+        var results = new FileSplitter(contentOptions).Run();
 
         var carried = Assert.Single(results);
         Assert.Equal("skipped", carried.Status);
@@ -171,7 +171,7 @@ public sealed class InputSourceTests
     }
 
     [Fact]
-    public void ContentPhase_KeepsAnUnplannedInputOutOfTheRewrittenManifest()
+    public void ContentPhase_ReportsAnUnplannedInputAsNotPlanned()
     {
         using var workspace = new TempWorkspace();
         var planned = workspace.WriteFile("Planned.cs", "public class Planned { }\npublic class PlannedExtra { }\n");
@@ -179,15 +179,17 @@ public sealed class InputSourceTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var planOptions = new Options(workspace.WriteInputList(planned), manifestPath, workspace.Root, Phase.Plan, null);
-        ManifestWriter.Write(new FileSplitter(planOptions).Run().ManifestRows, manifestPath);
+        ManifestWriter.Write(new FileSplitter(planOptions).Run(), manifestPath);
 
         var contentOptions = new Options(workspace.WriteInputList(planned, unplanned), manifestPath, workspace.Root, Phase.Content, null);
         var outcome = new FileSplitter(contentOptions).Run();
 
-        // The caller has to see the mismatch, but the manifest is the plan of record and must
-        // not accumulate rows the plan phase never produced.
-        Assert.Contains(outcome.ReportRows, r => string.Equals(Path.GetFileName(r.OriginalPath), "Unplanned.cs", StringComparison.Ordinal));
-        Assert.DoesNotContain(outcome.ManifestRows, r => string.Equals(Path.GetFileName(r.OriginalPath), "Unplanned.cs", StringComparison.Ordinal));
+        // The caller has to see the mismatch, so the input the plan never covered is a
+        // skipped row in the report, and the planned file beside it is still applied.
+        var row = Assert.Single(outcome, r => string.Equals(Path.GetFileName(r.OriginalPath), "Unplanned.cs", StringComparison.Ordinal));
+        Assert.Equal("skipped", row.Status);
+        Assert.Equal("not present as split in plan manifest", row.Reason);
+        Assert.Equal("split", Assert.Single(outcome, r => string.Equals(Path.GetFileName(r.OriginalPath), "Planned.cs", StringComparison.Ordinal)).Status);
     }
 
     [Fact]
@@ -199,21 +201,21 @@ public sealed class InputSourceTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var planOptions = new Options(workspace.WriteInputList(first, second), manifestPath, workspace.Root, Phase.Plan, null);
-        ManifestWriter.Write(new FileSplitter(planOptions).Run().ManifestRows, manifestPath);
+        ManifestWriter.Write(new FileSplitter(planOptions).Run(), manifestPath);
 
-        // Batch one applies only First.cs and rewrites the manifest it read.
+        // Batch one applies only First.cs. No content run writes the manifest.
         var batchOne = Path.Combine(workspace.Root, "batch1.txt");
         File.WriteAllLines(batchOne, new[] { first });
         var firstOutcome = new FileSplitter(new Options(batchOne, manifestPath, workspace.Root, Phase.Content, null)).Run();
-        ManifestWriter.Write(firstOutcome.ManifestRows, manifestPath);
+        Assert.Equal("split", Assert.Single(firstOutcome, r => string.Equals(Path.GetFileName(r.OriginalPath), "First.cs", StringComparison.Ordinal)).Status);
 
-        // Batch two reads the rewritten manifest. Second.cs must still be actionable, or
-        // the reviewed plan is destroyed by the act of applying it in pieces.
+        // Batch two reads the same plan. Second.cs must still be actionable, or the
+        // reviewed plan is destroyed by the act of applying it in pieces.
         var batchTwo = Path.Combine(workspace.Root, "batch2.txt");
         File.WriteAllLines(batchTwo, new[] { second });
         var secondOutcome = new FileSplitter(new Options(batchTwo, manifestPath, workspace.Root, Phase.Content, null)).Run();
 
-        var applied = Assert.Single(secondOutcome.ReportRows, r => string.Equals(Path.GetFileName(r.OriginalPath), "Second.cs", StringComparison.Ordinal));
+        var applied = Assert.Single(secondOutcome, r => string.Equals(Path.GetFileName(r.OriginalPath), "Second.cs", StringComparison.Ordinal));
         Assert.Equal("split", applied.Status);
         Assert.True(File.Exists(Path.Combine(workspace.Root, "SecondExtra.cs")));
     }
@@ -305,6 +307,6 @@ public sealed class InputSourceTests
     private static System.Collections.Generic.IReadOnlyList<FileResult> Plan(TempWorkspace workspace, string inputPath)
     {
         var options = new Options(inputPath, Path.Combine(workspace.Root, "manifest.csv"), workspace.Root, Phase.Plan, null);
-        return new FileSplitter(options).Run().ReportRows.OrderBy(r => r.OriginalPath, StringComparer.Ordinal).ToArray();
+        return new FileSplitter(options).Run().OrderBy(r => r.OriginalPath, StringComparer.Ordinal).ToArray();
     }
 }

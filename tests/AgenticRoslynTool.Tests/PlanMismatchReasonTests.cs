@@ -2,10 +2,9 @@ using Xunit;
 
 namespace AgenticRoslynTool.Tests;
 
-// A content phase row that disagrees with its plan is skipped with one shared reason, and
-// the skipped row replaces the plan row. The note is then the only record of what the
-// manifest held, so each cause has its own note. These tests edit one thing in a reviewed
-// plan and pin the text.
+// A content phase row that disagrees with its plan is skipped with one shared reason. The
+// row records this run's values, so the note says what the manifest held and each cause
+// has its own note. These tests edit one thing in a reviewed plan and pin the text.
 public sealed class PlanMismatchReasonTests
 {
     private const string ThreeTypes = "namespace N;\n\npublic class Foo\n{\n}\n\npublic class Bar\n{\n}\n\npublic class Baz\n{\n}\n";

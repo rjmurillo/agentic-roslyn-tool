@@ -9,34 +9,34 @@ public sealed class ContentHashRenamesStaleTests : ContentHashTestBase
     [Fact]
     public void StaleRefusal_StaysRefused_WhenRenamesRunsAfterIt()
     {
-        // The content phase writes its refusal back to the manifest as a skipped row. If that
-        // row stored the hash it found, or if renames only looked at split rows, a renames
-        // run would plan the edited file afresh and the next content run would apply it.
+        // The content phase reports its refusal and leaves the manifest alone. If renames
+        // were not held to the manifest, it would plan the edited file afresh, and the
+        // refusal must hold on every later run for as long as the edit stays.
         var source = Workspace.WriteFile("Foo.cs", TwoTypes);
         var planned = Assert.Single(Plan(source));
 
         File.WriteAllText(source, TwoTypes.Replace("=> 1;", "=> 2;", StringComparison.Ordinal));
         var edited = File.ReadAllBytes(source);
 
-        var refused = Assert.Single(RunAndWriteManifest(Phase.Content, source).ReportRows);
+        var refused = Assert.Single(RunPhase(Phase.Content, source));
         Assert.Equal("skipped", refused.Status);
         Assert.Equal(planned.ContentHash, refused.ContentHash);
 
         // No rename is planned for Foo.cs, so this phase starts no git process.
-        var renamed = Assert.Single(RunAndWriteManifest(Phase.Renames, source).ReportRows);
+        var renamed = Assert.Single(RunPhase(Phase.Renames, source));
         Assert.Equal("skipped", renamed.Status);
         Assert.StartsWith("stale plan: input changed after the plan was written", renamed.Reason, StringComparison.Ordinal);
         Assert.Equal(planned.ContentHash, renamed.ContentHash);
 
-        var after = RunAndWriteManifest(Phase.Content, source);
-        Assert.Equal("skipped", Assert.Single(after.ReportRows).Status);
-        Assert.Equal(planned.ContentHash, Assert.Single(after.ManifestRows).ContentHash);
+        var after = RunPhase(Phase.Content, source);
+        Assert.Equal("skipped", Assert.Single(after).Status);
+        Assert.Equal(planned.ContentHash, Assert.Single(after).ContentHash);
         Assert.Equal(edited, File.ReadAllBytes(source));
         Assert.False(File.Exists(Path.Combine(Workspace.Root, "Bar.cs")));
 
-        // The plan phase is the one way out.
+        // A new plan is one way out. Undoing the edit is the other.
         Plan(source);
-        Assert.Equal("split", Assert.Single(Content(source).ReportRows).Status);
+        Assert.Equal("split", Assert.Single(Content(source)).Status);
     }
 
     [Fact]
@@ -50,12 +50,12 @@ public sealed class ContentHashRenamesStaleTests : ContentHashTestBase
         var plannedHash = ManifestWriter.Read(ManifestPath)[0].ContentHash;
         File.WriteAllText(source, TwoTypes);
 
-        var renamed = Assert.Single(RunAndWriteManifest(Phase.Renames, source).ReportRows);
+        var renamed = Assert.Single(RunPhase(Phase.Renames, source));
         Assert.Equal("skipped", renamed.Status);
         Assert.StartsWith("stale plan: input changed after the plan was written", renamed.Reason, StringComparison.Ordinal);
         Assert.Equal(plannedHash, renamed.ContentHash);
 
-        var row = Assert.Single(Content(source).ReportRows);
+        var row = Assert.Single(Content(source));
         Assert.Equal("skipped", row.Status);
         Assert.False(File.Exists(Path.Combine(Workspace.Root, "Bar.cs")));
     }
@@ -72,19 +72,19 @@ public sealed class ContentHashRenamesStaleTests : ContentHashTestBase
         File.WriteAllText(source, TwoTypes.Replace("=> 1;", "=> 2;", StringComparison.Ordinal));
         var blocker = Workspace.WriteFile("Bar.cs", "namespace N;\n");
 
-        var blocked = Assert.Single(RunAndWriteManifest(Phase.Renames, source).ManifestRows);
+        var blocked = Assert.Single(RunPhase(Phase.Renames, source));
         Assert.Equal("skipped", blocked.Status);
         Assert.StartsWith("stale plan: input changed after the plan was written", blocked.Reason, StringComparison.Ordinal);
         Assert.Equal(planned.ContentHash, blocked.ContentHash);
 
         File.Delete(blocker);
 
-        var again = Assert.Single(RunAndWriteManifest(Phase.Renames, source).ManifestRows);
+        var again = Assert.Single(RunPhase(Phase.Renames, source));
         Assert.Equal("skipped", again.Status);
         Assert.StartsWith(ContentHash.StalePlanPrefix, again.Reason, StringComparison.Ordinal);
         Assert.Equal(planned.ContentHash, again.ContentHash);
 
-        Assert.Equal("skipped", Assert.Single(Content(source).ReportRows).Status);
+        Assert.Equal("skipped", Assert.Single(Content(source)).Status);
         Assert.False(File.Exists(blocker));
     }
 
@@ -96,7 +96,7 @@ public sealed class ContentHashRenamesStaleTests : ContentHashTestBase
 
         File.WriteAllText(source, "namespace N;\n\npublic class Foo\n{\n}\n");
 
-        var row = Assert.Single(RunAndWriteManifest(Phase.Renames, source).ManifestRows);
+        var row = Assert.Single(RunPhase(Phase.Renames, source));
 
         Assert.Equal("skipped", row.Status);
         Assert.StartsWith("stale plan: input changed after the plan was written", row.Reason, StringComparison.Ordinal);
@@ -104,25 +104,46 @@ public sealed class ContentHashRenamesStaleTests : ContentHashTestBase
     }
 
     [Fact]
-    public void UnchangedFileThatRenamesSkips_KeepsItsReasonAndHash_AndIsNotSplitLater()
+    public void UnchangedFileThatRenamesSkips_KeepsItsReasonAndHash_AndThePlanStillHolds()
     {
         // Same bytes, so nothing is stale. The row keeps the reason renames computed and the
-        // planned hash. Once the manifest says skipped, only a new plan makes it a split.
+        // planned hash. The skip goes to the report and the plan is not written, so once
+        // the obstacle is gone the same plan applies.
         var source = Workspace.WriteFile("Foo.cs", TwoTypes);
         var planned = Assert.Single(Plan(source));
         var blocker = Workspace.WriteFile("Bar.cs", "namespace N;\n");
 
-        var blocked = Assert.Single(RunAndWriteManifest(Phase.Renames, source).ManifestRows);
+        var blocked = Assert.Single(RunPhase(Phase.Renames, source));
         Assert.Equal("skipped", blocked.Status);
         Assert.StartsWith("target path already exists", blocked.Reason, StringComparison.Ordinal);
         Assert.Equal(planned.ContentHash, blocked.ContentHash);
 
         File.Delete(blocker);
 
-        var again = Assert.Single(RunAndWriteManifest(Phase.Renames, source).ManifestRows);
-        Assert.Equal("skipped", again.Status);
-        Assert.Equal("stale plan: the plan manifest does not mark this file as split; re-run --phase plan", again.Reason);
+        var again = Assert.Single(RunPhase(Phase.Renames, source));
+        Assert.Equal("split", again.Status);
+        Assert.Null(again.Reason);
         Assert.Equal(planned.ContentHash, again.ContentHash);
+    }
+
+    [Fact]
+    public void FileThePlanRefused_IsNotSplitByRenames_OnceTheObstacleIsGone()
+    {
+        // The plan itself recorded a skip, because an output path was taken. With the
+        // obstacle gone renames would split the file, and the plan never said to.
+        var blocker = Workspace.WriteFile("Bar.cs", "namespace N;\n");
+        var source = Workspace.WriteFile("Foo.cs", TwoTypes);
+        var planned = Assert.Single(Plan(source));
+        Assert.Equal("skipped", planned.Status);
+        Assert.StartsWith("target path already exists", planned.Reason, StringComparison.Ordinal);
+
+        File.Delete(blocker);
+
+        var row = Assert.Single(RunPhase(Phase.Renames, source));
+
+        Assert.Equal("skipped", row.Status);
+        Assert.Equal("stale plan: the plan manifest does not mark this file as split; re-run --phase plan", row.Reason);
+        Assert.Equal(planned.ContentHash, row.ContentHash);
     }
 
     [Fact]
@@ -136,7 +157,7 @@ public sealed class ContentHashRenamesStaleTests : ContentHashTestBase
 
         File.AppendAllText(a, "// edited\n");
 
-        var rows = RunAndWriteManifest(Phase.Renames, a, b).ManifestRows;
+        var rows = RunPhase(Phase.Renames, a, b);
 
         Assert.StartsWith(ContentHash.StalePlanPrefix, Assert.Single(rows, r => r.OriginalPath == a).Reason, StringComparison.Ordinal);
         var kept = Assert.Single(rows, r => r.OriginalPath == b);

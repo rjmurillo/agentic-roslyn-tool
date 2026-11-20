@@ -1,13 +1,15 @@
 namespace AgenticRoslynTool;
 
-/// <summary>Binds the rows a later phase writes to the plan manifest it read. A run that starts a plan
+/// <summary>Binds the rows a later phase reports to the plan manifest it read. A run that starts a plan
 /// records content hashes. The renames and content phases only carry and compare them, and
 /// this type is where both phases do the carrying.</summary>
 /// <remarks>Kept out of <see cref="FileSplitter"/> because it decides and never acts: a row goes in,
-/// and the row the manifest may hold comes out. It writes nothing, and it probes the file
-/// system once, to learn whether a planned rename has landed.
-/// Each phase writes its rows back over the manifest, so a row that stored a hash the phase
-/// computed would match on the next run and turn one refusal into permission.</remarks>
+/// and the row the phase may act on and report comes out. It writes nothing, and it probes
+/// the file system once, to learn whether a planned rename has landed.
+/// Only the plan phase writes the manifest. These rules were written when every phase wrote
+/// its rows back over it, and a row carrying a hash the phase computed would then have
+/// matched on the next run. They stay, so no reported row ever shows a hash the plan phase
+/// did not record.</remarks>
 internal static class PlanBinding
 {
     /// <summary>Reason recorded when the renames phase would split a file the manifest on disk has no row for.</summary>
@@ -19,7 +21,7 @@ internal static class PlanBinding
     /// <summary>Binds one freshly computed renames row to the manifest already on disk.</summary>
     /// <param name="row">The row the renames phase just computed for one input.</param>
     /// <param name="priorPlan">The manifest rows, indexed by <see cref="SplitPlanner.IndexByInputPath"/>.</param>
-    /// <returns>The row to act on and to write back, which is a stale plan refusal when the file may not be touched.</returns>
+    /// <returns>The row to act on and to report, which is a stale plan refusal when the file may not be touched.</returns>
     /// <remarks>Three rules, and each closes a path the others leave open.
     /// <list type="number">
     /// <item>The row always takes its hash from the manifest row, never from the bytes just
@@ -31,8 +33,9 @@ internal static class PlanBinding
     /// <item>A row that would act, a <c>split</c>, is refused unless the manifest marks that
     /// file <c>split</c>.</item>
     /// </list>
-    /// A refusal keeps the recorded hash, so it stays a refusal on the next run. Only the
-    /// plan phase starts a new plan.</remarks>
+    /// A refusal never carries a hash this phase computed, so it stays a refusal on every
+    /// later run until its cause is gone: the file matches the plan again, or the plan
+    /// phase runs and gives the file a <c>split</c> row. Only the plan phase starts a new plan.</remarks>
     internal static FileResult HoldRenamesRow(FileResult row, Dictionary<string, FileResult> priorPlan)
     {
         var wouldAct = row.Status == "split";
@@ -84,11 +87,10 @@ internal static class PlanBinding
     /// row that forgets it tells the next reader no move is pending for a file that still
     /// needs one. The paths are deliberately left alone: they say where the file is, which a
     /// planned row cannot answer for a run that refused before the rename landed.
-    /// The hash is the same kind of fact. Every row the content phase writes for a planned
-    /// file replaces that file's manifest row, including the exits that never read the file:
-    /// an excluded path, a missing file, an inconsistent rename state. A row that dropped the
-    /// hash there would leave the next phase nothing to hold the file to. Carried on every
-    /// status, so the content phase can never change a recorded hash.</remarks>
+    /// The hash is the same kind of fact. It is carried on every row the content phase
+    /// reports for a planned file, including the exits that never read the file: an excluded
+    /// path, a missing file, an inconsistent rename state. Carried on every status, so no
+    /// reported row shows a hash other than the planned one.</remarks>
     internal static FileResult CarryPlannedFacts(FileResult result, FileResult? planned)
     {
         if (planned is null)

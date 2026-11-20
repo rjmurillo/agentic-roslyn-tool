@@ -354,10 +354,11 @@ instead of using `EnumerationOptions.AttributesToSkip`, whose reparse-point filt
 applies to files and would have silently dropped a symlinked source file. A `.cs` path is
 now the file to split rather than a list of paths, `--dry-run` combined with `--phase` is
 rejected instead of letting argument order pick. A plan row the content phase never
-received stays in the rewritten manifest verbatim while appearing in the report as a skip,
-which is why `Run` returns a `RunOutcome` with separate manifest and report views: an
-earlier version rewrote the row as `skipped`, which destroyed the reviewed plan as soon as
-an agent applied content in batches. A file symlink discovered alongside its target is
+received appears in the report as a skip and stays `split` in the plan. An earlier version
+rewrote the row as `skipped`, which destroyed the reviewed plan as soon as an agent applied
+content in batches. A second version carried the row forward through a `RunOutcome` with
+separate manifest and report views. Decision 23 removed that type along with the rewrite it
+existed to make safe. A file symlink discovered alongside its target is
 de-duplicated by physical identity so one file is never split twice. Case sensitivity is
 taken from the operating system, not probed per volume; a case-sensitive volume mounted on
 Windows or macOS is a stated limitation rather than a filesystem write on every run.
@@ -374,16 +375,16 @@ that cannot see the screen. Knowing which tokens are values lives beside the par
 in `Options`, since a new value-taking option has to update both or the scan drifts.
 
 The same argument runs one level down, at the per-file boundary. The content phase rewrites
-source as it goes and writes the manifest once at the end, so an exception escaping one
-input strands every file already rewritten with no record of them, and the manifest is what
-an agent applies in batches. Three review rounds each found another site inside `Process`
+source as it goes and writes its record once at the end, so an exception escaping one
+input strands every file already rewritten with no record of them. That record was the
+manifest when this was written, and is the report since decision 23. Three review rounds each found another site inside `Process`
 that threw past the write: enumeration of a lazy input list, `File.ReadAllBytes` on a file
 `File.Exists` had just approved, `GetReadPath` on a rename the operator never applied, and
 `BuildPlan` on a manifest carrying two rows for one type. Guarding them one at a time was
 losing to the same pattern as a filtered catch, so the guard moved to the boundary:
 `Process` wraps `ProcessCore` and turns anything that escapes into a failed row. The cost is
 that a genuine bug in the tool now reports as a failed row and exit 1 rather than exit 3.
-That is the better trade here, because exit 1 comes with a manifest naming the input that
+That is the better trade here, because exit 1 comes with a row naming the input that
 failed, and exit 3 came with nothing.
 
 ## 17. FileSplitter was decomposed by responsibility, not by pattern
@@ -537,10 +538,10 @@ Revisit it if a second flag ever changes planned paths.
 
 **Consequences.** The value must be passed to every phase. The renames phase reads the
 manifest only for each row's hash and status, never for its paths, so it does not check
-the value. See decision 22. It also writes the manifest again from its own plan. A renames
-run with a different value replaces the reviewed collision names, and the content check
-then agrees with the new manifest. Closing that gap means holding renames to the planned
-paths as well, which is a larger change than this flag. The content check
+the value. See decision 22. When this was written it also wrote the manifest again from
+its own plan, so a renames run with a different value replaced the reviewed collision
+names. Decision 23 closed that gap: renames no longer writes the manifest, and the
+content check compares against the plan as reviewed. The content check
 reads the plan's value from the path and the note together. It is per row. A row with no
 collision has the same paths under both values and still applies. A run without the flag
 plans the same paths as before, and it still accepts a free path typed into the manifest
@@ -553,10 +554,10 @@ changed. Under the `metadata` convention `Shared{T}.A.cs` still raises SA1649,
 for the same reason `Shared{T}.cs` does.
 
 A forgotten flag is the likely mistake, and it is not free. The mismatched rows are
-skipped, so the run exits 0, and the note on each row names the cause. The content phase
-then writes those rows back as `skipped`, which uses up the reviewed plan for them. The
-fix is to run the plan phase again. This is the known cost of the manifest being both
-plan and report.
+skipped, so the run exits 0, and the note on each row names the cause. Those rows go to
+the report and the plan keeps them as `split`, so the fix is to run the content phase
+again with the flag. Before decision 23 the content phase wrote them back as `skipped`,
+which used up the reviewed plan.
 
 Type-first refuses a colliding source whose base name is `G`, `Designer`, or `Generated`,
 or ends in `.g`, `.g.i`, `.designer`, or `.generated`. The qualified name would end in a
@@ -602,7 +603,9 @@ below follow from that rule.
   would match on the next run and turn into permission. So a row written by renames or
   content takes its hash from the manifest row it replaces, on every status and every
   exit, including the exits that never read the file. A `split` row written by content
-  still shows the planned hash, not the hash of the rewritten kept file.
+  still shows the planned hash, not the hash of the rewritten kept file. Decision 23
+  stopped both phases writing the manifest. The rule stays for the rows they report, so
+  a report never shows a hash the plan phase did not record.
 - **A mismatch is a `skipped` row, not `failed`.** It matches the structural mismatch,
   which was already a skip, and decision 13: refusing is the correct outcome. The reason
   starts with `stale plan:` so a caller can find these rows without parsing hashes. In
@@ -614,8 +617,8 @@ below follow from that rule.
   split that the manifest marks `skipped` or `failed`, and a file it would split that the
   manifest has no row for. The byte check applies to every file renames reads that has a recorded hash, not only
   the ones it would split, so a changed file is reported as changed. That covers a file
-  the plan skipped that later gains a type, and a file content refused as stale and wrote
-  back as `skipped`. A `git mv` does not change bytes, so a renamed file still matches in
+  the plan skipped that later gains a type. Before decision 23 it also covered a file
+  content refused as stale and wrote back as `skipped`. A `git mv` does not change bytes, so a renamed file still matches in
   the content phase. Renames is held to the hash and the status, not the shape: with
   matching bytes it still applies the paths it recomputed.
 - **A manifest with no `contentHash` column ends the run.** Content and renames both exit
@@ -659,7 +662,9 @@ Three limits remain.
 3. A second content run, or a renames run, over a file content already split reports it as
    `stale plan:`. The first run rewrote the kept file, so its bytes differ from the plan,
    and the tool cannot tell its own write from an outside edit. Before the hash, that
-   second run reported `nothing to split`. The file is left alone either way.
+   second run reported `nothing to split`. The file is left alone either way. Decision 23
+   changed the content half: a content retry now reports such a file as `already applied`.
+   A renames run still reports `stale plan:`.
 
 **Reversal warning.** Remove the content check and an edit made after review is applied
 with no sign, as long as type names and paths survive it. Let renames or content store the
@@ -669,7 +674,9 @@ afresh one phase early. Make the missing column a fallback and every old manifes
 loses the guarantee. Hash decoded text instead of bytes and a newline or encoding change
 slips through.
 
-### Decision 23. The file naming convention is a flag, and the content phase refuses the other convention's names
+### Decision 23. Only the plan phase writes the manifest, and runs report to their own file
+
+### Decision 24. The file naming convention is a flag, and the content phase refuses the other convention's names
 
 **Context.** StyleCop SA1649 has two file naming conventions. `stylecop`, the default,
 accepts `Foo{T}.cs` or `Foo.cs` for `Foo<T>`. `metadata` accepts only ``Foo`1.cs``. The
@@ -724,10 +731,10 @@ other value.
 
 The reason stays `content phase plan does not match manifest`, as for decision 21. The
 skipped row's note says what differs: both flag values and both paths for a moved file,
-the two kept paths for a kept file, and the path or rename for other shape drift. The
-skipped row replaces the plan row, so the note is the only place the manifest's value
-survives. The existence and uniqueness checks still run first, so
-`ManifestPathTamperingTests` reports the same reasons.
+the two kept paths for a kept file, and the path or rename for other shape drift. The row
+goes to the run report and the plan keeps its `split` row, as decision 23 arranged. The
+existence and uniqueness checks still run first, so `ManifestPathTamperingTests` reports
+the same reasons.
 
 The two flags compose. Under `metadata` with `--collision-naming type-first`, a colliding
 `Shared<T>` from `A.cs` becomes ``Shared`1.A.cs``. SA1649 reads that as ``Shared`1`` and
@@ -739,23 +746,26 @@ Under `metadata`, `Box<T>` and `Box<U>` in one file share ``Box`1.cs`` and are r
 The content check covers one of two ways to disagree. Plan and renames under one value,
 content under the other: a file the two conventions plan differently is skipped and nothing
 is written for it. A file they plan the same way still splits, which covers every file
-with no generic type. The run exits 0 and its rows replace the plan, so recovery is to run
-the plan phase again, after undoing any rename that landed or listing the renamed path.
-Renames under a value that differs from the plan is not caught. The renames phase checks
-the manifest's hash and status, not its paths. It runs its own renames and rewrites the
-manifest, and a content run under that same value then applies it at exit 0. The docs tell
-the caller to pass the flag to every phase and to plan again after changing it. `AGENTS.md`
+with no generic type. The run exits 0 and the plan is unchanged, so recovery is to run the
+content phase again with the plan's value. Renames under a value that differs from the
+plan is not caught. The renames phase checks the manifest's hash and status, not its
+paths, and it runs the renames its own value plans. It can rename a file the plan left in
+place, or leave out a rename the plan asked for. It no longer rewrites the plan, so the
+content phase then skips that file and writes nothing. Recovery is to undo the unplanned
+rename with git. The docs tell the caller to pass the flag to every phase. `AGENTS.md`
 lists this as a known issue.
 
 `metadata` also renames more kept files, which exposed an older gap. Two inputs could plan
 one rename target, because the per-file plan only sees targets that already exist. A
 generic type split across `Foo.cs` and `Foo.Extra.cs` plans ``Foo`1.cs`` twice. Both rows
-showed as `split`, the renames phase moved the first, `git mv` failed on the second, and
-the run exited 3 with one rename landed. `KeptRenameCollisions` now runs in the plan and
+showed as `split`, the renames phase moved the first, and `git mv` failed on the second.
+Before decision 23 that stopped the run at exit 3. Since then it is a `failed` row at exit
+1. Either way the plan promised a rename that could not happen. `KeptRenameCollisions` now
+runs in the plan and
 renames phases. The first input that is still `split` keeps the rename. Each later one
 keeps its original name with the note a taken target always got, `rename collision for
 <path>; kept original file name`. This applies without the flag too, where the same inputs
-used to exit 3.
+used to fail.
 
 Refusing both inputs was the other choice, and it was rejected. It would hand back a
 common layout, a generic type in `Foo.cs` and `Foo.Extra.cs`, for manual work. Keeping the
@@ -782,17 +792,141 @@ remove one and every caller that passes it exits 2.
 
 ## Unrecorded decisions
 
-Recorded so nobody assumes these were considered.
+**Context.** `Program` wrote every run's rows back to the plan path. A content run that
+failed a row replaced that row's `split` plan with `failed`. The retry then answered `not
+present as split in plan manifest`, and the only recovery was to re-run the plan phase.
+The file was both the reviewed plan and the run report, and those two jobs disagree as
+soon as a row fails. The maintainer chose the separate report file on 2026-11-19.
 
-### The manifest is both the plan and the run report
+**Decision.** The manifest is the plan, and only the `plan` phase writes it. The `renames`
+and `content` phases write what they did to a report file in the same CSV format.
 
-Found while settling the above, not fixed. `Program` writes the run's manifest rows back
-to the plan path after every phase, so a content run that fails a row replaces that row's
-`split` plan with `failed`. Re-running content then answers `not present as split in
-plan manifest`, and the only recovery is to re-run the plan phase. Making a failed row keep
-its plan would restore the retry, at the cost of a manifest that claims `split` for work
-that did not happen. That is a decision about what the file means, not a patch, so it waits
-for one.
+- **Where the report goes.** `--report <path>` names it. The default is the manifest path
+  with `.report.csv` as its extension, so `split-types.csv` pairs with
+  `split-types.report.csv`. A default derived from the manifest name can never be the
+  manifest. `--report` naming the manifest is rejected with exit code 2. So is `--report`
+  with the `plan` phase, where the flag would be a silent no-op.
+- **The report path is proven before the run.** The report is written after every source
+  file is rewritten. A path found unusable at that point ends a run that already changed
+  files with exit code 3 and no report file. So `ReportFile.Prepare` runs first. It ends
+  the run with exit code 3 when the path is the manifest under another name, is itself a
+  link or a directory, sits in a directory that cannot take a new file, or names an
+  existing file that is not a report. The last rule keeps `--report` off the input list
+  and off source files that exist when the run starts. It is the report's answer to rule
+  10: the file must be replaceable for a retry, so the check asks what the existing file
+  is, not whether one exists.
+- **Whether the report path is the manifest is observed, not derived.** The check creates
+  a file beside the report path and looks for it in the manifest's directory. Three earlier
+  versions resolved symbolic links by hand. One took each link target as final. One
+  collapsed `..` as text. One observed the report side and still resolved a linked
+  manifest path with a library call that collapses `..` the same way. Each let a report
+  path reach the manifest and replace the plan.
+- **The checks fail closed.** Every look at a path has three answers: something is there,
+  nothing is there, or the look failed. A fourth version asked `File.Exists`, which
+  answers false for the last two. A manifest directory about 4,060 characters long made
+  the look for the probe fail, that read as a different directory, and the report
+  replaced the plan. Only a look that proves absence counts as absence now.
+- **A manifest path must end in a file name.** A fifth version compared the two file
+  names as text and met `--manifest plan.csv/`. The operating system still found the
+  file, the last part of the path read as empty, and the names looked different. The
+  renames phase did not open the manifest then, so the report replaced the plan. A trailing
+  separator on `--manifest` is now a rejected command line, and `ReportFile` refuses a
+  manifest path that ends in one or names a directory.
+- **A linked manifest path is refused in `renames` and `content`.** That removes the last
+  path the tool had to resolve. A report path that is a link was already refused. The
+  directories either path runs through are followed by the operating system, never by
+  the tool.
+- **The same question is asked again at the write.** The run creates source files, and
+  one of them can land on the report path. `ReportFile.Write` refuses to replace it. The
+  rows then go to standard output and the run exits 3, so neither the type nor the record
+  is lost.
+- **No existing file is opened for writing.** The probe and the report both go to a new
+  file beside the report path, and the report is moved into place. A hard link to the
+  manifest cannot be seen by any path comparison. The move makes that harmless, because
+  it replaces the directory entry and leaves the manifest's bytes alone.
+- **Standard output is unchanged when the report is written.** The report is a file. Its
+  path goes to standard error on a `Report:` line beside the `Manifest:` line. The one
+  exception is a report that cannot be written, covered below.
+- **`--json` gains one field.** `report` carries the report path. It is `null` in `plan`,
+  and after a report that was not written.
+  No existing field changed name or meaning. `manifest` is still the plan path.
+- **Renames keeps recomputing.** It still plans from the files as they are, and it no
+  longer writes the manifest. Its rows go to the report. Decision 22 holds it to the
+  hash and status of each manifest row when a manifest exists, and that stays. A rename has to follow the file
+  as it is now, and the content phase already refuses a row whose rename state disagrees
+  with the plan, so nothing downstream depended on the rewrite. Decision 19 needs the
+  kept path of each `split` row, and the plan phase already records it. A rename that
+  fails is now a `failed` row and exit code 1. It used to end the run with exit code 3
+  after earlier renames had landed, which left no report to name them.
+- **A retry skips what is already done.** A row whose planned outputs all exist, and whose
+  file still declares a type but none of the planned ones, is `skipped` with the reason
+  `already applied: every planned output exists and this file no longer declares the
+  planned types`. Such a file no longer matches the hash decision 22 records, so the
+  check sits inside the hash check and only picks the reason: `already applied` for this
+  case, `stale plan:` for every other change. Either way the file is skipped and nothing
+  is written. Decision 22 had listed the stale reason on a second content run as a limit.
+- **`RunOutcome` is gone.** It split a run into manifest rows and report rows so a content
+  run could rewrite the manifest without losing unapplied rows. With no rewrite there is
+  one view, and `FileSplitter.Run` returns it.
+
+**Rejected.** Keeping one file and letting a failed row stay `split`. That restores the
+retry, and leaves a file that claims `split` for work that did not happen.
+
+**Rejected.** Having the renames phase replay the manifest instead of recomputing. It is a
+defensible design, and it is a second behavior change on a phase this decision did not
+need to touch. It can be taken up on its own.
+
+**Rejected.** Reading the previous report to learn which rows were applied. The report is
+replaced on every run and a caller may delete it, so it cannot be trusted as state. The
+tree can. Nothing in the tool reads a report.
+
+**Rejected.** Treating `target path already exists` as success on a retry. An existing
+output proves nothing about who wrote it. The already applied check asks a narrower
+question, and a file that fails it is refused as a stale plan. A file whose bytes still
+match the plan never reaches the check, and meets every existence check as before.
+
+**Consequences.** Two files instead of one, and the report is replaced by every run that
+completes, so it describes the last such run. A run that ends with exit code 3 before
+it starts work writes no report and leaves an earlier one as it was. Removing the earlier
+report at the start was tried and reverted: it deleted a file on a run that then aborted
+on a mistyped input path. `renames` followed by `content` with no `plan` run now exits
+3, because the renames phase no longer leaves a manifest behind. That sequence used to
+apply a plan nobody had reviewed. A caller that read results from the manifest path after
+`content` now reads the unchanged plan, and must read the report or `--json` instead. A
+content run against a manifest an older version already rewrote behaves as before: its
+`failed` rows are not `split`, so re-run the plan once.
+
+**Known limits.** A manifest directory within about 40 characters of the path limit
+makes the look for the probe fail. A report with the manifest's file name is then
+refused even when it sits in another directory. The file system can give one file two names in one directory, such as
+a Windows short name or a second Unicode spelling on macOS. A report path that uses the
+other name is not seen as the manifest. A named pipe at the report path makes the format
+check wait for a writer. A manifest reached through a symbolic link must be passed by its real
+path to `renames` and `content`. The `plan` phase does not apply that rule. The report and
+manifest paths are compared without regard to case on
+every platform, so Linux refuses `plan.csv` beside `PLAN.CSV` although they are two files.
+`ReportFile.Prepare` creates a missing report directory and leaves it when the run then
+ends early. Another process could create a file at the report path between the check at
+the write and the move. The manifest and the report share one format, so the tool cannot tell
+them apart. A second plan manifest passed as `--report` is replaced when the run
+completes. The already
+applied check does not compare the types that remain with the plan, so a source edited
+after planning can read as applied when its planned outputs exist. A process killed
+between the files of one split can leave a planned output missing while the kept file no
+longer declares its type. A retry reports that file as `stale plan:`, which is a skip at
+exit code 0. A renames run over a file content already split also reports `stale plan:`.
+
+**Reversal warning.** Write a later phase's rows back to the manifest and a failed row
+erases its own plan again. The retry then reports the file as not planned, at exit code 0.
+Remove the already applied check and a retry still exits 0, but every applied row reads
+`stale plan:`, which a caller cannot tell from a file someone edited.
+Widen that check into an exemption from the existence checks and an edited manifest can
+aim a write at an existing file, which rule 10 forbids. Replace a three way look with
+`File.Exists` and a path the system cannot look up reads as absent, which is how the
+report last reached the plan. Open the report path directly,
+to probe it or to write it, and a report path that is a hard link to the manifest empties
+the plan. Drop the check at the write and a report can replace a source file the run just
+created.
 
 ## Credit
 

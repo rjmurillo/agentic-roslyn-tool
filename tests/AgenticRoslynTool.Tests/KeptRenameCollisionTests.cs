@@ -14,7 +14,7 @@ public sealed class KeptRenameCollisionTests
     public void Metadata_TwoPartsOfOneGenericType_RenameOnceAndBothSplit()
     {
         // Foo.cs and Foo.Extra.cs each keep a part of Foo<T>, and each plans Foo`1.cs. This
-        // used to plan both renames, move the first, and stop the renames run at exit 3.
+        // used to plan both renames, move the first, and fail the second.
         using var ws = new TempWorkspace();
         var first = ws.WriteFile("Foo.cs", FooPart);
         var second = ws.WriteFile("Foo.Extra.cs", FooExtraPart);

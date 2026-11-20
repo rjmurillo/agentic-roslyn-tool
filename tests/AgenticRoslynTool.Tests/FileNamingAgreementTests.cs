@@ -5,7 +5,7 @@ namespace AgenticRoslynTool.Tests;
 // The convention shapes planned paths, so every phase has to use the same one. The content
 // phase refuses a plan made under the other one. The renames phase holds each file to the
 // manifest's hash and status, not to its paths, so it cannot see a disagreement; the last
-// test pins that limit.
+// two tests pin that limit.
 public sealed class FileNamingAgreementTests
 {
     private const string MismatchReason = "content phase plan does not match manifest";
@@ -30,9 +30,8 @@ public sealed class FileNamingAgreementTests
 
         var result = Assert.Single(FileNamingRuns.RunPlanThenContent(ws, listPath, Path.Combine(ws.Root, "m.csv"), planNaming, contentNaming));
 
-        // The reason is shared with ordinary plan drift, so the note has to name the cause.
-        // The skipped row replaces the plan row, so the note is also the only place the
-        // manifest's path survives.
+        // The reason is shared with ordinary plan drift, so the note has to name the cause
+        // and both paths.
         Assert.Equal("skipped", result.Status);
         Assert.Equal(MismatchReason, result.Reason);
         Assert.Equal(
@@ -109,24 +108,57 @@ public sealed class FileNamingAgreementTests
     }
 
     [Fact]
-    public void RenamesPhase_FollowsItsOwnConventionAndReplacesThePlan()
+    public void RenamesPhase_UnderAnotherConvention_ReportsItsOwnNamesAndLeavesThePlan()
     {
-        // The renames phase recomputes the plan and its rows replace the manifest. A
-        // renames run under another convention is therefore not refused: it rewrites the
-        // plan, and the content check compares against the rewritten plan. This pins the
-        // manifest replacement, so a change to it is deliberate. It does not pin a rename:
-        // no git process starts, because neither convention renames A.cs.
+        // The renames phase recomputes the plan under the flag it was given and is not
+        // held to planned paths. Its rows go to the run report, never to the manifest, so
+        // the reviewed plan survives and a content run under the plan's value applies it.
+        // No git process starts, because neither convention renames A.cs.
         using var ws = new TempWorkspace();
         var listPath = ws.WriteInputList(ws.WriteFile("A.cs", FileNamingRuns.AWithGenericFoo));
         var manifestPath = Path.Combine(ws.Root, "m.csv");
+        var planned = Path.Combine(ws.Root, "Foo`1.cs");
 
         var plan = Assert.Single(FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Plan, FileNamingConvention.Metadata));
-        Assert.Equal(Path.Combine(ws.Root, "Foo`1.cs"), Assert.Single(plan.NewFiles).Path);
+        Assert.Equal(planned, Assert.Single(plan.NewFiles).Path);
 
         var renames = Assert.Single(FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Renames, FileNamingConvention.StyleCop));
 
         Assert.Equal("split", renames.Status);
         Assert.Equal(Path.Combine(ws.Root, "Foo.cs"), Assert.Single(renames.NewFiles).Path);
-        Assert.Equal(Path.Combine(ws.Root, "Foo.cs"), Assert.Single(Assert.Single(ManifestWriter.Read(manifestPath)).NewFiles).Path);
+        Assert.Equal(planned, Assert.Single(Assert.Single(ManifestWriter.Read(manifestPath)).NewFiles).Path);
+
+        var content = Assert.Single(FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Content, FileNamingConvention.Metadata));
+
+        Assert.Equal("split", content.Status);
+        Assert.Equal(new[] { "A.cs", "Foo`1.cs" }, FileNamingRuns.CsFiles(ws));
+    }
+
+    [Fact]
+    public void RenamesPhase_UnderAnotherConvention_CanRenameAFileThePlanLeftInPlace()
+    {
+        // The known limit, pinned so a change to it is deliberate. The plan keeps Foo.cs.
+        // A renames run with metadata moves it to Foo`1.cs, because the phase checks the
+        // manifest's hash and status and not its paths. The content run then finds no file
+        // at the planned path and writes nothing.
+        using var ws = new TempWorkspace();
+        var source = ws.WriteFile("Foo.cs", FooWithBar);
+        var listPath = ws.WriteInputList(source);
+        var manifestPath = Path.Combine(ws.Root, "m.csv");
+        FileNamingRuns.Git(ws.Root, "init", "--quiet");
+        FileNamingRuns.Git(ws.Root, "add", "Foo.cs");
+        var plan = Assert.Single(FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Plan, FileNamingConvention.StyleCop));
+        Assert.False(plan.GitMove);
+
+        var renames = Assert.Single(FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Renames, FileNamingConvention.Metadata));
+
+        Assert.Equal(("split", true), (renames.Status, renames.GitMove));
+        Assert.Equal(new[] { "Foo`1.cs" }, FileNamingRuns.CsFiles(ws));
+
+        var content = Assert.Single(FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Content, FileNamingConvention.StyleCop));
+
+        Assert.Equal(("skipped", "input file does not exist"), (content.Status, content.Reason));
+        Assert.Equal(new[] { "Foo`1.cs" }, FileNamingRuns.CsFiles(ws));
+        Assert.Equal(FooWithBar, File.ReadAllText(Path.Combine(ws.Root, "Foo`1.cs")));
     }
 }

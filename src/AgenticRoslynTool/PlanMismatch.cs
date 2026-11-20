@@ -8,8 +8,8 @@ namespace AgenticRoslynTool;
 /// <remarks>
 /// Split out of <see cref="SplitPlanner"/>, as <see cref="CollisionNames"/> was. The planner
 /// runs the checks in order and refuses the row. This type knows what the other convention's
-/// name looks like and words the note. The text goes into the skipped row's note. That row
-/// replaces the plan row, so the note is the only place the manifest's value survives.
+/// name looks like and words the note. The text goes into the skipped row's note, in the
+/// run report. It names both sides, so a reader of the report does not need the manifest.
 /// </remarks>
 internal static class PlanMismatch
 {
@@ -59,9 +59,9 @@ internal static class PlanMismatch
     /// </summary>
     /// <remarks>
     /// The text goes into the skipped row's note. It names the manifest's value wherever the
-    /// manifest has one, because that row replaces the plan row and records this run's kept
-    /// path. A path only this run plans has no manifest value, so that text names the run's
-    /// path. The caller checks uniqueness of the run's paths first, and the last branch
+    /// manifest has one, because the row itself records this run's kept path, not the
+    /// plan's. A path only this run plans has no manifest value, so that text names the
+    /// run's path. The caller checks uniqueness of the run's paths first, and the last branch
     /// relies on that.
     /// </remarks>
     /// <param name="planned">The plan manifest row for this input.</param>
