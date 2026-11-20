@@ -22,7 +22,8 @@ permissions:
 # and race on creating it. Releases are rare enough that a single lane costs nothing, and
 # cancelling is not an option here because a run killed after the release is published but
 # before the package is pushed leaves the version half shipped, and the version cannot be
-# reused.
+# reused. The job's timeout-minutes can kill a run the same way, so it is set far above a
+# normal run.
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: false
@@ -31,6 +32,9 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     environment: production
+    # The clock starts once the production approval is given, so the wait for the
+    # maintainer does not count. A normal run takes about one minute.
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
