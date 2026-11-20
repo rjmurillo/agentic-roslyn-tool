@@ -81,8 +81,7 @@ internal sealed class FileSplitter
     /// <summary>Plan phase entry point. Builds the resolved plan and returns it without writing anything.</summary>
     private IReadOnlyList<FileResult> RunPlan()
     {
-        var results = BuildResolvedPlan();
-        return results;
+        return KeptRenameCollisions.Resolve(BuildResolvedPlan());
     }
 
     /// <summary>
@@ -96,7 +95,9 @@ internal sealed class FileSplitter
     /// It never writes the manifest: the rows it returns go to the run report. When a
     /// manifest exists, the phase is bound to it. It renames only a file the manifest marks
     /// <c>split</c> whose bytes still match the recorded hash, and no row it returns carries
-    /// a hash of its own. See <see cref="PlanBinding.HoldRenamesRow"/>.
+    /// a hash of its own. See <see cref="PlanBinding.HoldRenamesRow"/>. It also runs a rename
+    /// only when the manifest row plans that same rename. See
+    /// <see cref="KeptRenameCollisions.HoldToPlannedRename"/>.
     /// </para>
     /// <para>
     /// With no manifest on disk nothing was planned, so there is nothing to be held to, and
@@ -115,8 +116,11 @@ internal sealed class FileSplitter
         // after. A file refused here still took part in naming, so the inputs that are
         // applied keep the qualified paths the reviewed plan gave them. Every row is bound
         // before the first rename, so no binding sees a tree this run already changed.
-        var results = BuildResolvedPlan().Select(row => priorPlan is null ? row : PlanBinding.HoldRenamesRow(row, priorPlan)).ToArray();
-        return results.Select(ApplyPlannedRename).ToArray();
+        // Rename targets are handed out last, so a row this phase refuses never takes a
+        // target from a row that will act. A rename that is not the plan's own is dropped
+        // first, because the content phase reads the kept path the manifest holds.
+        var bound = BuildResolvedPlan().Select(row => priorPlan is null ? row : KeptRenameCollisions.HoldToPlannedRename(PlanBinding.HoldRenamesRow(row, priorPlan), priorPlan)).ToArray();
+        return KeptRenameCollisions.Resolve(bound).Select(ApplyPlannedRename).ToArray();
     }
 
     /// <summary>
@@ -465,7 +469,7 @@ internal sealed class FileSplitter
             return FileResult.Skip(originalPath, readPath, directiveSafety.Reason ?? "contains unsafe directive; manual split required");
         }
 
-        var plan = SplitPlanner.BuildPlan(originalPath, readPath, types, planned, directiveNote: directiveSafety.Note, collisionNaming: _options.CollisionNaming);
+        var plan = SplitPlanner.BuildPlan(originalPath, readPath, types, planned, directiveNote: directiveSafety.Note, collisionNaming: _options.CollisionNaming, convention: _options.FileNaming);
         if (plan.SkipReason is not null)
         {
             var skipped = FileResult.Skip(originalPath, plan.KeptPath, plan.SkipReason);

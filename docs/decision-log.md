@@ -812,6 +812,131 @@ to probe it or to write it, and a report path that is a hard link to the manifes
 the plan. Drop the check at the write and a report can replace a source file the run just
 created.
 
+### Decision 24. The file naming convention is a flag, and the content phase refuses the other convention's names
+
+**Context.** StyleCop SA1649 has two file naming conventions. `stylecop`, the default,
+accepts `Foo{T}.cs` or `Foo.cs` for `Foo<T>`. `metadata` accepts only ``Foo`1.cs``. The
+tool emitted the first form only. In a `metadata` repository, every generic file it wrote
+raised SA1649 and had to be renamed by hand.
+
+**Decision.** `--file-naming stylecop|metadata`, default `stylecop`. Under `metadata` a
+generic type or delegate is named ``Name`N.cs`` with N its arity, and a type that is not
+generic keeps `Name.cs`. That matches `FileNameHelpers.GetConventionalFileName` in
+StyleCop.Analyzers, read at commit `45026329`. A build with `1.2.0-beta.556` confirmed
+it. The delegate case is newer than `1.1.118`, whose `FileNameHelpers` source has none.
+Two planner rules follow from the name. The kept type is the one whose arity name matches
+the file, so `Foo<T>` stays in ``Foo`1.cs``.
+A generic type kept in a plain named file is renamed, so `Foo.cs` becomes ``Foo`1.cs``.
+
+**Rejected.** Reading `stylecop.json` or `.editorconfig`. That is decision 14 again: the
+tool would guess at one repository's layout, and a settings file it failed to find would
+change file names without a word. The caller knows the convention and states it.
+
+**Rejected for now.** Recording the convention in the manifest. Decision 21 rejected a
+column for `--collision-naming` and said to revisit it if a second flag ever changed
+planned paths. This is that flag, so the trigger has fired. Decision 21's cost argument is
+also weaker now: decision 22 has since added a column to the manifest.
+
+A column would buy three things. The renames phase reads the manifest since decision 22, so
+it could compare a recorded value with its flag and refuse before any `git mv`. A mismatch
+note could name its cause with certainty. And a path a reviewer typed by hand could be told
+from a plan made under the other value, which removes the one false refusal recorded below.
+
+This change still does not add it. A column that records one naming flag and not the other
+would be half a design. The right change records both, checks both in renames and content,
+and replaces the two name-inference checks that decision 21 and this one each added. That is a
+manifest schema change across two features, and it deserves its own decision and review.
+Until then this decision carries the cost. Two events reopen it: a third flag that changes
+planned paths, or a report of a renames run that left out a planned rename because a flag
+differed. The guides already tell a `metadata` repository to pass the flag to every phase,
+so that advice is not the trigger.
+
+**Consequences.** The content phase gained a check. It writes the paths the manifest
+holds, so a plan made under the other convention was applied as it stood. It differs only
+in a moved file's name, and the path set comparison runs after those paths are substituted
+in. A moved type's manifest path is now refused when it is the name the other convention
+gives that type, alone or in either cross-file qualified form. A changed kept path or
+rename was already refused by the shape comparison.
+
+Every other free path a reviewer types into the manifest is still applied. Decision 21
+pins that for collision names with `ContentPhase_StillAcceptsAHandEditedFreePath`, and an
+earlier draft of this check broke it by refusing any path the run had not computed. One
+edit is refused that used to be applied: typing the other convention's exact name by hand.
+The manifest records no convention, so nothing tells that edit from a plan made under the
+other value.
+
+The reason stays `content phase plan does not match manifest`, as for decision 21. The
+skipped row's note says what differs: both flag values and both paths for a moved file,
+the two kept paths for a kept file, and the path or rename for other shape drift. The row
+goes to the run report and the plan keeps its `split` row, as decision 23 arranged. The
+existence and uniqueness checks still run first, so `ManifestPathTamperingTests` reports
+the same reasons.
+
+The two flags compose. Under `metadata` with `--collision-naming type-first`, a colliding
+`Shared<T>` from `A.cs` becomes ``Shared`1.A.cs``. SA1649 reads that as ``Shared`1`` and
+accepts it. A build with StyleCop.Analyzers `1.2.0-beta.556` confirmed it.
+
+Under `metadata`, `Box<T>` and `Box<U>` in one file share ``Box`1.cs`` and are refused as
+`target path collision within split`. Under `stylecop` they split by parameter name.
+
+The content check covers one of two ways to disagree. Plan and renames under one value,
+content under the other: a file the two conventions plan differently is skipped and nothing
+is written for it. A file they plan the same way still splits, which covers every file
+with no generic type. The run exits 0 and the plan is unchanged, so recovery is to run the
+content phase again with the plan's value. The mismatch note says so first, and offers a
+new plan as the other way out.
+
+The renames phase is held to one path: the kept-file rename. It runs a rename only when the
+manifest row plans that same rename, to that same target. The content phase reads the kept
+path the manifest holds, so any other rename would strand the file.
+`KeptRenameCollisions.HoldToPlannedRename` enforces it. A dropped rename leaves the file
+where the plan left it, and the row's note says why. That closes the worse half of a flag
+mismatch in the renames phase: it can no longer move a file the plan left in place, or
+move one to the other convention's name. The other half stays open. A renames run under
+another value can leave out a planned rename and report the row as `split`. The content
+phase then fails that row and says to run the renames phase, and a renames run with the
+plan's value recovers. `AGENTS.md` lists this as a known issue.
+
+`metadata` also renames more kept files, which exposed an older gap. Two inputs could plan
+one rename target, because the per-file plan only sees targets that already exist. A
+generic type split across `Foo.cs` and `Foo.Extra.cs` plans ``Foo`1.cs`` twice. Both rows
+showed as `split`, the renames phase moved the first, and `git mv` failed on the second.
+Before decision 23 that stopped the run at exit 3. Since then it is a `failed` row at exit
+1. Either way the plan promised a rename that could not happen. `KeptRenameCollisions` now
+runs in the plan and
+renames phases. The first input that is still `split` keeps the rename. Each later one
+keeps its original name with the note a taken target always got, `rename collision for
+<path>; kept original file name`. This applies without the flag too, where the same inputs
+used to fail.
+
+Refusing both inputs was the other choice, and it was rejected. It would hand back a
+common layout, a generic type in `Foo.cs` and `Foo.Extra.cs`, for manual work. Keeping the
+original name is what the tool already did for a target that exists on disk, so the later
+input gets a known outcome. Input order decides the winner because nothing else about the
+two files ranks them.
+
+The pass has two rules that are easy to break. It runs after every pass that can refuse a
+row, in the renames phase after the manifest binding too, so a refused row never holds a
+target. And it compares targets the way the disk does, because the content phase asks the
+disk. A dropped rename is only settled once the winner's rename lands. Before that, the
+content phase skips the row and its note says to run the renames phase. When the winner is
+refused as stale, or is missing, the later input does not take the rename. Its plan row
+says no rename, so it waits with the winner for a new plan. On `main` that later input was
+renamed and split, because its own plan row carried the rename. Here the plan gives the
+target to one input, and one refused file holds back both. A kept rename that
+collides with another input's new file is still open, and `AGENTS.md` lists it.
+
+**Reversal warning.** Remove the other convention check and a content run whose flag
+differs from the manifest it was handed applies that manifest at exit 0, with names from
+the other convention. Widen it to refuse every path the run did not compute and decision
+21's hand-edited path test fails. Drop the kept type rule and every correctly named
+``Foo`1.cs`` loses `Foo<T>` to a new file, which is the opposite of what the flag is for.
+Change the default and every existing plan and test that involves a generic type changes
+names. Remove `KeptRenameCollisions` and two inputs with one rename target plan a rename that
+fails. Remove `HoldToPlannedRename` and the renames phase can move a file the content
+phase will then not find. The flag name and its two values are command line contract: rename or
+remove one and every caller that passes it exits 2.
+
 ## Credit
 
 The approach owes a debt to Lizzy Gallagher's write up on Roslyn refactoring,
