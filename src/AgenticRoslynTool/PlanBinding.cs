@@ -3,8 +3,9 @@ namespace AgenticRoslynTool;
 /// <summary>Binds the rows a later phase writes to the plan manifest it read. A run that starts a plan
 /// records content hashes. The renames and content phases only carry and compare them, and
 /// this type is where both phases do the carrying.</summary>
-/// <remarks>Kept out of <see cref="FileSplitter"/> because it decides and never acts. Both methods are
-/// pure over their arguments: a row goes in, and the row the manifest may hold comes out.
+/// <remarks>Kept out of <see cref="FileSplitter"/> because it decides and never acts: a row goes in,
+/// and the row the manifest may hold comes out. It writes nothing, and it probes the file
+/// system once, to learn whether a planned rename has landed.
 /// Each phase writes its rows back over the manifest, so a row that stored a hash the phase
 /// computed would match on the next run and turn one refusal into permission.</remarks>
 internal static class PlanBinding
@@ -37,7 +38,7 @@ internal static class PlanBinding
         var wouldAct = row.Status == "split";
 
         // The rename has not happened, so a refused file is still at the path it was read from.
-        if (!priorPlan.TryGetValue(row.OriginalPath, out var prior))
+        if (!priorPlan.TryGetValue(row.OriginalPath, out var prior) || IsStrayAtKeptPath(row, prior))
         {
             return wouldAct
                 ? FileResult.StalePlan(row.OriginalPath, row.OriginalPath, NoPlanRowReason, null)
@@ -61,6 +62,19 @@ internal static class PlanBinding
             ? FileResult.StalePlan(row.OriginalPath, row.OriginalPath, NotPlannedAsSplitReason, prior.ContentHash)
             : row with { ContentHash = prior.ContentHash };
     }
+
+    /// <summary>
+    /// True when <paramref name="row"/> reached <paramref name="prior"/> through its kept
+    /// path while the file the plan read is still at its original path.
+    /// </summary>
+    /// <remarks>
+    /// The kept path stands for a planned file only after the rename moved it there. While
+    /// the original still exists, whatever sits at the kept path is some other file, and it
+    /// has no row. A copy has the same bytes, so the hash cannot tell the two apart. The
+    /// content phase makes the same call in <see cref="SplitPlanner.GetReadPath"/>.
+    /// </remarks>
+    private static bool IsStrayAtKeptPath(FileResult row, FileResult prior) =>
+        !PathComparison.Comparer.Equals(row.OriginalPath, prior.OriginalPath) && File.Exists(prior.OriginalPath);
 
     /// <summary>Restores, on a content phase row, the two facts about the plan that the refusal and failure factories drop: the pending-rename flag and the content hash.</summary>
     /// <param name="result">The row the content phase produced for one input.</param>

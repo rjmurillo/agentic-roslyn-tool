@@ -8,7 +8,8 @@ public sealed class ContentHashRenamesTests : ContentHashTestBase
 {
     private readonly string _stuff;
 
-    // Every test here renames Stuff.cs, so each starts from that file tracked in a repository.
+    // Every test here runs renames over Stuff.cs, so each starts from that file tracked in a
+    // repository.
     public ContentHashRenamesTests()
     {
         _stuff = Workspace.WriteFile("Stuff.cs", Mismatched);
@@ -102,6 +103,24 @@ public sealed class ContentHashRenamesTests : ContentHashTestBase
         Assert.StartsWith("stale plan: input changed after the plan was written", row.Reason, StringComparison.Ordinal);
         Assert.Equal(planned.ContentHash, row.ContentHash);
         Assert.False(File.Exists(Path.Combine(Workspace.Root, "Line.cs")));
+    }
+
+    [Fact]
+    public void CopyAtThePlannedKeptPath_IsNotTakenForTheRenamedFile()
+    {
+        // The plan row is also found by its kept path, for a file the rename already moved.
+        // A copy sitting there while the original still exists is not that file. Its bytes
+        // match, so only the rename state tells the two apart.
+        Plan(_stuff);
+        var copy = Path.Combine(Workspace.Root, "Order2.cs");
+        File.Copy(_stuff, copy);
+
+        var rows = RunAndWriteManifest(Phase.Renames, _stuff, copy).ManifestRows;
+
+        var refused = Assert.Single(rows, r => r.OriginalPath == copy);
+        Assert.Equal("stale plan: the plan manifest has no row for this file; re-run --phase plan", refused.Reason);
+        Assert.Null(refused.ContentHash);
+        Assert.DoesNotContain(Content(_stuff, copy).ReportRows, r => r.OriginalPath == copy && r.Status == "split");
     }
 
     [Fact]

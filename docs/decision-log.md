@@ -652,6 +652,8 @@ Three limits remain.
 1. The phases trust the manifest on disk. Someone who edits a file and then edits its
    `contentHash` to match defeats the check, and so does deleting the manifest before
    renames. The hash detects drift. It does not authenticate the manifest.
+   A copy of a planned file has the same hash, so identity comes from the path. Renames
+   accepts a kept path only once the original is gone.
 2. Renames with no manifest on disk plans and hashes afresh, as it always could. Nothing
    was planned, so there is nothing to hold the file to.
 3. A second content run, or a renames run, over a file content already split reports it as

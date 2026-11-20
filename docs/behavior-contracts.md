@@ -177,6 +177,9 @@ Promises:
   refused whatever the recomputed row says. A file this run would split that the
   manifest marks `skipped` or `failed` is refused. A file this run would split that the
   manifest has no row for is refused. Only the plan phase starts a new plan.
+- A row is found by its original path, or by its kept path once the rename has landed. A
+  file at the kept path while the original still exists is not the planned file, even
+  with the same bytes, and counts as having no row.
 - The check covers the hash and the status, not the shape. With matching bytes, this
   phase still applies the paths it recomputed, as it did before the hash existed.
 - **Never records a hash of its own when a manifest exists.** Every row it writes copies

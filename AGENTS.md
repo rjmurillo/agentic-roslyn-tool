@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 33 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 167 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 168 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -79,7 +79,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 167 passed, 0 failed
+dotnet test  -c Release      # must be 168 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -196,12 +196,13 @@ agent does not pay again.
   in `ContentHashTestBase`.
 - **A local size scanner gates new test files, and one of its scores is waived for tests.**
   One review toolkit scores files by line counts. Split a test class before it fails
-  that gate: the content hash tests are eight classes over `ContentHashTestBase` for that
-  reason, and each passes the cohesion and coupling scores as written. The repeated line
+  that gate: the content hash tests are eight classes for that reason, seven of them over
+  `ContentHashTestBase`, and each passes the cohesion and coupling scores as written. The repeated line
   score is the exception. It counts `[Fact]`, `{`, and `}` as duplicates, so a class of
   four short tests with no repeated statement scores 7.8 against a floor of 8.
-  `.qualityrc.json` lowers that one floor to 6.5 for test files only. Production files
-  keep every default. Do not lower another floor to get a file through.
+  `.qualityrc.json` lowers that one floor to 6.5 for test files only. Every other value in
+  it restates a scanner default, including the scanner's own floor of 3 for test
+  testability. Do not lower another floor to get a file through.
 - **The content phase never reruns the cross file collision pass.** It takes every output
   path from the manifest. So `--collision-naming` would be ignored there without the check
   in `SplitPlanner.BuildPlan` that refuses a row the plan resolved under the other value.
@@ -290,10 +291,6 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   and the tool cannot tell its own write from an outside edit. The file is left alone.
   Telling the two apart needs the content phase to record what it wrote, which belongs
   with the decision about what the manifest means after a content run.
-- The renames phase can match a file to another file's plan row. A row with a planned
-  rename is also indexed by its kept path. If an unrelated file already sits at that path
-  before renames runs, renames reports it as `stale plan:` with the other row's hash.
-  Nothing is renamed or split, so this fails safe, but the reason misleads.
 - `CsvFieldReader` exists, but not for the reason previously recorded here. The claim was
   that `Microsoft.VisualBasic.FileIO.TextFieldParser` forces a Windows only target. That
   was tested on this machine and is false: it compiles and parses quoted commas correctly

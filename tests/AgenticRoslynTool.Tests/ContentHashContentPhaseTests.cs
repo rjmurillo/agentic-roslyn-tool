@@ -94,7 +94,7 @@ public sealed class ContentHashContentPhaseTests : ContentHashTestBase
         var stuff = Workspace.WriteFile("Stuff.cs", Mismatched);
         Plan(stuff);
 
-        // Stand in for the renames phase. The git-backed test below runs the real one.
+        // Stand in for the renames phase. ContentHashRenamesTests runs the real one.
         var keptPath = Path.Combine(Workspace.Root, "Order2.cs");
         File.Move(stuff, keptPath);
 
