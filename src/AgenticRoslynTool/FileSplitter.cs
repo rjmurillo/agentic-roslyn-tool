@@ -287,7 +287,7 @@ internal sealed class FileSplitter
     /// results with a diagnostic reason; unexpected exceptions become <c>failed</c>.
     /// </summary>
     /// <param name="path">Absolute or relative input path.</param>
-    /// <param name="phase">The phase currently running.</param>
+    /// <param name="phase"><see cref="Phase.Plan"/> or <see cref="Phase.Content"/>. The renames phase plans with <see cref="Phase.Plan"/>.</param>
     /// <param name="planned">The manifest row for this input, or null in the plan and renames phases.</param>
     /// <param name="collisionNaming">The run's resolved collision naming. Read only by the content phase's manifest path check.</param>
     /// <returns>A result describing the outcome for this input.</returns>
@@ -330,7 +330,7 @@ internal sealed class FileSplitter
     /// unexpected throw, funnels through the one guard in the caller.
     /// </summary>
     /// <param name="path">Absolute or relative input path.</param>
-    /// <param name="phase">The phase currently running.</param>
+    /// <param name="phase"><see cref="Phase.Plan"/> or <see cref="Phase.Content"/>. The renames phase plans with <see cref="Phase.Plan"/>.</param>
     /// <param name="planned">The manifest row for this input, or null in the plan and renames phases.</param>
     /// <param name="collisionNaming">The run's resolved collision naming. Read only by the content phase's manifest path check.</param>
     /// <returns>A result describing the outcome for this input.</returns>
@@ -498,30 +498,23 @@ internal sealed class FileSplitter
         }
 
         var plan = SplitPlanner.BuildPlan(originalPath, readPath, types, planned, directiveNote: directiveSafety.Note, collisionNaming: collisionNaming, convention: _options.FileNaming);
+        // A refused row reports readPath, where the file is. plan.KeptPath can be a rename
+        // target that nothing moved the file to, because a refusal never renames.
         if (plan.SkipReason is not null)
         {
-            var skipped = FileResult.Skip(originalPath, plan.KeptPath, plan.SkipReason);
+            var skipped = FileResult.Skip(originalPath, readPath, plan.SkipReason);
             return plan.SkipNote is null ? skipped : skipped with { Note = plan.SkipNote };
         }
 
         if (DirectiveAnalyzer.ProducesEmptyDirectiveShell(root, types, plan))
         {
-            return FileResult.Skip(originalPath, plan.KeptPath, "splitting would leave an empty directive shell; manual split required");
+            return FileResult.Skip(originalPath, readPath, "splitting would leave an empty directive shell; manual split required");
         }
 
+        // No caller passes Phase.Renames. The renames phase plans through here with
+        // Phase.Plan and runs its git mv later, in ApplyPlannedRename.
         try
         {
-            if (phase == Phase.Renames)
-            {
-                _writer.ApplyRenameOnly(originalPath, originalBytes, plan.KeptPath);
-                return FileResult.Split(
-                    originalPath,
-                    plan.KeptPath,
-                    plan.GitMove,
-                    plan.Note,
-                    plan.Files.Where(f => !f.IsKept).Select(f => new NewFileResult(f.Path, f.Type.Key)).ToArray());
-            }
-
             var headerText = OutputBuilder.NormalizeHeaderText(_options.RequiredHeader, source.NewLine);
             var outputs = OutputBuilder.BuildOutputs(source, root, types, plan, headerText);
             OutputVerifier.VerifyOutputs(readPath, types, outputs, parseOptions, headerText);
@@ -542,7 +535,9 @@ internal sealed class FileSplitter
         }
         catch (Exception ex)
         {
-            return FileResult.Failed(originalPath, plan.KeptPath, ex.Message);
+            // Nothing here moves the file. Everything before WriteOutputs leaves it alone,
+            // and WriteOutputs writes the input back to readPath on failure.
+            return FileResult.Failed(originalPath, readPath, ex.Message);
         }
     }
 
