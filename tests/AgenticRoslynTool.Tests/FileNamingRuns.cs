@@ -7,6 +7,8 @@ namespace AgenticRoslynTool.Tests;
 // the C# files a workspace holds, and start git or the built tool as a real process.
 internal static class FileNamingRuns
 {
+    private static readonly TimeSpan ProcessTimeout = TimeSpan.FromSeconds(60);
+
     public const string AWithGenericFoo = "namespace N;\n\npublic class A\n{\n}\n\npublic class Foo<T>\n{\n}\n";
 
     public static string[] CsFiles(TempWorkspace ws)
@@ -55,12 +57,19 @@ internal static class FileNamingRuns
             start.ArgumentList.Add(arg);
         }
 
-        // Standard error is read on its own task so a full pipe on one stream cannot
-        // block the read of the other.
+        // Both streams are read on their own tasks, so a full pipe cannot block the child and
+        // the wait below is the only thing that can run long. It is bounded: a child that
+        // hangs is killed and fails the test instead of stalling the run.
         using var process = Process.Start(start)!;
         var standardError = process.StandardError.ReadToEndAsync();
-        var standardOutput = process.StandardOutput.ReadToEnd();
+        var standardOutput = process.StandardOutput.ReadToEndAsync();
+        if (!process.WaitForExit(ProcessTimeout))
+        {
+            process.Kill(entireProcessTree: true);
+            Assert.Fail($"{fileName} {string.Join(' ', args)} did not exit within {ProcessTimeout.TotalSeconds} seconds.");
+        }
+
         process.WaitForExit();
-        return new CliResult(process.ExitCode, standardOutput, standardError.GetAwaiter().GetResult());
+        return new CliResult(process.ExitCode, standardOutput.GetAwaiter().GetResult(), standardError.GetAwaiter().GetResult());
     }
 }

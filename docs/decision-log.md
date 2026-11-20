@@ -689,14 +689,22 @@ A generic type kept in a plain named file is renamed, so `Foo.cs` becomes ``Foo`
 tool would guess at one repository's layout, and a settings file it failed to find would
 change file names without a word. The caller knows the convention and states it.
 
-**Rejected.** Recording the convention in the manifest. The manifest already records every
-planned path, which is the thing the convention decides. A second copy could disagree with
-the paths beside it. The cost of rejecting it is real: a recorded convention would let the
-renames phase refuse a flag that differs from the plan, and would let a mismatch reason
-name its cause. The column alone would not close that gap. Since decision 22 the renames
-phase reads the manifest, but only for each row's hash and status, never its paths. Holding
-it to planned paths is a change to what that phase does, and it is left for its own
-decision.
+**Rejected for now.** Recording the convention in the manifest. Decision 21 rejected a
+column for `--collision-naming` and said to revisit it if a second flag ever changed
+planned paths. This is that flag, so the trigger has fired. Decision 21's cost argument is
+also weaker now: decision 22 has since added a column to the manifest.
+
+A column would buy three things. The renames phase reads the manifest since decision 22, so
+it could compare a recorded value with its flag and refuse before any `git mv`. A mismatch
+note could name its cause with certainty. And a path a reviewer typed by hand could be told
+from a plan made under the other value, which removes the one false refusal recorded below.
+
+This change still does not add it. A column that records one naming flag and not the other
+would be half a design. The right change records both, checks both in renames and content,
+and replaces the two name-inference checks that decisions 21 and 23 each added. That is a
+manifest schema change across two features, and it deserves its own decision and review.
+Until then this decision carries the cost. Take that decision before `metadata` is
+recommended for whole-repository runs, or as soon as a third flag changes planned paths.
 
 **Consequences.** The content phase gained a check. It writes the paths the manifest
 holds, so a plan made under the other convention was applied as it stood. It differs only
@@ -733,21 +741,29 @@ with no generic type. The run exits 0 and its rows replace the plan, so recovery
 the plan phase again, after undoing any rename that landed or listing the renamed path.
 Renames under a value that differs from the plan is not caught. The renames phase checks
 the manifest's hash and status, not its paths. It runs its own renames and rewrites the
-manifest, and a content run under that same value then applies it at exit 0. The docs tell the caller to pass the flag to every phase and to plan again after
-changing it. `AGENTS.md` lists this as a known issue.
+manifest, and a content run under that same value then applies it at exit 0. The docs tell
+the caller to pass the flag to every phase and to plan again after changing it. `AGENTS.md`
+lists this as a known issue.
 
-`metadata` also renames more kept files, which makes an older gap easier to reach. A kept
-file's rename target is not part of the cross-file collision pass. Two inputs that plan the
-same rename target both show as `split`. The renames phase moves the first, `git mv` fails
-on the second, and the run exits 3 with one rename landed. Nothing is overwritten.
-`AGENTS.md` lists this as a known issue too.
+`metadata` also renames more kept files, which exposed an older gap. Two inputs could plan
+one rename target, because the per-file plan only sees targets that already exist. A
+generic type split across `Foo.cs` and `Foo.Extra.cs` plans ``Foo`1.cs`` twice. Both rows
+showed as `split`, the renames phase moved the first, `git mv` failed on the second, and
+the run exited 3 with one rename landed. `KeptRenameCollisions` now runs in the plan and
+renames phases. The first input keeps the rename. Each later one keeps its original name
+with the note a taken target always got, `rename collision for <path>; kept original file
+name`. This applies without the flag too, where the same inputs used to exit 3. A kept
+rename that collides with another input's new file is still open, and `AGENTS.md` lists it.
 
 **Reversal warning.** Remove the other convention check and a content run whose flag
 differs from the manifest it was handed applies that manifest at exit 0, with names from
 the other convention. Widen it to refuse every path the run did not compute and decision
-21's hand-edited path test fails. Drop the kept type rule and every correctly named ``Foo`1.cs`` loses
-`Foo<T>` to a new file, which is the opposite of what the flag is for. Change the default
-and every existing plan and test that involves a generic type changes names.
+21's hand-edited path test fails. Drop the kept type rule and every correctly named
+``Foo`1.cs`` loses `Foo<T>` to a new file, which is the opposite of what the flag is for.
+Change the default and every existing plan and test that involves a generic type changes
+names. Remove `KeptRenameCollisions` and two inputs with one rename target stop the renames
+run half applied. The flag name and its two values are command line contract: rename or
+remove one and every caller that passes it exits 2.
 
 ## Unrecorded decisions
 

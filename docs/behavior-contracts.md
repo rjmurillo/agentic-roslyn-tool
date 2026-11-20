@@ -157,6 +157,10 @@ Promises:
   that inputs repeating an earlier path are dropped by a de-duplication that follows the
   platform's filesystem case rules, and produce no row.
 - The manifest round trips through `ManifestWriter.Read`.
+- Two inputs never plan one kept-file rename target. The first input that claims a target
+  keeps the rename. Each later one keeps its original name, with the note `rename collision
+  for <path>; kept original file name`. The renames phase applies the same rule, so it
+  never starts a `git mv` that must fail. `KeptRenameCollisionTests` pins it.
 - Every row for a file the run read carries that file's `contentHash`. Verified by
   `ContentHashPlanTests`.
 
@@ -212,8 +216,8 @@ Requires a real git repository to rename. Most of the test suite avoids this pha
 keeping every fixture file name equal to its primary type name. `ContentHashRenamesTests`
 is the exception: its rename tests run `git init` and `git add` in a temporary directory
 and then run this phase for real.
-`MetadataRenameTests` does the same to drive a real `git mv` to a file name that contains a
-backtick.
+`MetadataRenameTests`, `KeptRenameCollisionTests` and one test in `FileNamingAgreementTests`
+do the same. The first drives a real `git mv` to a file name that contains a backtick.
 
 ### content
 

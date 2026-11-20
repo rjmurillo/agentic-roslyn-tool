@@ -235,7 +235,7 @@ internal static class SplitPlanner
             }
             else
             {
-                note = $"rename collision for {target}; kept original file name";
+                note = KeptRenameCollisions.DescribeDroppedRename(target);
             }
         }
 

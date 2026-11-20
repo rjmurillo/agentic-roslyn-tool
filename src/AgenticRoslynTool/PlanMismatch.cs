@@ -1,13 +1,14 @@
 namespace AgenticRoslynTool;
 
 /// <summary>
-/// Says why a content phase row disagrees with the plan manifest it was handed. Everything
-/// here is pure over its arguments.
+/// Recognizes a manifest path made under the other <c>--file-naming</c> value, and says
+/// why a content phase row disagrees with the plan manifest it was handed. Everything here
+/// is pure over its arguments.
 /// </summary>
 /// <remarks>
-/// Split out of <see cref="SplitPlanner"/> so the planner keeps deciding whether a row is
-/// refused and this type keeps wording the refusal. The text goes into the skipped row's
-/// note. That row replaces the plan row, so the note is the only place the manifest's
+/// Split out of <see cref="SplitPlanner"/>, as <see cref="CollisionNames"/> was. The planner
+/// runs the checks in order and refuses the row. This type knows what the other convention's
+/// name looks like and words the note. The text goes into the skipped row's note. That row replaces the plan row, so the note is the only place the manifest's
 /// value survives.
 /// </remarks>
 internal static class PlanMismatch
@@ -33,8 +34,9 @@ internal static class PlanMismatch
     /// <returns>A note for the skipped row, or null when the path is not the other convention's.</returns>
     internal static string? DescribeOtherConventionForm(string originalPath, string computedPath, string otherPath, string plannedPath, FileNamingConvention convention)
     {
-        var comparer = StringComparer.OrdinalIgnoreCase;
-        if (comparer.Equals(otherPath, computedPath) || IsPathOrQualifiedForm(originalPath, computedPath, plannedPath) || !IsPathOrQualifiedForm(originalPath, otherPath, plannedPath))
+        // This run's own form is never a mismatch, and it is checked first. That also covers
+        // a type that is not generic, whose two names are one string.
+        if (IsPathOrQualifiedForm(originalPath, computedPath, plannedPath) || !IsPathOrQualifiedForm(originalPath, otherPath, plannedPath))
         {
             return null;
         }
@@ -68,7 +70,7 @@ internal static class PlanMismatch
     {
         if (!StringComparer.OrdinalIgnoreCase.Equals(planned.KeptPath, keptPath))
         {
-            return $"manifest keeps {planned.KeptPath}, this run keeps {keptPath}";
+            return $"manifest keeps {planned.KeptPath}, this run keeps {keptPath}; if --file-naming changed since the plan, run the plan phase again and pass one value to every phase";
         }
 
         // The kept paths agree here, and the row carries that path, so the text names none.

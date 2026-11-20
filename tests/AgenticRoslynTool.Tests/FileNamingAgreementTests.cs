@@ -3,11 +3,13 @@ using Xunit;
 namespace AgenticRoslynTool.Tests;
 
 // The convention shapes planned paths, so every phase has to use the same one. The content
-// phase refuses a plan made under the other one. The renames phase replays no manifest, so
-// it cannot see a disagreement; the last test pins that limit.
+// phase refuses a plan made under the other one. The renames phase holds each file to the
+// manifest's hash and status, not to its paths, so it cannot see a disagreement; the last
+// test pins that limit.
 public sealed class FileNamingAgreementTests
 {
     private const string MismatchReason = "content phase plan does not match manifest";
+    private const string FlagHint = "if --file-naming changed since the plan, run the plan phase again and pass one value to every phase";
     private const string FooWithBar = "namespace N;\n\npublic class Foo<T>\n{\n}\n\npublic class Bar\n{\n}\n";
 
     [Theory]
@@ -53,7 +55,7 @@ public sealed class FileNamingAgreementTests
 
         Assert.Equal("skipped", result.Status);
         Assert.Equal(MismatchReason, result.Reason);
-        Assert.Equal($"manifest keeps {source}, this run keeps {Path.Combine(ws.Root, "Foo`1.cs")}", result.Note);
+        Assert.Equal($"manifest keeps {source}, this run keeps {Path.Combine(ws.Root, "Foo`1.cs")}; {FlagHint}", result.Note);
         Assert.Equal(FooWithBar, File.ReadAllText(source));
         Assert.Equal(new[] { "Foo.cs" }, FileNamingRuns.CsFiles(ws));
     }
@@ -78,7 +80,7 @@ public sealed class FileNamingAgreementTests
 
         Assert.Equal("skipped", result.Status);
         Assert.Equal(MismatchReason, result.Reason);
-        Assert.Equal($"manifest keeps {renamedPath}, this run keeps {source}", result.Note);
+        Assert.Equal($"manifest keeps {renamedPath}, this run keeps {source}; {FlagHint}", result.Note);
         Assert.Equal(FooWithBar, File.ReadAllText(renamedPath));
         Assert.Equal(new[] { "Foo`1.cs" }, FileNamingRuns.CsFiles(ws));
     }
@@ -111,9 +113,9 @@ public sealed class FileNamingAgreementTests
     {
         // The renames phase recomputes the plan and its rows replace the manifest. A
         // renames run under another convention is therefore not refused: it rewrites the
-        // plan, and the content check compares against the rewritten plan. This pins that
-        // known limit so a change to it is deliberate. No git process starts, because
-        // neither convention renames A.cs.
+        // plan, and the content check compares against the rewritten plan. This pins the
+        // manifest replacement, so a change to it is deliberate. It does not pin a rename:
+        // no git process starts, because neither convention renames A.cs.
         using var ws = new TempWorkspace();
         var listPath = ws.WriteInputList(ws.WriteFile("A.cs", FileNamingRuns.AWithGenericFoo));
         var manifestPath = Path.Combine(ws.Root, "m.csv");

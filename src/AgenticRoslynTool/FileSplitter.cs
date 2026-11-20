@@ -131,7 +131,7 @@ internal sealed class FileSplitter
         return results;
     }
 
-    /// <summary>Runs the plan for every input path and resolves any cross-file output-name collisions into their qualified form.</summary>
+    /// <summary>Runs the plan for every input path, drops a kept-file rename whose target an earlier input claimed, and resolves any cross-file output-name collisions into their qualified form.</summary>
     private IReadOnlyList<FileResult> BuildResolvedPlan()
     {
         var results = new List<FileResult>();
@@ -140,7 +140,7 @@ internal sealed class FileSplitter
             results.Add(Process(path, Phase.Plan, null));
         }
 
-        return SplitPlanner.ResolvePlannedOutputCollisions(results, _options.CollisionNaming);
+        return SplitPlanner.ResolvePlannedOutputCollisions(KeptRenameCollisions.Resolve(results), _options.CollisionNaming);
     }
 
     /// <summary>

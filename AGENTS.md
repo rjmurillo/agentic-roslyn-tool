@@ -24,8 +24,8 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 35 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 206 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 36 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 209 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -57,6 +57,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `CollisionNames.cs` | Builds the qualified name for a cross file collision, and recognizes one the plan phase wrote. |
 | `FileNamingConvention.cs` | The `stylecop`, `metadata` enum behind `--file-naming`. Selects the naming rule `OutputBuilder` and `SplitPlanner` apply. |
 | `PlanMismatch.cs` | Words the note for a content phase row that disagrees with its manifest: the other `--file-naming` name, or what differs in the plan shape. |
+| `KeptRenameCollisions.cs` | Cross file pass over planned kept file renames. Gives a rename target to the first input that claims it. |
 | `EncodedSource.cs` | Reads bytes into text while capturing encoding, byte order mark, and newline style, then writes them back unchanged. |
 | `TopLevelType.cs` | One top level type declaration plus the file name it maps to. |
 | `SplitPlan.cs` | The decision for one input: keep, rename, split, or refuse. |
@@ -81,7 +82,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 206 passed, 0 failed
+dotnet test  -c Release      # must be 209 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -224,14 +225,14 @@ agent does not pay again.
   It decides planned paths. The content phase skips a file whose manifest row was made
   under the other value. `SplitPlanner` refuses a moved type whose manifest path is the name
   the other value gives it, and the shape check catches a changed kept path. The skipped
-  row's note says which, in words from `PlanMismatch`. Any other hand-edited free path is still applied, which
-  `CollisionNamingContentTests` pins, so do not widen the check. The renames phase recomputes the plan and its rows replace
-  the manifest. So a renames run under another value rewrites the reviewed plan, and the
-  content check then compares against the rewritten plan and passes. Changed the flag?
-  Run the plan phase again. If a rename already landed, a list file still names the old
-  path and the new plan reports `input file does not exist`. Undo the rename with git, or
-  list the file's current path, before you plan again. See decision 23 and the known
-  issue below.
+  row's note says which, in words from `PlanMismatch`. Any other hand-edited free path is
+  still applied, which `CollisionNamingContentTests` pins, so do not widen the check. The
+  renames phase recomputes the plan and its rows replace the manifest. So a renames run
+  under another value rewrites the reviewed plan, and the content check then compares
+  against the rewritten plan and passes. Changed the flag? Run the plan phase again. If a
+  rename already landed, a list file still names the old path and the new plan reports
+  `input file does not exist`. Undo the rename with git, or list the file's current path,
+  before you plan again. See decision 23 and the known issue below.
 - **A backtick in a path is escaped in `--json` output.** ``Foo`1.cs`` is written as
   `Foo\u00601.cs`. Parse the JSON before you search it for a file name. The CSV manifest
   holds the character itself.
@@ -301,19 +302,19 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
 
 - The renames phase does not compare its recomputed paths with the reviewed manifest. It
   holds each file to the manifest's hash and status only. A renames run with a different
-  `--file-naming` over unchanged files runs its own renames at exit 0 and replaces the
+  `--file-naming` over unchanged files follows that value at exit 0 and replaces the
   planned names. The content phase then applies the replaced plan.
-  `RenamesPhase_FollowsItsOwnConventionAndReplacesThePlan` pins this. A fix means the
-  renames phase refusing a row whose paths differ from the manifest, which changes what
-  that phase does today and waits on a decision.
-- A kept file's rename target is not part of the cross-file collision pass.
-  `ResolvePlannedOutputCollisions` looks at new files only. If one input plans to rename
+  `RenamesPhase_FollowsItsOwnConventionAndReplacesThePlan` pins the manifest replacement.
+  No test pins a rename made this way. A fix means the renames phase refusing a row whose
+  paths differ from the manifest, or the manifest recording both naming flags. Either
+  changes what that phase does today and waits on a decision. See decision 23.
+- A kept file's rename target is checked against other kept renames, not against new
+  files. `KeptRenameCollisions` gives a rename target to the first input that claims it.
+  `ResolvePlannedOutputCollisions` looks at new files only. So if one input plans to rename
   its kept file to a name another input plans as a new file, the plan shows both as
   `split`. After the rename lands, the content phase skips the second input with
   `target path already exists`. Nothing is overwritten. `--file-naming metadata` makes this
-  easier to reach, because a generic type kept in a plain named file is renamed. Two inputs
-  that plan the same rename target hit the same gap. The renames phase moves the first,
-  then `git mv` fails on the second and the run exits 3.
+  easier to reach, because a generic type kept in a plain named file is renamed.
 - The manifest is both the plan and the run report. `Program` writes each run's rows back
   to the plan path, so a content run that fails a row replaces its `split` plan with
   `failed`, and a retry answers `not present as split in plan manifest`. Recovery is to
