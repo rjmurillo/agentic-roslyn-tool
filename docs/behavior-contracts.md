@@ -141,7 +141,7 @@ Two CSV files with one format and two jobs.
 
 | File | Written by | Read by | Holds |
 |---|---|---|---|
-| Manifest, `--manifest` | `plan` only | `content` | The reviewed plan. |
+| Manifest, `--manifest` | `plan` only | `renames`, `content` | The reviewed plan. |
 | Report, `--report` | `renames`, `content` | Nobody. It is for the caller. | What the last run did. |
 
 - The report defaults to the manifest path with `.report.csv` as its extension, so
@@ -199,7 +199,7 @@ Two CSV files with one format and two jobs.
 input as the plan read them. It is empty in the CSV and `null` in the JSON when the plan
 never read the file: an excluded path, a missing file, an unreadable one. Every other row
 carries it, whatever its status. A run that starts a plan records the hash. The renames
-and content phases copy it from the manifest row they replace and never write their own,
+and content phases copy it from the manifest row for that file and never report their own,
 so a `stale plan:` row still shows the planned hash and names the hash it found in its
 reason. New columns are appended, never inserted.
 
