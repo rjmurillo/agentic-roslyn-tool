@@ -22,7 +22,8 @@ permissions:
 # and race on creating it. Releases are rare enough that a single lane costs nothing, and
 # cancelling is not an option here because a run killed after the release is published but
 # before the package is pushed leaves the version half shipped, and the version cannot be
-# reused.
+# reused. The job's timeout-minutes can kill a run the same way, so it is set far above a
+# normal run.
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: false

@@ -74,11 +74,61 @@ public sealed class WorkspaceWriterGitTests : IDisposable
         Assert.True(clock.Elapsed < TimeSpan.FromSeconds(30), $"RunGitMove took {clock.Elapsed}.");
         var error = await Assert.ThrowsAsync<TimeoutException>(() => move);
         Assert.Contains("git mv did not exit within 2 seconds", error.Message, StringComparison.Ordinal);
+        Assert.Contains("and was killed", error.Message, StringComparison.Ordinal);
         Assert.Contains("index.lock", error.Message, StringComparison.Ordinal);
+        Assert.Empty(ProcessesNaming(_workspace.Root));
     }
 
-    // The old unbounded wait leaves git blocked on the pipe. Opening the write end lets git
-    // read an empty index and exit, so a failing run does not leave a stuck process behind.
+    [Fact]
+    public void RunGitMove_GitFails_ReportsTheExitCodeAndWhatGitSaid()
+    {
+        var source = _workspace.WriteFile("Untracked.cs", "class A { }\n");
+        GitFixture.InitAndTrack(_workspace.Root);
+
+        var error = Assert.Throws<InvalidOperationException>(
+            () => new WorkspaceWriter(_workspace.Root).RunGitMove(source, Path.Combine(_workspace.Root, "B.cs")));
+
+        Assert.StartsWith("git mv failed (exit 128): ", error.Message, StringComparison.Ordinal);
+        Assert.True(error.Message.Length > "git mv failed (exit 128): ".Length, "git's own message is missing.");
+    }
+
+    // Linux only: lists live processes whose command line names the path. Elsewhere it
+    // returns nothing, so the kill check runs on CI but not on a Mac.
+    private static List<string> ProcessesNaming(string path)
+    {
+        var found = new List<string>();
+        if (!Directory.Exists("/proc"))
+        {
+            return found;
+        }
+
+        foreach (var entry in Directory.EnumerateDirectories("/proc"))
+        {
+            if (!int.TryParse(Path.GetFileName(entry), out _))
+            {
+                continue;
+            }
+
+            try
+            {
+                var commandLine = File.ReadAllText(Path.Combine(entry, "cmdline")).Replace('\0', ' ');
+                if (commandLine.Contains(path, StringComparison.Ordinal))
+                {
+                    found.Add(commandLine);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // The process exited while the list was read, or belongs to another user.
+            }
+        }
+
+        return found;
+    }
+
+    // Runs only when RunGitMove regresses to an unbounded wait, leaving git blocked on the
+    // pipe. Opening the write end lets git read an empty index and exit, so the failing run
+    // does not leave a stuck process behind.
     private static async Task ReleaseBlockedReaderAsync(string fifo, Task move)
     {
         var open = Task.Run(() => File.OpenWrite(fifo).Dispose());

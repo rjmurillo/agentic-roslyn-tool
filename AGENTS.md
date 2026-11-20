@@ -24,8 +24,8 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 39 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 335 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 40 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 336 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -47,6 +47,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `OutputBuilder.cs` | Renders the text of every output file: name, carved source, required header, trailing newline. |
 | `OutputVerifier.cs` | The correctness checks, run against in-memory outputs before anything is written. A failure here means nothing reaches disk. |
 | `WorkspaceWriter.cs` | The only place the tool touches the working tree. Every rename runs through `git mv`; every write preserves encoding and byte order mark. |
+| `GitCommand.cs` | Runs one git command with a time limit. Passes each argument on its own, reads both streams, and kills git and its children on expiry. |
 | `Program.cs` | Top level statements. Verb dispatch, error handling, exit codes, output selection. Decides which file a run writes: the manifest in `plan`, the report otherwise. Declares no type. |
 | `Options.cs` | Command line parsing and the option record. Add a new flag here. |
 | `RunReport.cs` | Builds the `--json` report and the one-line summary from the rows a run returned. Carries `collisionNaming` and `nextArgs` at the top level. |
@@ -88,7 +89,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 335 passed, 0 failed
+dotnet test  -c Release      # must be 336 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -386,13 +387,14 @@ agent does not pay again.
   stall a CI or release job. Add new process tests through these helpers. One exception
   remains: `FileNamingRuns` (from #57) has its own runner with a 60 second limit. A
   renames test that runs `FileSplitter` in process reaches `WorkspaceWriter`'s `git mv`,
-  which has its own two minute limit in the product. The CI `build` job and the release
+  which has its own 120 second limit in the product, set in `WorkspaceWriter`. The CI `build` job and the release
   `publish` job each set `timeout-minutes: 15`.
-- **`WorkspaceWriter` passes each `git mv` path as its own argument.** An older version
-  joined the paths into one quoted string, so a double quote in a file name broke the
+- **`GitCommand` passes each git argument on its own.** An older version joined the
+  `git mv` paths into one quoted string, so a double quote in a file name broke the
   command. Keep `ArgumentList`. `WorkspaceWriterGitTests` pins both this and the time
   limit. Its hang test replaces `.git/index` with a named pipe, which makes a real git
-  block, so it runs on Unix only.
+  block, so it runs on Unix only. It checks that git is gone after the kill by reading
+  `/proc`, so that one check runs on Linux only.
 - **`nextArgs` being null does not mean the split is done.** The skill decides "done" with
   an allow list: a `content` report, no failed row, and every skipped row's reason either
   `not present as split in plan manifest` or starting with `already applied`. Three review
