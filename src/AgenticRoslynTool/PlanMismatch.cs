@@ -8,11 +8,14 @@ namespace AgenticRoslynTool;
 /// <remarks>
 /// Split out of <see cref="SplitPlanner"/>, as <see cref="CollisionNames"/> was. The planner
 /// runs the checks in order and refuses the row. This type knows what the other convention's
-/// name looks like and words the note. The text goes into the skipped row's note. That row replaces the plan row, so the note is the only place the manifest's
-/// value survives.
+/// name looks like and words the note. The text goes into the skipped row's note. That row
+/// replaces the plan row, so the note is the only place the manifest's value survives.
 /// </remarks>
 internal static class PlanMismatch
 {
+    /// <summary>The recovery step every note that blames <c>--file-naming</c> ends with.</summary>
+    private const string PlanAgain = "run the plan phase again and pass one value to every phase";
+
     /// <summary>
     /// Describes a manifest path that is the name the other <c>--file-naming</c> value
     /// gives this type, or returns null when the path is not one.
@@ -42,7 +45,7 @@ internal static class PlanMismatch
         }
 
         var (used, planned) = convention == FileNamingConvention.Metadata ? ("metadata", "stylecop") : ("stylecop", "metadata");
-        return $"manifest path {plannedPath} is the --file-naming {planned} name and this run used {used}, which computes {computedPath}; run the plan phase again and pass one value to every phase";
+        return $"manifest path {plannedPath} is the --file-naming {planned} name and this run used {used}, which computes {computedPath}; {PlanAgain}";
     }
 
     private static bool IsPathOrQualifiedForm(string originalPath, string path, string candidate) =>
@@ -70,7 +73,9 @@ internal static class PlanMismatch
     {
         if (!StringComparer.OrdinalIgnoreCase.Equals(planned.KeptPath, keptPath))
         {
-            return $"manifest keeps {planned.KeptPath}, this run keeps {keptPath}; if --file-naming changed since the plan, run the plan phase again and pass one value to every phase";
+            // Two causes look the same from here. The flag changed, or this row waits on a
+            // rename that has not landed, its own or the one that took its target.
+            return $"manifest keeps {planned.KeptPath}, this run keeps {keptPath}; if a planned rename has not landed, run the renames phase; if --file-naming changed since the plan, {PlanAgain}";
         }
 
         // The kept paths agree here, and the row carries that path, so the text names none.

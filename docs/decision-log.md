@@ -703,8 +703,10 @@ This change still does not add it. A column that records one naming flag and not
 would be half a design. The right change records both, checks both in renames and content,
 and replaces the two name-inference checks that decisions 21 and 23 each added. That is a
 manifest schema change across two features, and it deserves its own decision and review.
-Until then this decision carries the cost. Take that decision before `metadata` is
-recommended for whole-repository runs, or as soon as a third flag changes planned paths.
+Until then this decision carries the cost. Two events reopen it: a third flag that changes
+planned paths, or a report of a renames run that replaced reviewed names because a flag
+differed. The guides already tell a `metadata` repository to pass the flag to every phase,
+so that advice is not the trigger.
 
 **Consequences.** The content phase gained a check. It writes the paths the manifest
 holds, so a plan made under the other convention was applied as it stood. It differs only
@@ -750,10 +752,23 @@ one rename target, because the per-file plan only sees targets that already exis
 generic type split across `Foo.cs` and `Foo.Extra.cs` plans ``Foo`1.cs`` twice. Both rows
 showed as `split`, the renames phase moved the first, `git mv` failed on the second, and
 the run exited 3 with one rename landed. `KeptRenameCollisions` now runs in the plan and
-renames phases. The first input keeps the rename. Each later one keeps its original name
-with the note a taken target always got, `rename collision for <path>; kept original file
-name`. This applies without the flag too, where the same inputs used to exit 3. A kept
-rename that collides with another input's new file is still open, and `AGENTS.md` lists it.
+renames phases. The first input that is still `split` keeps the rename. Each later one
+keeps its original name with the note a taken target always got, `rename collision for
+<path>; kept original file name`. This applies without the flag too, where the same inputs
+used to exit 3.
+
+Refusing both inputs was the other choice, and it was rejected. It would hand back a
+common layout, a generic type in `Foo.cs` and `Foo.Extra.cs`, for manual work. Keeping the
+original name is what the tool already did for a target that exists on disk, so the later
+input gets a known outcome. Input order decides the winner because nothing else about the
+two files ranks them.
+
+The pass has two rules that are easy to break. It runs after every pass that can refuse a
+row, in the renames phase after the manifest binding too, so a refused row never holds a
+target. And it compares targets the way the disk does, because the content phase asks the
+disk. A dropped rename is only settled once the winner's rename lands. Before that, the
+content phase skips the row and its note says to run the renames phase. A kept rename that
+collides with another input's new file is still open, and `AGENTS.md` lists it.
 
 **Reversal warning.** Remove the other convention check and a content run whose flag
 differs from the manifest it was handed applies that manifest at exit 0, with names from

@@ -66,4 +66,77 @@ public sealed class KeptRenameCollisionTests
         Assert.Equal($"rename collision for {target}; kept original file name", plan[1].Note);
         Assert.Equal(new[] { "X.cs", "Y.cs" }, FileNamingRuns.CsFiles(ws));
     }
+
+    [Fact]
+    public void ClaimantThePlanSkips_DoesNotTakeTheTarget()
+    {
+        // G.cs and H.cs each keep a type named Foo and each plan Foo.cs. Under type-first,
+        // G.cs is refused, because Shared.G.cs would read as generated code. A refused row
+        // must not hold the target, or H.cs would wait for a rename that never comes.
+        const string Two = "\n\npublic class Foo\n{\n}\n\npublic class Shared\n{\n}\n";
+        using var ws = new TempWorkspace();
+        var g = ws.WriteFile("G.cs", "namespace One;" + Two);
+        var h = ws.WriteFile("H.cs", "namespace Two;" + Two);
+        var listPath = ws.WriteInputList(g, h);
+        var manifestPath = Path.Combine(ws.Root, "m.csv");
+        var target = Path.Combine(ws.Root, "Foo.cs");
+        FileNamingRuns.Git(ws.Root, "init", "--quiet");
+        FileNamingRuns.Git(ws.Root, "add", "G.cs", "H.cs");
+
+        var plan = FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Plan, FileNamingConvention.StyleCop, CollisionNaming.TypeFirst);
+
+        Assert.Equal("skipped", plan[0].Status);
+        Assert.Equal(("split", target, true), (plan[1].Status, plan[1].KeptPath, plan[1].GitMove));
+
+        FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Renames, FileNamingConvention.StyleCop, CollisionNaming.TypeFirst);
+        var content = FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Content, FileNamingConvention.StyleCop, CollisionNaming.TypeFirst);
+
+        Assert.Equal("split", content[1].Status);
+        Assert.Equal(new[] { "Foo.cs", "G.cs", "Shared.H.cs" }, FileNamingRuns.CsFiles(ws));
+    }
+
+    [Fact]
+    public void ClaimantTheRenamesPhaseRefuses_DoesNotTakeTheTarget()
+    {
+        // Foo.cs wins the target in the plan, then changes on disk. The renames phase
+        // refuses it as stale. The other part must then take the rename itself, not keep a
+        // dropped rename for a target nobody creates.
+        using var ws = new TempWorkspace();
+        var first = ws.WriteFile("Foo.cs", FooPart);
+        var second = ws.WriteFile("Foo.Extra.cs", FooExtraPart);
+        var listPath = ws.WriteInputList(first, second);
+        var manifestPath = Path.Combine(ws.Root, "m.csv");
+        var target = Path.Combine(ws.Root, "Foo`1.cs");
+        FileNamingRuns.Git(ws.Root, "init", "--quiet");
+        FileNamingRuns.Git(ws.Root, "add", "Foo.cs", "Foo.Extra.cs");
+        FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Plan, FileNamingConvention.Metadata);
+        File.WriteAllText(first, FooPart + "\n// edited after the plan\n");
+
+        var renames = FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Renames, FileNamingConvention.Metadata);
+
+        Assert.Equal("skipped", renames[0].Status);
+        Assert.StartsWith("stale plan:", renames[0].Reason, StringComparison.Ordinal);
+        Assert.Equal(("split", target, true), (renames[1].Status, renames[1].KeptPath, renames[1].GitMove));
+        Assert.Equal(new[] { "Foo.cs", "Foo`1.cs" }, FileNamingRuns.CsFiles(ws));
+        Assert.Equal(FooExtraPart, File.ReadAllText(target));
+    }
+
+    [Fact]
+    public void TargetsThatDifferOnlyByCase_FollowTheDisk()
+    {
+        // X.cs plans Foo.cs and Y.cs plans foo.cs. Whether those are one file is the
+        // disk's answer, and the content phase asks the disk. The plan has to agree, so a
+        // case-sensitive platform keeps both renames and the others keep one.
+        using var ws = new TempWorkspace();
+        var first = ws.WriteFile("X.cs", "namespace One;\n\npublic class Foo\n{\n}\n\npublic class A\n{\n}\n");
+        var second = ws.WriteFile("Y.cs", "namespace Two;\n\npublic class foo\n{\n}\n\npublic class B\n{\n}\n");
+        var listPath = ws.WriteInputList(first, second);
+        var oneFile = PathComparison.Comparer.Equals("Foo.cs", "foo.cs");
+
+        var plan = FileNamingRuns.RunPhase(ws, listPath, Path.Combine(ws.Root, "m.csv"), Phase.Plan, FileNamingConvention.StyleCop);
+
+        Assert.True(plan[0].GitMove);
+        Assert.Equal(!oneFile, plan[1].GitMove);
+        Assert.Equal(oneFile ? second : Path.Combine(ws.Root, "foo.cs"), plan[1].KeptPath);
+    }
 }

@@ -9,7 +9,7 @@ namespace AgenticRoslynTool.Tests;
 public sealed class FileNamingAgreementTests
 {
     private const string MismatchReason = "content phase plan does not match manifest";
-    private const string FlagHint = "if --file-naming changed since the plan, run the plan phase again and pass one value to every phase";
+    private const string FlagHint = "if a planned rename has not landed, run the renames phase; if --file-naming changed since the plan, run the plan phase again and pass one value to every phase";
     private const string FooWithBar = "namespace N;\n\npublic class Foo<T>\n{\n}\n\npublic class Bar\n{\n}\n";
 
     [Theory]

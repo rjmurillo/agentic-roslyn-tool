@@ -81,30 +81,29 @@ public sealed class MetadataCollisionTests
     }
 
     [Theory]
-    [InlineData("file-first", "A.Shared`1.cs", "--file-naming metadata name and this run used stylecop")]
-    [InlineData("type-first", "Shared`1.A.cs", "--file-naming metadata name and this run used stylecop")]
-    [InlineData("type-first-then-file-first", "Shared`1.A.cs", "--collision-naming type-first form and this run used file-first")]
-    public void MetadataQualifiedName_ContentUnderOtherFlags_IsRefusedAndWritesNothing(string scenario, string plannedName, string expectedNote)
+    [InlineData("file-first", "stylecop", "file-first", "A.Shared`1.cs", "--file-naming metadata name and this run used stylecop")]
+    [InlineData("type-first", "stylecop", "type-first", "Shared`1.A.cs", "--file-naming metadata name and this run used stylecop")]
+    [InlineData("type-first", "metadata", "file-first", "Shared`1.A.cs", "--collision-naming type-first form and this run used file-first")]
+    public void MetadataQualifiedName_ContentUnderOtherFlags_IsRefusedAndWritesNothing(string planCollision, string contentNaming, string contentCollision, string plannedName, string expectedNote)
     {
         // A metadata plan holds the arity name inside either qualified form. File-first is
         // the default, so A.Shared`1.cs is what a caller who only passes --file-naming gets.
         // Dropping --file-naming in the content run is caught on both forms. The last row
         // keeps the convention and changes the collision flag, and the collision naming
         // refusal from decision 21 still fires on a backtick name.
-        var planCollision = scenario == "file-first" ? CollisionNaming.FileFirst : CollisionNaming.TypeFirst;
-        var contentCollision = scenario == "type-first" ? CollisionNaming.TypeFirst : CollisionNaming.FileFirst;
-        var contentNaming = scenario == "type-first-then-file-first" ? FileNamingConvention.Metadata : FileNamingConvention.StyleCop;
+        var plan = Options.Parse(["--input", "list.txt", "--file-naming", "metadata", "--collision-naming", planCollision]);
+        var content = Options.Parse(["--input", "list.txt", "--file-naming", contentNaming, "--collision-naming", contentCollision]);
         using var ws = new TempWorkspace();
         var (a, b, listPath, manifestPath) = WriteSharedGenericPair(ws);
         var before = new[] { File.ReadAllText(a), File.ReadAllText(b) };
-        var plan = FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Plan, FileNamingConvention.Metadata, planCollision);
-        Assert.Equal(Path.Combine(ws.Root, plannedName), Assert.Single(plan[0].NewFiles).Path);
+        var planned = FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Plan, plan.FileNaming, plan.CollisionNaming);
+        Assert.Equal(Path.Combine(ws.Root, plannedName), Assert.Single(planned[0].NewFiles).Path);
 
-        var content = FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Content, contentNaming, contentCollision);
+        var applied = FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Content, content.FileNaming, content.CollisionNaming);
 
-        Assert.All(content, r => Assert.Equal("skipped", r.Status));
-        Assert.All(content, r => Assert.Equal("content phase plan does not match manifest", r.Reason));
-        Assert.All(content, r => Assert.Contains(expectedNote, r.Note ?? string.Empty, StringComparison.Ordinal));
+        Assert.All(applied, r => Assert.Equal("skipped", r.Status));
+        Assert.All(applied, r => Assert.Equal("content phase plan does not match manifest", r.Reason));
+        Assert.All(applied, r => Assert.Contains(expectedNote, r.Note ?? string.Empty, StringComparison.Ordinal));
         Assert.Equal(before, new[] { File.ReadAllText(a), File.ReadAllText(b) });
         Assert.Equal(new[] { "A.cs", "B.cs" }, FileNamingRuns.CsFiles(ws));
     }

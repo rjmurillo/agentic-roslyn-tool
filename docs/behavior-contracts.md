@@ -157,10 +157,13 @@ Promises:
   that inputs repeating an earlier path are dropped by a de-duplication that follows the
   platform's filesystem case rules, and produce no row.
 - The manifest round trips through `ManifestWriter.Read`.
-- Two inputs never plan one kept-file rename target. The first input that claims a target
-  keeps the rename. Each later one keeps its original name, with the note `rename collision
-  for <path>; kept original file name`. The renames phase applies the same rule, so it
-  never starts a `git mv` that must fail. `KeptRenameCollisionTests` pins it.
+- Two inputs never plan one kept-file rename target. The first `split` row that claims a
+  target keeps the rename. Each later one keeps its original name, with the note `rename
+  collision for <path>; kept original file name`. A skipped row claims nothing. Targets are
+  compared the way the platform's disk compares them. The renames phase applies the same
+  rule after it has held each row to the manifest, so a file it refuses as `stale plan:`
+  claims nothing either, and it never starts a `git mv` that must fail.
+  `KeptRenameCollisionTests` pins all of it.
 - Every row for a file the run read carries that file's `contentHash`. Verified by
   `ContentHashPlanTests`.
 

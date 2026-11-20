@@ -125,14 +125,15 @@ differently and writes nothing for it. The reason is
 `content phase plan does not match manifest`. The row's note names both flag values, the
 manifest path, and the path this run computes. For a kept file the two conventions name
 differently, the note starts ``manifest keeps Foo`1.cs, this run keeps Foo.cs``, with full
-paths, and then says to plan again. A file whose paths come out the same under both
+paths, and then says what to run next. A file whose paths come out the same under both
 conventions still splits. That covers every file with no generic type. The run exits 0
 and its rows replace the plan, so run the plan phase again before you retry.
 
 The renames phase has no such check. It recomputes the plan and holds each file to the
-manifest's hash and status, not to its planned names. A renames run without the flag
-applies the `stylecop` renames and rewrites the manifest to match. A content run without
-the flag then agrees with that manifest and writes `stylecop` names. If you changed the flag after planning, run the plan phase again.
+manifest's hash and status, not to its planned names. A renames run without the flag applies
+the `stylecop` renames and rewrites the manifest to match. A content run without the flag
+then agrees with that manifest and writes `stylecop` names. If you changed the flag after
+planning, run the plan phase again.
 
 Planning again after a rename has landed needs one more step. A list file still names the
 old path, and the tool reports `input file does not exist` for it. Undo the rename with
@@ -149,7 +150,8 @@ With the flag, the rules in the section above change in four ways:
   would take the same name, such as `Foo.cs` and `Foo.Extra.cs` each holding a part of
   `Foo<T>`, the first in input order is renamed and the other keeps its name, with a
   `rename collision` note. A directory input is read in sorted order, so `Foo.Extra.cs`
-  comes first there. SA1649 skips a file whose first type is `partial`, so that second file passes.
+  comes first there. SA1649 skips a file whose first type is `partial`, so that second file
+  passes.
 * Only arity tells two same-name types apart. `Box<T>` and `Box<U>` both map to
   ``Box`1.cs``, so that file is skipped with `target path collision within split`. The
   `stylecop` convention splits it, as `Box{T}.cs` and `Box{U}.cs`.

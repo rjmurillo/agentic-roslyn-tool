@@ -5,24 +5,36 @@ namespace AgenticRoslynTool;
 /// file to one path, the first keeps the rename and each later one keeps its original name.
 /// </summary>
 /// <remarks>
+/// <para>
 /// <see cref="SplitPlanner.BuildPlan"/> plans one input at a time and probes the disk, so it
 /// drops a rename whose target already exists. It cannot see a target that another input in
 /// the same run is about to create. Left alone, the renames phase moved the first file, then
 /// <c>git mv</c> failed on the second and the run stopped with one rename landed.
 /// <c>--file-naming metadata</c> made that easy to reach: a generic type split across
 /// <c>Foo.cs</c> and <c>Foo.Extra.cs</c> plans <c>Foo`1.cs</c> twice.
+/// </para>
+/// <para>
 /// The later row gets the outcome and the note <see cref="SplitPlanner.BuildPlan"/> gives a
-/// rename whose target exists. That is also what the content phase computes for it once the
-/// first rename has landed, so the plan row and the content run agree.
+/// rename whose target exists. That is what the content phase computes for it once the
+/// first rename has landed, so the two agree from then on. Until that rename lands the
+/// content phase still computes the rename and skips the row as a plan mismatch.
+/// </para>
+/// <para>
+/// Two things keep the agreement. Only a row that is still <c>split</c> claims a target, so
+/// this pass runs after every pass that can refuse a row. And targets are compared with
+/// <see cref="PathComparison.Comparer"/>, because the content phase decides the same
+/// question with a disk probe. On a case-sensitive disk <c>Foo.cs</c> and <c>foo.cs</c> are
+/// two targets, and both renames stand.
+/// </para>
 /// </remarks>
 internal static class KeptRenameCollisions
 {
     /// <summary>Drops every planned rename whose target an earlier input in the run already claimed.</summary>
-    /// <param name="results">One row per input, in input order.</param>
+    /// <param name="results">One row per input, in input order, after every pass that can refuse a row.</param>
     /// <returns>The rows, with each later claimant of a rename target left at its original path.</returns>
     internal static IReadOnlyList<FileResult> Resolve(IReadOnlyList<FileResult> results)
     {
-        var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var claimed = new HashSet<string>(PathComparison.Comparer);
         return results.Select(result =>
         {
             if (result.Status != "split" || !result.GitMove || claimed.Add(result.KeptPath))

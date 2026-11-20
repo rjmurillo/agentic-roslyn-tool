@@ -73,8 +73,7 @@ internal sealed class FileSplitter
     /// <summary>Plan phase entry point. Builds the resolved plan and returns it without writing anything.</summary>
     private IReadOnlyList<FileResult> RunPlan()
     {
-        var results = BuildResolvedPlan();
-        return results;
+        return KeptRenameCollisions.Resolve(BuildResolvedPlan());
     }
 
     /// <summary>
@@ -106,7 +105,10 @@ internal sealed class FileSplitter
         // Collisions are resolved first, over every row, and the rows are bound to the plan
         // after. A file refused here still took part in naming, so the inputs that are
         // applied keep the qualified paths the reviewed plan gave them.
-        var results = BuildResolvedPlan().Select(row => priorPlan is null ? row : PlanBinding.HoldRenamesRow(row, priorPlan)).ToArray();
+        // Rename targets are handed out last, so a row this phase refuses never takes a
+        // target from a row that will act.
+        var bound = BuildResolvedPlan().Select(row => priorPlan is null ? row : PlanBinding.HoldRenamesRow(row, priorPlan)).ToArray();
+        var results = KeptRenameCollisions.Resolve(bound).ToArray();
         for (var i = 0; i < results.Length; i++)
         {
             var result = results[i];
@@ -131,7 +133,7 @@ internal sealed class FileSplitter
         return results;
     }
 
-    /// <summary>Runs the plan for every input path, drops a kept-file rename whose target an earlier input claimed, and resolves any cross-file output-name collisions into their qualified form.</summary>
+    /// <summary>Runs the plan for every input path and resolves any cross-file output-name collisions into their qualified form.</summary>
     private IReadOnlyList<FileResult> BuildResolvedPlan()
     {
         var results = new List<FileResult>();
@@ -140,7 +142,7 @@ internal sealed class FileSplitter
             results.Add(Process(path, Phase.Plan, null));
         }
 
-        return SplitPlanner.ResolvePlannedOutputCollisions(KeptRenameCollisions.Resolve(results), _options.CollisionNaming);
+        return SplitPlanner.ResolvePlannedOutputCollisions(results, _options.CollisionNaming);
     }
 
     /// <summary>
