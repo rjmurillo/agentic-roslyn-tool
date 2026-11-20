@@ -208,8 +208,9 @@ git diff --check
 ```
 
 The content phase exits 3 if no plan manifest exists at `--manifest`. The renames and
-content phases both exit 3 if the manifest has no `contentHash` column because an older
-version wrote it. Re-run the plan phase to rebuild it. The content phase overwrites the
+content phases both exit 3 if the manifest has no `contentHash` or `collisionNaming` column
+because an older version wrote it, or if `--collision-naming` contradicts the value the plan
+recorded. Re-run the plan phase to rebuild it. The content phase overwrites the
 manifest with its results. Copy the reviewed plan to a second path first when you want to
 keep it for comparison.
 
