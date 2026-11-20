@@ -78,10 +78,10 @@ public sealed class FileLocalSplitTests : FileLocalTestBase
     }
 
     [Theory]
-    [InlineData("file struct Pair\n{\n}\n", "Pair; SA1402 flags the file only where it checks more than classes")]
-    [InlineData("file interface IMarker\n{\n}\n\nfile enum Mode\n{\n    Off,\n}\n", "IMarker, Mode; SA1402 flags the file only where it checks more than classes")]
+    [InlineData("file struct Pair\n{\n}\n", "Pair; SA1402 still flags the file where it checks more than classes")]
+    [InlineData("file interface IMarker\n{\n}\n\nfile enum Mode\n{\n    Off,\n}\n", "IMarker, Mode; SA1402 still flags the file where it checks more than classes")]
     [InlineData("file record Rec(int Value);\n", "Rec; SA1402 still flags the file")]
-    public void Note_PromisesTheWarningOnlyWhereSa1402RaisesItByDefault(string fileLocal, string expected)
+    public void Note_SaysWhereSa1402StillFlagsTheFile(string fileLocal, string expected)
     {
         // StyleCop SA1402 checks classes and records by default. In a build it flagged a
         // class beside a file record, and nothing beside a file struct, interface, or enum.

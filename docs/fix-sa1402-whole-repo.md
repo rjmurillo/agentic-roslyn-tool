@@ -308,11 +308,11 @@ originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash,co
 
 **One SA1402 warning stays, and the tool cannot remove it.** That build reported SA1402
 twice before the split, at `AlphaHelper` and at `Sibling`. After the split it reported
-once, at `Alpha.cs(8,12)`, the `file` class. Expect one warning for each `file` class or
-`file` record. A `file` struct, interface, enum, or delegate beside one class raised
+once, at `Alpha.cs(8,12)`, the `file` class. When the kept type is a class or record too,
+expect one warning for each `file` class or `file` record. A `file` struct, interface, enum, or delegate beside one class raised
 none, because SA1402 checks classes and records only by default. The row's `note` follows
-that rule: it ends `SA1402 still flags the file` when two classes or records stay, and
-`SA1402 flags the file only where it checks more than classes` when they do not. Build
+that rule. It says `SA1402 still flags the file` when two classes or records stay, and
+`SA1402 still flags the file where it checks more than classes` when they do not. Build
 first, and suppress only a warning the build reports. There are two ways. Both were run
 against that build.
 

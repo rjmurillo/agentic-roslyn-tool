@@ -614,10 +614,10 @@ measurements behind each rule here.
   `@AlphaHelper` matches. It is a scan by name only. A member that merely shares the name
   refuses the input too.
 - **The split row carries a note.** It starts `file-local type stayed in this file:
-  <names>`, or `file-local types` for more than one. It ends `; SA1402 still flags the
-  file` when the kept file holds two or more classes or records, which is what SA1402
-  checks by default. Otherwise it ends `; SA1402 flags the file only where it checks more
-  than classes`. When the keep rule would have renamed the file, the note adds `; the file
+  <names>`, or `file-local types` for more than one. Every note then says `; SA1402 still flags the file`. That is the
+  whole claim when the kept file holds two or more classes or records, which is what SA1402
+  checks by default. Otherwise the note scopes it: `; SA1402 still flags the file where it
+  checks more than classes`. When the keep rule would have renamed the file, the note adds `; the file
   keeps its name because a rename changes a file-local type's metadata name`. Any
   directive note or collision note follows after ` | `. Callers may match on the leading
   `file-local type`. A content retry reports the row as `already applied` with no note, so

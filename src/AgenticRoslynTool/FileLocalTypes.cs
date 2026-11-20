@@ -193,8 +193,8 @@ internal static class FileLocalTypes
     /// With its default settings StyleCop SA1402 checks classes and records only. It was
     /// measured to flag a file that holds two of them, and to stay quiet when the
     /// <c>file</c> types beside one class were structs, interfaces, enums, or delegates.
-    /// The note says which of the two holds, so it never promises a warning the build
-    /// does not raise.
+    /// Every note says SA1402 still flags the file. When fewer than two classes or records
+    /// stay, it adds where: only a build set to check more than classes raises the warning.
     /// </remarks>
     private static string DescribeStay(TopLevelType keep, IReadOnlyList<TopLevelType> fileLocal, bool renameWithheld)
     {
@@ -202,7 +202,7 @@ internal static class FileLocalTypes
         var classes = fileLocal.Append(keep).Count(type => type.Node.IsKind(SyntaxKind.ClassDeclaration) || type.Node.IsKind(SyntaxKind.RecordDeclaration));
         var stayed = StayNotePrefix + (names.Length == 1 ? " stayed in this file: " : "s stayed in this file: ")
             + string.Join(", ", names)
-            + (classes >= 2 ? "; SA1402 still flags the file" : "; SA1402 flags the file only where it checks more than classes");
+            + (classes >= 2 ? "; SA1402 still flags the file" : "; SA1402 still flags the file where it checks more than classes");
         return renameWithheld
             ? stayed + "; the file keeps its name because a rename changes a file-local type's metadata name"
             : stayed;

@@ -1230,10 +1230,10 @@ The split is on by default and has no flag.
   - The input declares at most one ordinary type. Nothing can move.
 - The split row's `note` says which `file` types stayed and whether SA1402 still flags
   the file. The brief asked for a note that says SA1402 still flags it. Finding 1 narrowed
-  that: the warning needs two classes or records in the kept file. So the note says `SA1402
-  still flags the file` when the kept file holds two, and `SA1402 flags the file only
-  where it checks more than classes` when it does not. A note that promised a warning the
-  build never raised would send a caller to suppress nothing. The note carries no path,
+  that: with default settings the warning needs two classes or records in the kept file.
+  So every note says `SA1402 still flags the file`, and when fewer than two stay it adds
+  `where it checks more than classes`. A note that promised a warning the build never
+  raised would send a caller to suppress nothing. The note carries no path,
   because the content phase searches notes for collision paths.
 - `OutputVerifier` asks again about the rendered text. One output must be written to the
   path that was read, and no other output may declare or name a `file` type.
@@ -1242,7 +1242,12 @@ The split is on by default and has no flag.
 
 The maintainer's brief named the first two refusals in that list. The other two were
 added while building this, and the maintainer had not ruled on them when this was
-written: excluded text, and nothing to split. So was the two-form note above. The kept type exception was allowed by the brief, not required.
+written: excluded text, and nothing to split. So were three more things. The note
+scopes its SA1402 claim, as above. The SA1402 guide said a `file` type is exempt from
+SA1402, and finding 1 says it is not, so the guide now says so. And `OutputVerifier`
+expected each declaration's text once across the outputs. Two `file` types written the
+same way in two namespace blocks both stay in the kept file, so it now expects that text
+as many times as the input declares it. The kept type exception was allowed by the brief, not required.
 
 **Why a name scan is enough.** Leaving the file changes two lookups for a moved type:
 lookup of a simple name, and lookup of extension members. Three compiler rules close the
@@ -1263,8 +1268,8 @@ not know the sets.
 
 **Consequences.** This is a breaking change to default results. A file that was `skipped`
 with `contains file-local type; manual split required` is now `split`, or `skipped` with
-one of five new reasons. That old reason is gone. One SA1402 warning stays for each `file`
-class or record in such a file, and a person must suppress it. The scan is conservative,
+one of five new reasons. That old reason is gone. When the kept type is a class or record,
+one SA1402 warning stays for each `file` class or record, and a person must suppress it. The scan is conservative,
 so some safe inputs are skipped: a moved type that merely has a member named like the
 `file` type, and any input with an `#if` branch the parse excludes. How many inputs each
 refusal still skips was not measured.
