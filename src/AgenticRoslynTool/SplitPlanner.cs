@@ -184,6 +184,34 @@ internal static class SplitPlanner
 
 
     /// <summary>
+    /// True when an earlier content run already applied this planned row. A retry reads the
+    /// same plan again, so it meets the rows that succeeded the first time, and they must be
+    /// a skip the caller can tell apart from a refusal.
+    /// </summary>
+    /// <remarks>
+    /// Both halves are required. The file read must still declare a type while declaring
+    /// none of the types the plan moved out, and every planned output must exist. A file
+    /// that still declares a planned type is not applied work. The one caller asks only
+    /// about a file whose bytes no longer match the plan, and a false answer there leaves
+    /// the file a stale plan refusal. This method only ever picks the reason for a skip. It
+    /// grants no exemption from any check, and nothing is written on any path through it.
+    /// The check does not compare the types that remain against the plan, so a source
+    /// edited after planning can read as applied.
+    /// </remarks>
+    /// <param name="planned">The manifest row for the file.</param>
+    /// <param name="types">The top level types the file declares now.</param>
+    internal static bool IsAlreadyApplied(FileResult planned, IReadOnlyList<TopLevelType> types)
+    {
+        if (planned.NewFiles.Count == 0 || types.Count == 0)
+        {
+            return false;
+        }
+
+        var movedTypes = planned.NewFiles.Select(f => f.Type).ToHashSet(StringComparer.Ordinal);
+        return !types.Any(t => movedTypes.Contains(t.Key)) && planned.NewFiles.All(f => File.Exists(f.Path));
+    }
+
+    /// <summary>
     /// Builds the split plan for one input file: picks which type is kept in place,
     /// chooses target paths for the types being moved out, and (in the content phase)
     /// reconciles the recomputed plan against the manifest row supplied by the plan

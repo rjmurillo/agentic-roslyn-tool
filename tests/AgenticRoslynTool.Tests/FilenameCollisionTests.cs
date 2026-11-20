@@ -95,7 +95,7 @@ public sealed class FilenameCollisionTests
         var manifestPath = Path.Combine(ws.Root, "m.csv");
 
         var planOptions = new Options(listPath, manifestPath, ws.Root, Phase.Plan, null);
-        var plan = Assert.Single(new FileSplitter(planOptions).Run().ReportRows);
+        var plan = Assert.Single(new FileSplitter(planOptions).Run());
 
         Assert.Equal("skipped", plan.Status);
         Assert.Equal($"target path collision within split: {path}", plan.Reason);

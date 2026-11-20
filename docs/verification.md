@@ -160,9 +160,11 @@ A file whose bytes differ from the plan is not split and not renamed. Its row is
 The hash covers raw bytes, so a new line ending or a byte order mark counts as a change. A
 `git mv` does not change bytes, so a file the renames phase moved still matches.
 
-The refusal holds until you re-run the plan phase. A later run does not apply the file. The refusal row replaces the plan row and
-keeps the planned hash, so renames reports `stale plan:` again and content reports
-`not present as split in plan manifest`.
+The refusal holds for as long as the file differs from the plan. The plan manifest is
+not rewritten, so every later renames or content run compares against the same hash and
+refuses the file the same way. Undo the edit, or re-run the plan phase. The content phase
+makes one exception to the reason, not to the refusal: a file an earlier content run of
+the same plan already split is `skipped` as `already applied`.
 
 The renames phase also refuses a file it would split that the manifest does not mark
 `split`, and one the manifest has no row for. Both get a `stale plan:` reason.
@@ -174,7 +176,9 @@ phase.
 ## What happens when a check fails
 
 - The file is left untouched on disk.
-- The manifest row is `failed`, and the `reason` column holds the message shown above.
+- The row is `failed`, and the `reason` column holds the message shown above. The `plan`
+  phase records it in the manifest. The `content` phase records it in the run report and
+  leaves the plan manifest unchanged, so a file that failed there can be retried.
 - The process exits with code 1 when any row is `failed`.
 - Other files keep going. There is no run level transaction, so files processed before the
   failure stay rewritten. Each file is all or nothing, and the run is not.
@@ -356,7 +360,8 @@ afterward and run your tests.
 If the plan marked that file `split`, the renames and content phases refuse it with a
 `stale plan:` reason, because its bytes no longer match the `contentHash` in the manifest.
 The content phase never applies a file the plan did not mark `split`. The file stays unapplied on
-every later renames or content run. Re-run the plan phase and review the new plan.
+every later renames or content run while it differs from the plan. Undo the edit, or
+re-run the plan phase and review the new plan.
 
 **If one file fails, are other files rolled back?**
 No. Each file is all or nothing, but files processed earlier stay rewritten. Review the

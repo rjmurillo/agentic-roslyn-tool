@@ -18,8 +18,9 @@ internal static class GitFixture
         var start = new ProcessStartInfo("git")
         {
             WorkingDirectory = root,
+            // Standard output is not redirected: nothing reads it, and an unread pipe can
+            // fill and hang the child.
             RedirectStandardError = true,
-            RedirectStandardOutput = true,
             UseShellExecute = false,
         };
         foreach (var argument in arguments)
@@ -28,8 +29,8 @@ internal static class GitFixture
         }
 
         using var process = Process.Start(start) ?? throw new InvalidOperationException("failed to start git");
-        var error = process.StandardError.ReadToEnd();
-        process.WaitForExit();
-        Assert.True(process.ExitCode == 0, $"git {string.Join(' ', arguments)} failed: {error}");
+        var error = process.StandardError.ReadToEndAsync();
+        CliRunner.WaitOrKill(process, $"git {string.Join(' ', arguments)}");
+        Assert.True(process.ExitCode == 0, $"git {string.Join(' ', arguments)} failed: {error.GetAwaiter().GetResult()}");
     }
 }

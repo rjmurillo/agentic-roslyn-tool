@@ -40,7 +40,7 @@ public sealed class NextStepWorkflowTests
 
     private static CliResult Run(TempWorkspace ws, IReadOnlyList<string> args)
     {
-        var result = ToolProcess.RunIn(ws.Root, [.. args]);
+        var result = CliRunner.RunIn(ws.Root, [.. args]);
         Assert.True(result.ExitCode == 0, result.StandardError);
         return result;
     }

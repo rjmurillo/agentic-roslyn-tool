@@ -13,9 +13,6 @@ internal static class ManifestCollisionNaming
     /// <summary>The header of the column that records the run's <c>--collision-naming</c> value.</summary>
     internal const string Column = "collisionNaming";
 
-    /// <summary>The cell text for <paramref name="collisionNaming"/>, the same spelling the flag uses.</summary>
-    internal static string Format(CollisionNaming collisionNaming) => CollisionNamingFlag.Format(collisionNaming);
-
     /// <summary>Reads the collision naming a plan recorded in its <c>collisionNaming</c> column.</summary>
     /// <remarks>
     /// The value belongs to the whole run, but CSV has no place for a file level value, so
@@ -43,7 +40,9 @@ internal static class ManifestCollisionNaming
         var row = 0;
         while (!parser.EndOfData)
         {
-            if (parser.ReadFields() is not { Length: > 0 } fields)
+            // A blank line reads as one empty field, not as no fields. A manifest saved from
+            // standard output ends with one, and it is not a row.
+            if (parser.ReadFields() is not { } fields || fields.All(string.IsNullOrEmpty))
             {
                 continue;
             }
@@ -55,7 +54,7 @@ internal static class ManifestCollisionNaming
                 : throw Refuse($"Plan manifest data row {row} has {Column} '{value}'. Expected file-first or type-first on every row.", path);
             recorded = recorded is not { } first || first == parsed
                 ? parsed
-                : throw Refuse($"Plan manifest mixes {Column} values: data row {row} has {Format(parsed)} and an earlier row has {Format(first)}.", path);
+                : throw Refuse($"Plan manifest mixes {Column} values: data row {row} has {CollisionNamingFlag.Format(parsed)} and an earlier row has {CollisionNamingFlag.Format(first)}.", path);
         }
 
         return recorded;

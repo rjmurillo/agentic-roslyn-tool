@@ -4,9 +4,9 @@ using Xunit;
 
 namespace AgenticRoslynTool.Tests;
 
-// The content phase rewrites files as it goes and writes the manifest once, at the end. So
+// The content phase rewrites files as it goes and writes its report once, at the end. So
 // anything that escapes the per-file boundary strands every file already rewritten with no
-// record of them, and the manifest is the plan of record an agent applies in batches. These
+// record of them. These
 // tests pin the two states that reach that boundary without being a read, decode, or write
 // failure: an inconsistent rename state, and a manifest edited into a shape the plan phase
 // never produces.
@@ -53,7 +53,7 @@ public sealed class ContentPhaseRunIntegrityTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var planOptions = new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null);
-        var planResults = new FileSplitter(planOptions).Run().ReportRows;
+        var planResults = new FileSplitter(planOptions).Run();
 
         // Duplicate the planned type row. The plan phase never emits this, but a hand-edited
         // or merged manifest can, and the content phase keys its substitution map by type.
@@ -65,7 +65,7 @@ public sealed class ContentPhaseRunIntegrityTests
         ManifestWriter.Write(tampered, manifestPath, CollisionNaming.FileFirst);
 
         var contentOptions = new Options(listPath, manifestPath, workspace.Root, Phase.Content, null);
-        var results = new FileSplitter(contentOptions).Run().ReportRows;
+        var results = new FileSplitter(contentOptions).Run();
 
         Assert.Equal(2, results.Count);
         Assert.Equal("failed", Assert.Single(results, r => r.OriginalPath == tamperedInput).Status);
@@ -114,8 +114,8 @@ public sealed class ContentPhaseRunIntegrityTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
-        ManifestWriter.Write(plan.ManifestRows, manifestPath, CollisionNaming.FileFirst);
-        Assert.True(Assert.Single(plan.ReportRows).GitMove);
+        ManifestWriter.Write(plan, manifestPath, CollisionNaming.FileFirst);
+        Assert.True(Assert.Single(plan).GitMove);
 
         // Stand in for the renames phase, which needs a real repository to run git mv.
         var keptPath = Path.Combine(workspace.Root, "Gamma.cs");
@@ -125,13 +125,10 @@ public sealed class ContentPhaseRunIntegrityTests
         Directory.CreateDirectory(Path.Combine(workspace.Root, "Delta.cs"));
 
         var content = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run();
-        var row = Assert.Single(content.ReportRows);
+        var row = Assert.Single(content);
         Assert.Equal("failed", row.Status);
         Assert.Equal(keptPath, row.KeptPath);
         Assert.True(row.GitMove);
-
-        // The manifest is what the next run reads, so it carries the same answer.
-        Assert.True(Assert.Single(content.ManifestRows).GitMove);
     }
 
     [Fact]
@@ -145,7 +142,7 @@ public sealed class ContentPhaseRunIntegrityTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
-        ManifestWriter.Write(plan.ManifestRows, manifestPath, CollisionNaming.FileFirst);
+        ManifestWriter.Write(plan, manifestPath, CollisionNaming.FileFirst);
 
         var keptPath = Path.Combine(workspace.Root, "Gamma.cs");
         File.Move(input, keptPath);
@@ -154,7 +151,7 @@ public sealed class ContentPhaseRunIntegrityTests
         File.WriteAllText(keptPath, "public class Gamma { }\n");
 
         var content = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run();
-        var row = Assert.Single(content.ReportRows);
+        var row = Assert.Single(content);
         Assert.Equal("skipped", row.Status);
         Assert.Equal(keptPath, row.KeptPath);
         Assert.True(row.GitMove);
@@ -173,10 +170,10 @@ public sealed class ContentPhaseRunIntegrityTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
-        ManifestWriter.Write(plan.ManifestRows, manifestPath, CollisionNaming.FileFirst);
+        ManifestWriter.Write(plan, manifestPath, CollisionNaming.FileFirst);
 
         var content = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run();
-        var row = Assert.Single(content.ReportRows);
+        var row = Assert.Single(content);
         Assert.Equal("failed", row.Status);
         Assert.Contains("expected renamed file", row.Reason!, System.StringComparison.Ordinal);
         Assert.Equal(input, row.KeptPath);
@@ -195,7 +192,7 @@ public sealed class ContentPhaseRunIntegrityTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
-        var tampered = plan.ManifestRows
+        var tampered = plan
             .Select(r => r with { NewFiles = r.NewFiles.Concat(r.NewFiles).ToArray() })
             .ToArray();
         ManifestWriter.Write(tampered, manifestPath, CollisionNaming.FileFirst);
@@ -205,10 +202,9 @@ public sealed class ContentPhaseRunIntegrityTests
         File.Move(input, keptPath);
 
         var content = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run();
-        var row = Assert.Single(content.ReportRows);
+        var row = Assert.Single(content);
         Assert.Equal("failed", row.Status);
         Assert.Equal(keptPath, row.KeptPath);
-        Assert.Equal(keptPath, Assert.Single(content.ManifestRows).KeptPath);
     }
 
     [Fact]
@@ -223,7 +219,7 @@ public sealed class ContentPhaseRunIntegrityTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
-        ManifestWriter.Write(plan.ManifestRows, manifestPath, CollisionNaming.FileFirst);
+        ManifestWriter.Write(plan, manifestPath, CollisionNaming.FileFirst);
 
         // Stand in for the renames phase, which needs a real repository to run git mv.
         var keptPath = Path.Combine(workspace.Root, "Gamma.cs");
@@ -233,7 +229,7 @@ public sealed class ContentPhaseRunIntegrityTests
         File.WriteAllBytes(keptPath, new byte[] { 0xC3, 0x28, 0xA0, 0xA1 });
 
         var content = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run();
-        var row = Assert.Single(content.ReportRows);
+        var row = Assert.Single(content);
         Assert.NotEqual("split", row.Status);
         Assert.Equal(keptPath, row.KeptPath);
     }

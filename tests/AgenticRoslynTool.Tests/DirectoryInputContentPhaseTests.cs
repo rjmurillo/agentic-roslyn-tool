@@ -22,7 +22,7 @@ public sealed class DirectoryInputContentPhaseTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var plan = new FileSplitter(new Options(source, manifestPath, workspace.Root, Phase.Plan, null)).Run();
-        ManifestWriter.Write(plan.ManifestRows, manifestPath, CollisionNaming.FileFirst);
+        ManifestWriter.Write(plan, manifestPath, CollisionNaming.FileFirst);
 
         // Stand in for the renames phase, which needs a real repository to run git mv.
         var keptPath = Path.Combine(source, "Order2.cs");
@@ -30,13 +30,12 @@ public sealed class DirectoryInputContentPhaseTests
 
         var content = new FileSplitter(new Options(source, manifestPath, workspace.Root, Phase.Content, null)).Run();
 
-        var row = Assert.Single(content.ReportRows, r => PathComparison.Comparer.Equals(r.OriginalPath, stuff));
+        var row = Assert.Single(content, r => PathComparison.Comparer.Equals(r.OriginalPath, stuff));
         Assert.Equal("split", row.Status);
         Assert.Equal(keptPath, row.KeptPath);
         Assert.True(row.GitMove);
-        Assert.All(content.ReportRows, r => Assert.Equal("split", r.Status));
-        Assert.Equal(2, content.ReportRows.Count);
-        Assert.Equal(2, content.ManifestRows.Count);
+        Assert.All(content, r => Assert.Equal("split", r.Status));
+        Assert.Equal(2, content.Count);
 
         Assert.Equal("namespace N;\n\npublic class Line { }\n", File.ReadAllText(Path.Combine(source, "Line.cs")));
         Assert.DoesNotContain("Line", File.ReadAllText(keptPath), StringComparison.Ordinal);
@@ -53,16 +52,15 @@ public sealed class DirectoryInputContentPhaseTests
         var keptPath = Path.Combine(workspace.Root, "Order2.cs");
 
         var plan = new FileSplitter(new Options(workspace.WriteInputList(stuff), manifestPath, workspace.Root, Phase.Plan, null)).Run();
-        ManifestWriter.Write(plan.ManifestRows, manifestPath, CollisionNaming.FileFirst);
+        ManifestWriter.Write(plan, manifestPath, CollisionNaming.FileFirst);
         File.Move(stuff, keptPath);
 
         var listPath = workspace.WriteInputList(keptPath, stuff);
         var content = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run();
 
-        var row = Assert.Single(content.ReportRows);
+        var row = Assert.Single(content);
         Assert.Equal("split", row.Status);
         Assert.Equal(stuff, row.OriginalPath);
-        Assert.Single(content.ManifestRows);
         Assert.True(File.Exists(Path.Combine(workspace.Root, "Line.cs")));
     }
 

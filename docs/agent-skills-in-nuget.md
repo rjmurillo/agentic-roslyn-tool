@@ -37,7 +37,7 @@ folder as `skills/`.
 
 | Discovery route | Result | Why |
 | --- | --- | --- |
-| `dnx dotnet-inspect -- package AgenticRoslynTool -S Skills` | Lists `skills/split-types/SKILL.md` | Reads the package from the registry or a source. Tested with `dotnet-inspect` 0.28.0. |
+| `dnx dotnet-inspect@0.28.0 -- package AgenticRoslynTool -S Skills` | Lists `skills/split-types/SKILL.md` | Reads the package from the registry or a source. Tested with `dotnet-inspect` 0.28.0. |
 | `dotnet-inspect package AgenticRoslynTool -S Skills --row 1 --print` | Prints the skill | Same route. Use it to load the skill into an agent's context. |
 | `dotnet-inspect` 0.5.3 | Shows no skills section, for any package | Too old. Update it, or run the current version through `dnx`. |
 | `dotnet-inspect project <csproj> -S Skills` | Never sees a tool's skill | It reads direct `PackageReference`s from `project.assets.json`. A tool is not one. |
@@ -60,10 +60,13 @@ That looks like duplication, and it is on purpose.
 - Skill tools read `SKILL.md`. They do not read `AGENTS.md`.
 
 Drift between the two is handled by `PackagedAgentDocsTests`. It fails the build when a
-command line in either file stops parsing under the current options, when a skill breaks the
-format rules below, or when `AGENTS.md` stops naming the skill. A test that injects
-`--bogus` into a command and renames the skill to `Split_Types` failed two of its four
-cases, which is how the test was checked. See decision 27.
+full `split-types` command line in either file stops parsing under the current options,
+when a backticked flag fragment such as `--collision-naming type-first` stops parsing, when
+a skill breaks the format rules below, or when `AGENTS.md` stops naming the skill. Each
+check was seen to fail: injecting `--bogus` into a command, renaming the skill to
+`Split_Types`, and changing `type-first` to `type-last` in a fragment. It checks that
+commands still parse. It does not check that the two files say the same thing in prose.
+See decision 27.
 
 ## Format rules the skill must follow
 
@@ -110,7 +113,7 @@ dotnet pack src/AgenticRoslynTool -c Release -o "$scratch/feed" -p:Version=0.0.0
 bash .github/scripts/verify-package-contents.sh "$scratch/feed"
 dotnet tool install AgenticRoslynTool --version 0.0.0-check --add-source "$scratch/feed" --tool-path "$scratch/tools"
 find "$scratch/tools" -name SKILL.md
-dnx dotnet-inspect --yes -- package AgenticRoslynTool --version 0.0.0-check --source "$scratch/feed" -S Skills
+dnx dotnet-inspect@0.28.0 --yes -- package AgenticRoslynTool --version 0.0.0-check --source "$scratch/feed" -S Skills
 ```
 
 Expect the verify script to exit 0, `find` to print one path ending in

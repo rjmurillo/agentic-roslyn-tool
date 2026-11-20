@@ -20,15 +20,15 @@ internal static class CollisionNamingFixture
     public static IReadOnlyList<FileResult> RunPhase(TempWorkspace ws, string listPath, string manifestPath, Phase phase, CollisionNaming? naming)
     {
         var options = new Options(listPath, manifestPath, ws.Root, phase, null, CollisionNaming: naming);
-        return new FileSplitter(options).Run().ReportRows;
+        return new FileSplitter(options).Run();
     }
 
     // Plans and writes the manifest the way Program does, recording the naming the run used.
     public static IReadOnlyList<FileResult> PlanAndRecord(TempWorkspace ws, string listPath, string manifestPath, CollisionNaming? naming)
     {
-        var outcome = new FileSplitter(new Options(listPath, manifestPath, ws.Root, Phase.Plan, null, CollisionNaming: naming)).Run();
-        ManifestWriter.Write(outcome.ManifestRows, manifestPath, outcome.CollisionNaming);
-        return outcome.ReportRows;
+        var rows = new FileSplitter(new Options(listPath, manifestPath, ws.Root, Phase.Plan, null, CollisionNaming: naming)).Run(out var recorded);
+        ManifestWriter.Write(rows, manifestPath, recorded);
+        return rows;
     }
 
     public static string[] CsFiles(TempWorkspace ws)

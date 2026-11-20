@@ -51,6 +51,33 @@ public sealed partial class PackagedAgentDocsTests
         }
     }
 
+    [Theory]
+    [InlineData("AGENTS.md")]
+    [InlineData("skills/split-types/SKILL.md")]
+    public void EveryDocumentedFlagFragment_ParsesUnderTheCurrentOptions(string relativePath)
+    {
+        // Prose names flags on their own too, such as `--phase renames` or
+        // `--collision-naming type-first`. A renamed flag or value must fail here as well.
+        var text = File.ReadAllText(Path.Combine(PackageDir, relativePath));
+        var fragments = FlagFragment().Matches(text).Select(m => m.Value.Trim('`')).Distinct().ToArray();
+        Assert.Contains(fragments, f => f.StartsWith("--collision-naming ", StringComparison.Ordinal));
+
+        foreach (var fragment in fragments)
+        {
+            var tokens = Placeholder().Replace(fragment, "value").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            // A flag named alone in prose, such as `--report`, stands for one with a value.
+            var exception = Record.Exception(() => Options.Parse(["--input", "value", .. tokens]))
+                is ArgumentException { Message: var message } && message.EndsWith("requires a value.", StringComparison.Ordinal)
+                ? Record.Exception(() => Options.Parse(["--input", "value", .. tokens, "value"]))
+                : Record.Exception(() => Options.Parse(["--input", "value", .. tokens]));
+
+            // --report and --phase plan are refused together by design; that is not drift.
+            var refusedByDesign = exception is ArgumentException { Message: var why } && why.StartsWith("--report applies to", StringComparison.Ordinal);
+            Assert.True(exception is null || refusedByDesign, $"{relativePath}: `{fragment}` no longer parses: {exception?.Message}");
+        }
+    }
+
     [Fact]
     public void AgentsMd_PointsAtTheSkillItShipsWith()
     {
@@ -112,6 +139,9 @@ public sealed partial class PackagedAgentDocsTests
 
     [GeneratedRegex("`(?:<tool>|agentic-roslyn-tool) split-types (?<args>[^`]+)`")]
     private static partial Regex DocumentedCommand();
+
+    [GeneratedRegex("`--[a-z][a-z-]*(?: [^`-][^`]*)?`")]
+    private static partial Regex FlagFragment();
 
     [GeneratedRegex("<[^>]+>")]
     private static partial Regex Placeholder();

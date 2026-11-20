@@ -177,5 +177,5 @@ public sealed class CliContractTests
         }
     }
 
-    private static CliResult Run(params string[] args) => ToolProcess.Run(args);
+    private static CliResult Run(params string[] args) => CliRunner.Run(args);
 }

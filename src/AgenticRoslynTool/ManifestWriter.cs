@@ -3,9 +3,10 @@ using System.Text;
 namespace AgenticRoslynTool;
 
 /// <summary>
-/// Reads and writes the CSV manifest that ties the three phases of the split-types
-/// workflow together. The plan phase writes it, the renames and content phases read
-/// it. Column order and header names are load-bearing: the content phase looks them
+/// Reads and writes the CSV manifest that ties the phases of the split-types workflow
+/// together. The plan phase writes it and the content phase reads it. The run report the
+/// renames and content phases write uses the same format, at a different path. Column
+/// order and header names are load-bearing: the content phase looks them
 /// up by name, and the row-per-new-file layout is what lets one input file expand to
 /// multiple rows without repeating the header per row.
 /// </summary>
@@ -115,7 +116,7 @@ internal static class ManifestWriter
     {
         var builder = new StringBuilder();
         builder.AppendLine("originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash," + ManifestCollisionNaming.Column);
-        var naming = ManifestCollisionNaming.Format(collisionNaming);
+        var naming = CollisionNamingFlag.Format(collisionNaming);
         foreach (var result in results)
         {
             if (result.NewFiles.Count == 0)

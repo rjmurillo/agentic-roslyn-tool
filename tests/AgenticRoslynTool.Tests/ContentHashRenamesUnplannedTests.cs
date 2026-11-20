@@ -14,7 +14,7 @@ public sealed class ContentHashRenamesUnplannedTests : ContentHashTestBase
         var added = Workspace.WriteFile("Single.cs", "namespace N;\n\npublic class Single\n{\n}\n");
         Plan(planned);
 
-        var rows = RunAndWriteManifest(Phase.Renames, planned, added).ManifestRows;
+        var rows = RunPhase(Phase.Renames, planned, added);
 
         var row = Assert.Single(rows, r => r.OriginalPath == added);
         Assert.StartsWith("nothing to split", row.Reason, StringComparison.Ordinal);
@@ -32,7 +32,7 @@ public sealed class ContentHashRenamesUnplannedTests : ContentHashTestBase
         var listPath = Workspace.WriteInputList(missing, excluded);
         File.Delete(missing);
 
-        var rows = new FileSplitter(new Options(listPath, ManifestPath, Workspace.Root, Phase.Renames, null, ["gen/"])).Run().ManifestRows;
+        var rows = new FileSplitter(new Options(listPath, ManifestPath, Workspace.Root, Phase.Renames, null, ["gen/"])).Run();
 
         var gone = Assert.Single(rows, r => r.OriginalPath == missing);
         Assert.Equal("input file does not exist", gone.Reason);
@@ -51,9 +51,9 @@ public sealed class ContentHashRenamesUnplannedTests : ContentHashTestBase
         var planned = Workspace.WriteFile("Foo.cs", TwoTypes);
         var added = Workspace.WriteFile("Single.cs", "namespace N;\n\npublic class Single\n{\n}\n");
         Plan(planned);
-        RunAndWriteManifest(Phase.Renames, planned, added);
+        RunPhase(Phase.Renames, planned, added);
 
-        var rows = RunAndWriteManifest(Phase.Renames, planned, added).ManifestRows;
+        var rows = RunPhase(Phase.Renames, planned, added);
 
         var row = Assert.Single(rows, r => r.OriginalPath == added);
         Assert.StartsWith("nothing to split", row.Reason, StringComparison.Ordinal);
@@ -62,21 +62,22 @@ public sealed class ContentHashRenamesUnplannedTests : ContentHashTestBase
     }
 
     [Fact]
-    public void UnplannedFileThatGainsATypeBetweenRenamesRuns_IsRefusedForItsMissingHash()
+    public void UnplannedFileThatGainsATypeBetweenRenamesRuns_IsRefusedForHavingNoPlanRow()
     {
-        // The first run recorded a row with no hash for a file the plan never listed. Once
-        // the file would be split, that row has to refuse it: nothing was ever reviewed.
+        // The first run reported the file and left the manifest alone, so the plan still
+        // has no row for it. Once the file would be split, it is refused: nothing was ever
+        // reviewed.
         var planned = Workspace.WriteFile("Foo.cs", TwoTypes);
         var added = Workspace.WriteFile("Alpha.cs", "namespace N;\n\npublic class Alpha\n{\n}\n");
         Plan(planned);
-        RunAndWriteManifest(Phase.Renames, planned, added);
+        RunPhase(Phase.Renames, planned, added);
 
         File.WriteAllText(added, "namespace N;\n\npublic class Alpha\n{\n}\n\npublic class Beta\n{\n}\n");
 
-        var row = Assert.Single(RunAndWriteManifest(Phase.Renames, planned, added).ManifestRows, r => r.OriginalPath == added);
+        var row = Assert.Single(RunPhase(Phase.Renames, planned, added), r => r.OriginalPath == added);
 
         Assert.Equal("skipped", row.Status);
-        Assert.Equal("stale plan: the manifest row carries no contentHash; re-run --phase plan", row.Reason);
+        Assert.Equal("stale plan: the plan manifest has no row for this file; re-run --phase plan", row.Reason);
         Assert.Null(row.ContentHash);
     }
 
@@ -89,7 +90,7 @@ public sealed class ContentHashRenamesUnplannedTests : ContentHashTestBase
         var planned = Plan(single);
         ManifestWriter.Write(planned.Select(r => r with { ContentHash = "sha256:XYZ" }).ToArray(), ManifestPath, CollisionNaming.FileFirst);
 
-        var row = Assert.Single(RunAndWriteManifest(Phase.Renames, single).ManifestRows);
+        var row = Assert.Single(RunPhase(Phase.Renames, single));
 
         Assert.Equal("skipped", row.Status);
         Assert.StartsWith("stale plan: the manifest row carries a malformed contentHash", row.Reason, StringComparison.Ordinal);
@@ -104,7 +105,7 @@ public sealed class ContentHashRenamesUnplannedTests : ContentHashTestBase
         InitRepository("Stuff.cs");
         Plan(planned);
 
-        var rows = RunAndWriteManifest(Phase.Renames, planned, added).ManifestRows;
+        var rows = RunPhase(Phase.Renames, planned, added);
 
         Assert.Equal("split", Assert.Single(rows, r => r.OriginalPath == planned).Status);
         var refused = Assert.Single(rows, r => r.OriginalPath == added);

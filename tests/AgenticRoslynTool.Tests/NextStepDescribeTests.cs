@@ -6,17 +6,22 @@ namespace AgenticRoslynTool.Tests;
 public sealed class NextStepDescribeTests
 {
     [Fact]
-    public void Describe_QuotesSpaces_AndSaysToCommitAfterRenames()
+    public void Describe_SingleQuotesSpacesAndBackslashes_AndSaysToCommitAfterRenames()
     {
-        IReadOnlyList<string> args = ["split-types", "--phase", "content", "--input", "/r/in put.txt"];
+        // Single quotes are literal in bash, zsh, and PowerShell. Double quotes still expand $.
+        IReadOnlyList<string> args = ["split-types", "--phase", "content", "--input", "/r/in put.txt", "--manifest", @"C:\repo\plan.csv"];
 
-        Assert.Equal("Next: run <tool command> split-types --phase content --input \"/r/in put.txt\"", NextStep.Describe(args, Phase.Plan));
+        Assert.Equal(@"Next: run <tool command> split-types --phase content --input '/r/in put.txt' --manifest 'C:\repo\plan.csv'", NextStep.Describe(args, Phase.Plan));
         Assert.StartsWith("Next: commit the renames, then run ", NextStep.Describe(args, Phase.Renames), StringComparison.Ordinal);
     }
 
     [Theory]
     [InlineData("// a \"quoted\" header")]
     [InlineData("// line one\n// line two")]
+    [InlineData("// $Corp")]
+    [InlineData("// `whoami`")]
+    [InlineData("// R&D")]
+    [InlineData("// it's ours")]
     public void Describe_FallsBackToASentence_WhenNoQuotingIsSafe(string header)
     {
         IReadOnlyList<string> args = ["split-types", "--phase", "content", "--require-header", header];

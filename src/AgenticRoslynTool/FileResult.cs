@@ -37,8 +37,8 @@ internal sealed record FileResult(string OriginalPath, string KeptPath, bool Git
 
     /// <summary>Constructs the refusal for a file that no longer matches its plan. A skip, because a
     /// stale plan is a refusal and not a failed attempt, that keeps the hash the plan
-    /// recorded. The row replaces the manifest row, and a refusal carrying the hash of the
-    /// bytes it found would match on the next run and turn one refusal into permission.</summary>
+    /// recorded. The row goes to the run report, never to the manifest. It still names the
+    /// planned hash, so a reader comparing the report with the plan sees one hash per file.</summary>
     public static FileResult StalePlan(string originalPath, string keptPath, string reason, string? plannedHash) => Skip(originalPath, keptPath, reason) with { ContentHash = plannedHash };
 
     /// <summary>Constructs a failure result. Failures record an attempted split that could not complete safely; no output is written for a failed row.</summary>

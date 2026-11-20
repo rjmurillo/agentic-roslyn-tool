@@ -6,6 +6,22 @@ namespace AgenticRoslynTool.Tests;
 // Decision 25.
 public sealed class CollisionNamingFlagTests
 {
+    [Fact]
+    public void Plan_IgnoresAnExistingManifestsValue()
+    {
+        // A plan starts afresh. A type-first manifest on disk must not leak into a plan run
+        // that was given no flag.
+        using var ws = new TempWorkspace();
+        var (_, _, listPath) = CollisionNamingFixture.WriteSharedPair(ws, sharedTypes: "public class Shared { }\n");
+        var manifest = Path.Combine(ws.Root, "m.csv");
+        CollisionNamingFixture.PlanAndRecord(ws, listPath, manifest, CollisionNaming.TypeFirst);
+
+        var replanned = CollisionNamingFixture.PlanAndRecord(ws, listPath, manifest, naming: null);
+
+        Assert.Equal(CollisionNaming.FileFirst, ManifestCollisionNaming.Read(manifest));
+        Assert.Contains(replanned, r => r.NewFiles.Any(f => f.Path.EndsWith("A.Shared.cs", StringComparison.Ordinal)));
+    }
+
     [Theory]
     [InlineData(null, null, "file-first")]
     [InlineData("type-first", null, "type-first")]

@@ -2,7 +2,7 @@ using Xunit;
 
 namespace AgenticRoslynTool.Tests;
 
-// The content phase writes its rows back over the manifest. Every row keeps the hash the
+// The content phase reports its rows and never writes the manifest. Every row keeps the hash the
 // plan recorded, so a later phase still has something to hold the file to.
 public sealed class ContentHashCarryTests : ContentHashTestBase
 {
@@ -15,7 +15,7 @@ public sealed class ContentHashCarryTests : ContentHashTestBase
         var listPath = Workspace.WriteInputList(source, excluded);
         File.Delete(source);
 
-        var rows = new FileSplitter(new Options(listPath, ManifestPath, Workspace.Root, Phase.Content, null, ["gen/"])).Run().ManifestRows;
+        var rows = new FileSplitter(new Options(listPath, ManifestPath, Workspace.Root, Phase.Content, null, ["gen/"])).Run();
 
         var missing = Assert.Single(rows, r => r.OriginalPath == source);
         Assert.Equal("input file does not exist", missing.Reason);
@@ -28,19 +28,22 @@ public sealed class ContentHashCarryTests : ContentHashTestBase
     [Fact]
     public void ContentReportRow_ForARefusedFileSuppliedByItsKeptPath_RepeatsTheManifestHash()
     {
-        // After a rename, a directory scan supplies the kept path. Once the row is no longer
-        // a split, the report row still has to find it to repeat its hash.
+        // After a rename, a directory scan supplies the kept path. The first refusal went
+        // to the report, so the plan row is still a split and the second run finds it by
+        // the kept path, refuses the same edit, and repeats the planned hash.
         var stuff = Workspace.WriteFile("Stuff.cs", Mismatched);
         var planned = Assert.Single(Plan(stuff));
         var keptPath = Path.Combine(Workspace.Root, "Order2.cs");
         File.Move(stuff, keptPath);
         File.AppendAllText(keptPath, "// edited after the rename\n");
-        var refused = Assert.Single(RunAndWriteManifest(Phase.Content, stuff).ManifestRows);
+        var refused = Assert.Single(RunPhase(Phase.Content, stuff));
         Assert.Equal("skipped", refused.Status);
 
-        var row = Assert.Single(Content(keptPath).ReportRows);
+        var row = Assert.Single(Content(keptPath));
 
-        Assert.Equal("not present as split in plan manifest", row.Reason);
+        Assert.Equal("skipped", row.Status);
+        Assert.StartsWith(ContentHash.StalePlanPrefix, row.Reason, StringComparison.Ordinal);
+        Assert.Equal(stuff, row.OriginalPath);
         Assert.Equal(planned.ContentHash, row.ContentHash);
     }
 
@@ -53,7 +56,7 @@ public sealed class ContentHashCarryTests : ContentHashTestBase
 
         // Only the single-type file is supplied. It is not planned as a split, and the
         // planned split is not supplied. Both report rows carry the recorded hash.
-        var report = Content(single).ReportRows;
+        var report = Content(single);
 
         var notPlanned = Assert.Single(report, r => r.OriginalPath == single);
         Assert.Equal("not present as split in plan manifest", notPlanned.Reason);
@@ -64,38 +67,39 @@ public sealed class ContentHashCarryTests : ContentHashTestBase
     }
 
     [Fact]
-    public void SecondContentRun_ReportsAnAlreadySplitFileAsStale()
+    public void SecondContentRun_ReportsAnAlreadySplitFileAsAlreadyApplied()
     {
-        // The content phase rewrote the kept file, so its bytes no longer match the plan. A
-        // second run cannot tell that from an outside edit and refuses it the same way.
-        // Recorded as a known limit: the reason is accurate about the bytes, not the cause.
+        // The content phase rewrote the kept file, so its bytes no longer match the plan.
+        // A second run tells that from an outside edit: every planned output exists and the
+        // file no longer declares the planned types. The row still carries the planned hash.
         var source = Workspace.WriteFile("Foo.cs", TwoTypes);
         Plan(source);
-        RunAndWriteManifest(Phase.Content, source);
+        RunPhase(Phase.Content, source);
         var split = File.ReadAllBytes(source);
 
-        var row = Assert.Single(RunAndWriteManifest(Phase.Content, source).ReportRows);
+        var row = Assert.Single(RunPhase(Phase.Content, source));
 
         Assert.Equal("skipped", row.Status);
-        Assert.StartsWith(ContentHash.StalePlanPrefix, row.Reason, StringComparison.Ordinal);
+        Assert.StartsWith("already applied", row.Reason, StringComparison.Ordinal);
+        Assert.Equal(Assert.Single(ManifestWriter.Read(ManifestPath)).ContentHash, row.ContentHash);
         Assert.Equal(split, File.ReadAllBytes(source));
     }
 
     [Fact]
     public void BatchedContentRuns_KeepTheHashOfRowsNotYetApplied()
     {
-        // A content run rewrites the manifest and must carry every unapplied row through
+        // A content run leaves the manifest alone and must report every unapplied row
         // with its hash, or the second batch would be refused for a plan nobody changed.
         var first = Workspace.WriteFile("Foo.cs", TwoTypes);
         var second = Workspace.WriteFile("Alpha.cs", "namespace N;\n\npublic class Alpha\n{\n}\n\npublic class Beta\n{\n}\n");
         Plan(first, second);
 
-        var firstBatch = RunAndWriteManifest(Phase.Content, first);
-        Assert.Equal("split", Assert.Single(firstBatch.ReportRows, r => r.OriginalPath == first).Status);
+        var firstBatch = RunPhase(Phase.Content, first);
+        Assert.Equal("split", Assert.Single(firstBatch, r => r.OriginalPath == first).Status);
 
-        var secondBatch = RunAndWriteManifest(Phase.Content, second);
+        var secondBatch = RunPhase(Phase.Content, second);
 
-        Assert.Equal("split", Assert.Single(secondBatch.ReportRows, r => r.OriginalPath == second).Status);
+        Assert.Equal("split", Assert.Single(secondBatch, r => r.OriginalPath == second).Status);
         Assert.True(File.Exists(Path.Combine(Workspace.Root, "Beta.cs")));
     }
 
@@ -108,7 +112,7 @@ public sealed class ContentHashCarryTests : ContentHashTestBase
         var planned = Plan(source);
         ManifestWriter.Write(planned.Select(r => r with { KeptPath = Path.Combine(Workspace.Root, "Elsewhere.cs") }).ToArray(), ManifestPath, CollisionNaming.FileFirst);
 
-        var row = Assert.Single(Content(source).ReportRows);
+        var row = Assert.Single(Content(source));
 
         Assert.Equal("skipped", row.Status);
         Assert.Equal("content phase plan does not match manifest", row.Reason);

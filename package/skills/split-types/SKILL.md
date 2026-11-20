@@ -23,17 +23,26 @@ tool), or `dnx AgenticRoslynTool --` (no install). Below, `<tool>` means whichev
 
 ## Steps
 
-1. List the C# files in a file outside the repository:
-   `git -c core.quotePath=false ls-files '*.cs' > ../split.txt`
+1. Pick a scratch folder outside the repository that no other run uses, shown here as
+   `<dir>`. List the C# files there:
+   `git -c core.quotePath=false ls-files '*.cs' > <dir>/split.txt`
 2. Plan. This changes no source file:
-   `<tool> split-types --input ../split.txt --manifest ../split.csv --json`
+   `<tool> split-types --phase plan --input <dir>/split.txt --manifest <dir>/split.csv --json`
    If the repository enforces SA1649, add `--collision-naming type-first` to this step only.
 3. Read the JSON report. `summary.split` counts the files that will split. Each `skipped`
    row has a `reason`. If `summary.split` is 0, stop: there is nothing to do.
-4. Run `nextArgs` from the report, with `<tool>` in front. Each run prints a new report
-   with a new `nextArgs`. Repeat until `nextArgs` is `null`.
-   After a `renames` step, commit the renames before you run the next step.
-5. Build and run the tests.
+4. Run `nextArgs` from the report, with `<tool>` in front. Pass each element as its own
+   argument; do not join them into one string. Each run prints a new report with a new
+   `nextArgs`. Repeat until `nextArgs` is `null`.
+   - After a `renames` step, commit the renames before you run the next step.
+   - Before a `content` step, make sure `git status` shows no other changes, or ask the
+     user first. Content rewrites files, and mixed changes are hard to undo.
+5. When `nextArgs` is `null`, read `summary.failed` before you go on.
+   - `0`: the split is done. Build and run the tests.
+   - Above `0`: read `reason` on each `failed` row, fix the cause, and run the same command
+     again. Rows already applied come back `skipped` with a reason starting
+     `already applied`.
+   - `nextArgs` is also `null` when the input came from standard input. Use a list file.
 
 ## Exit codes
 

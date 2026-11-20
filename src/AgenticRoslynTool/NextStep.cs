@@ -1,3 +1,5 @@
+using System.Buffers;
+
 namespace AgenticRoslynTool;
 
 /// <summary>
@@ -6,9 +8,10 @@ namespace AgenticRoslynTool;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A caller that copies the next command exactly cannot drop a flag between phases. That
-/// matters most for economical models, which follow a literal command more reliably than a
-/// paragraph of advice. A frontier model ignores the field at no cost.
+/// A caller that copies the next command exactly cannot drop a flag between phases. This is
+/// expected to help economical models most. The NuGet team measured lower skill compliance
+/// in weaker models, and one literal command asks for less compliance than a paragraph of
+/// advice. No evaluation of this tool has measured it. A frontier model ignores the field.
 /// </para>
 /// <para>
 /// The arguments start at the verb and leave out the command name. The tool runs as
@@ -22,20 +25,19 @@ namespace AgenticRoslynTool;
 /// </remarks>
 internal static class NextStep
 {
-    /// <summary>Characters no single quoting style handles in every shell.</summary>
-    private static readonly System.Buffers.SearchValues<char> Unquotable = System.Buffers.SearchValues.Create("\"\r\n");
+    /// <summary>Characters printed bare in the <c>Next:</c> line, because no shell gives them a meaning.</summary>
+    private static readonly SearchValues<char> Bare = SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_./:=,+@%-");
 
     /// <summary>The arguments for the next phase, or null when there is no safe next phase to suggest.</summary>
-    /// <param name="options">The options this run was given.</param>
-    /// <param name="phase">The phase that just ran.</param>
+    /// <param name="options">The options this run was given, including the phase that ran.</param>
     /// <param name="reportRows">The rows describing what this run did.</param>
     /// <returns>
     /// Null after <c>content</c>, when any row failed, when no row is <c>split</c>, and when
     /// the input was standard input, which a second process cannot read again.
     /// </returns>
-    public static IReadOnlyList<string>? For(Options options, Phase phase, IReadOnlyList<FileResult> reportRows)
+    public static IReadOnlyList<string>? For(Options options, IReadOnlyList<FileResult> reportRows)
     {
-        if (phase == Phase.Content
+        if (options.Phase == Phase.Content
             || options.InputPath == Options.StdinPath
             || reportRows.Any(r => r.Status == "failed")
             || !reportRows.Any(r => r.Status == "split"))
@@ -44,40 +46,68 @@ internal static class NextStep
         }
 
         // Renames exists only to give git a rename it can record. With nothing to move it
-        // rewrites the manifest and nothing else, so suggesting it would spend a turn.
-        var next = phase == Phase.Plan && reportRows.Any(r => r.Status == "split" && r.GitMove)
+        // does nothing a caller needs, so suggesting it would spend a turn.
+        var next = options.Phase == Phase.Plan && reportRows.Any(r => r.Status == "split" && r.GitMove)
             ? "renames"
             : "content";
 
-        (string Flag, string Value)[] valued =
+        // Every option this run had that the next phase accepts. The parser fills in the
+        // default report path when --report is absent, so only a chosen path is carried.
+        var chosenReport = options.ReportPath is { } report && !StringComparer.Ordinal.Equals(report, Options.DefaultReportPath(options.ManifestPath))
+            ? report
+            : null;
+        (string Flag, string? Value)[] carried =
         [
             ("--phase", next),
             ("--input", options.InputPath),
             ("--manifest", options.ManifestPath),
             ("--repo-root", options.RepoRoot),
-            .. options.RequiredHeader is { } header ? [("--require-header", header)] : Array.Empty<(string, string)>(),
-            .. (options.Excludes ?? []).Select(exclude => ("--exclude", exclude)),
+            ("--report", chosenReport),
+            ("--require-header", options.RequiredHeader),
+            .. (options.Excludes ?? []).Select(exclude => ("--exclude", (string?)exclude)),
         ];
 
-        return ["split-types", .. valued.SelectMany(o => new[] { o.Flag, o.Value }), .. options.Json ? ["--json"] : Array.Empty<string>()];
-    }
-
-    /// <summary>
-    /// The one line written to standard error for <paramref name="args"/>. Quotes an argument
-    /// that holds a space. Falls back to a sentence when an argument holds a quote or a line
-    /// break, because no quoting is right for every shell, and a wrong one is worse than none.
-    /// </summary>
-    /// <param name="args">The value <see cref="For"/> returned.</param>
-    /// <param name="phase">The phase that just ran.</param>
-    public static string Describe(IReadOnlyList<string> args, Phase phase)
-    {
-        var commitFirst = phase == Phase.Renames ? "commit the renames, then " : string.Empty;
-        if (args.Any(a => a.AsSpan().IndexOfAny(Unquotable) >= 0))
+        var args = new List<string> { "split-types" };
+        foreach (var (flag, value) in carried)
         {
-            return $"Next: {commitFirst}run {args[1]} {args[2]} with the same options. --json prints the exact arguments as nextArgs.";
+            if (value is not null)
+            {
+                args.AddRange([flag, value]);
+            }
         }
 
-        var line = string.Join(' ', args.Select(a => a.Length == 0 || a.Any(char.IsWhiteSpace) ? $"\"{a}\"" : a));
+        if (options.Json)
+        {
+            args.Add("--json");
+        }
+
+        return args;
+    }
+
+    /// <summary>The one line written to standard error for <paramref name="args"/>.</summary>
+    /// <remarks>
+    /// An argument made only of characters no shell interprets is printed bare. One that
+    /// also holds a space or a backslash is put in single quotes, which bash, zsh, and
+    /// PowerShell all read literally. Anything else, such as <c>$</c>, a backtick, a quote,
+    /// <c>&amp;</c>, or a line break, turns the line into a sentence. No quoting is right for
+    /// every shell, and a wrong one is worse than none. <c>nextArgs</c> holds the exact
+    /// arguments in that case.
+    /// </remarks>
+    /// <param name="args">The value <see cref="For"/> returned.</param>
+    /// <param name="ranPhase">The phase that just ran. After renames, the caller commits first.</param>
+    public static string Describe(IReadOnlyList<string> args, Phase ranPhase)
+    {
+        var phaseIndex = args.ToList().IndexOf("--phase");
+        var next = phaseIndex >= 0 && phaseIndex + 1 < args.Count ? args[phaseIndex + 1] : "the next phase";
+        var commitFirst = ranPhase == Phase.Renames ? "commit the renames, then " : string.Empty;
+        if (!args.All(IsQuotable))
+        {
+            return $"Next: {commitFirst}run --phase {next} with the same options. --json prints the exact arguments as nextArgs.";
+        }
+
+        var line = string.Join(' ', args.Select(a => a.Length == 0 || a.AsSpan().ContainsAnyExcept(Bare) ? $"'{a}'" : a));
         return $"Next: {commitFirst}run <tool command> {line}";
     }
+
+    private static bool IsQuotable(string arg) => arg.All(c => Bare.Contains(c) || c is ' ' or '\\');
 }

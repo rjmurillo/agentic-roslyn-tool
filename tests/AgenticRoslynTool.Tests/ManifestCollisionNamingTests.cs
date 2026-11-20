@@ -39,6 +39,16 @@ public sealed class ManifestCollisionNamingTests
     }
 
     [Fact]
+    public void Read_SkipsATrailingBlankLine()
+    {
+        // A manifest saved from standard output ends with one extra newline.
+        using var ws = new TempWorkspace();
+        var manifest = ws.WriteFile("m.csv", Header + "\n\"/a/A.cs\",\"/a/A.cs\",false,\"skipped\",\"\",\"\",\"\",\"\",\"\",\"type-first\"\n\n");
+
+        Assert.Equal(CollisionNaming.TypeFirst, ManifestCollisionNaming.Read(manifest));
+    }
+
+    [Fact]
     public void Read_RefusesAManifestWithNoColumn()
     {
         using var ws = new TempWorkspace();

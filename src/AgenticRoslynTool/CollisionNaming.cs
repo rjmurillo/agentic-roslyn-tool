@@ -7,7 +7,8 @@ namespace AgenticRoslynTool;
 /// <remarks>
 /// StyleCop SA1649 compares the file name up to its first dot with the first type in the
 /// file. So the order of the two name parts decides whether the qualified file passes.
-/// The choice changes planned paths, so every phase of one run must be given the same value.
+/// The choice changes planned paths. The plan records it in the manifest, and the renames
+/// and content phases reuse it. See <see cref="CollisionNamingFlag.Resolve"/>.
 /// </remarks>
 internal enum CollisionNaming
 {

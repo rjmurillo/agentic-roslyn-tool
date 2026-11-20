@@ -17,7 +17,7 @@ public sealed class NextStepTests
     {
         var options = new Options("/r/in put.txt", "/m/plan.csv", "/r", Phase.Plan, "// header", ["gen/", "obj/"], Json: true, CollisionNaming: CollisionNaming.TypeFirst);
 
-        var args = NextStep.For(options, Phase.Plan, [SplitWithRename, Skipped]);
+        var args = NextStep.For(options with { Phase = Phase.Plan }, [SplitWithRename, Skipped]);
 
         Assert.Equal(
             ["split-types", "--phase", "renames", "--input", "/r/in put.txt", "--manifest", "/m/plan.csv", "--repo-root", "/r",
@@ -31,7 +31,7 @@ public sealed class NextStepTests
     [Fact]
     public void Plan_WithNoRename_SkipsStraightToContent()
     {
-        var args = NextStep.For(Plain(), Phase.Plan, [SplitInPlace]);
+        var args = NextStep.For(Plain() with { Phase = Phase.Plan }, [SplitInPlace]);
 
         Assert.Equal(["split-types", "--phase", "content", "--input", "/r/list.txt", "--manifest", "/m/plan.csv", "--repo-root", "/r"], args);
     }
@@ -39,7 +39,7 @@ public sealed class NextStepTests
     [Fact]
     public void Renames_PointsAtContent_EvenWhenARowWasRenamed()
     {
-        Assert.Equal("content", NextStep.For(Plain(), Phase.Renames, [SplitWithRename])![2]);
+        Assert.Equal("content", NextStep.For(Plain() with { Phase = Phase.Renames }, [SplitWithRename])![2]);
     }
 
     // Case names, not values: Phase and FileResult are internal, and a public test method
@@ -59,7 +59,7 @@ public sealed class NextStepTests
             _ => (Phase.Renames, Array.Empty<FileResult>()),
         };
 
-        Assert.True(NextStep.For(Plain(), phase, rows) is null, because);
+        Assert.True(NextStep.For(Plain() with { Phase = phase }, rows) is null, because);
     }
 
     [Fact]
@@ -68,7 +68,20 @@ public sealed class NextStepTests
         // A second process reads an empty stream, plans nothing, and exits 0.
         var options = Plain() with { InputPath = Options.StdinPath };
 
-        Assert.Null(NextStep.For(options, Phase.Plan, [SplitInPlace]));
+        Assert.Null(NextStep.For(options with { Phase = Phase.Plan }, [SplitInPlace]));
+    }
+
+    [Fact]
+    public void Renames_CarriesAChosenReportPath_ButNotTheDefault()
+    {
+        // The parser fills in the default report path when --report is absent. Repeating it
+        // would be noise, so only a path the caller chose moves on to content.
+        var chosen = Plain() with { Phase = Phase.Renames, ReportPath = "/out/run.csv" };
+        var defaulted = Plain() with { Phase = Phase.Renames, ReportPath = Options.DefaultReportPath("/m/plan.csv") };
+
+        var withChosen = NextStep.For(chosen, [SplitInPlace])!;
+        Assert.Equal("/out/run.csv", withChosen[withChosen.ToList().IndexOf("--report") + 1]);
+        Assert.DoesNotContain("--report", NextStep.For(defaulted, [SplitInPlace])!);
     }
 
     private static Options Plain() => new("/r/list.txt", "/m/plan.csv", "/r", Phase.Plan, null);
