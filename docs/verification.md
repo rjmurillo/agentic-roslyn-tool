@@ -147,9 +147,25 @@ A key is the type name, plus its type parameter names for a generic type, for ex
 `Repository<T>`. The check compares keys only. It does not compare namespaces, modifiers,
 base types, or constraints. The repository scan below covers those.
 
+## Check 5: a `file` type stays in its file
+
+This check runs only for an input that declares a type with the `file` modifier. Such a
+type is visible only in its own file, and the compiler builds its metadata name from that
+file's name. So one output must be written to the path the input was read from, or the
+file fails with `<input path>: a file that declares a file-local type would be renamed`.
+Every other output must declare no `file` type and name none. A failure reads
+`<output path>: a file-local type would leave <input path>`, or `<output path> names
+file-local type <name>, which stays in <input path>`.
+
+The plan refuses these inputs before this check can see them, and records a skip with its
+own reason. The check asks again about the text that would reach disk, so a mistake in
+planning fails the file here and nothing is written. It is still a check on syntax. It
+cannot prove a moved type compiles, which is why the plan refuses whenever a name matches.
+See [decision-log.md, decision 29](decision-log.md#decision-29-a-file-that-holds-a-file-type-is-split-around-it).
+
 ## Before the checks: the input must be the one that was planned
 
-The four checks above prove a split is faithful to the file the tool read. They cannot
+The five checks above prove a split is faithful to the file the tool read. They cannot
 prove that file is the one you reviewed. The plan manifest closes that gap. Each row
 records `contentHash`, the SHA-256 of the input's raw bytes. The renames phase hashes each
 file it reads again before it renames anything. The content phase hashes each file the

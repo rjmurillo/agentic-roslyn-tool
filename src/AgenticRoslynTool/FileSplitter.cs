@@ -486,9 +486,11 @@ internal sealed class FileSplitter
             return FileResult.Skip(originalPath, readPath, $"nothing to split: input has {types.Length} top-level type declaration(s)");
         }
 
-        if (types.Any(t => t.HasFileModifier))
+        // A file-local type stays where it is. This refuses the inputs no choice of kept
+        // type could make safe. BuildPlan refuses the rest, once it knows which types move.
+        if (FileLocalTypes.DescribeRefusal(root, types) is { } fileLocalRefusal)
         {
-            return FileResult.Skip(originalPath, readPath, "contains file-local type; manual split required");
+            return FileResult.Skip(originalPath, readPath, fileLocalRefusal.Reason) with { Note = fileLocalRefusal.Note };
         }
 
         var directiveSafety = DirectiveAnalyzer.AnalyzeDirectiveSafety(root, types);

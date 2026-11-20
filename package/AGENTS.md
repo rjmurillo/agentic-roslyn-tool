@@ -22,6 +22,7 @@ The same workflow ships as an Agent Skill at `skills/split-types/SKILL.md` in th
 - If content exits 1, fix the cause and run the same content command again. Do not re-run the plan. Rows already applied come back `skipped` with a reason starting `already applied`.
 - Do not edit a planned file between phases. Each manifest row carries a `contentHash` of the file's bytes. A file that changed is `skipped` with a reason starting `stale plan:`. Undo the edit, or rebuild the list file and re-run the plan, to recover.
 - Exit 3 naming a missing `contentHash` column, from renames or content, means an older version wrote the manifest. Re-run the plan.
+- A `split` row whose `note` starts with `file-local type` kept a C# `file` type in its file, and SA1402 still flags that file after the split. The tool cannot fix that. Tell the user, and suppress SA1402 for that file only, in `.editorconfig` or with a pragma. Never move a `file` type or rename its file by hand: both change the type's metadata name.
 - A `stale plan:` row stays refused while the file differs from the plan. Renames also refuses to split a file added to the input after the plan.
 
 See the [recommended workflow](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/README.md#recommended-workflow) for complete commands.

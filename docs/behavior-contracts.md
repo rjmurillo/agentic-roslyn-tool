@@ -484,8 +484,17 @@ Reason text shown in italics is a template; the run substitutes real values.
 | Parse produced an error diagnostic | failed | `input has syntax errors: <diagnostics>` |
 | File has top level statements | skipped | `contains top-level statements; manual split required` |
 | One type or fewer | skipped | `nothing to split: input has <n> top-level type declaration(s)` |
-| Any `file` scoped type | skipped | `contains file-local type; manual split required` |
+| A `file` type in a nested namespace | skipped | `file-local type sits in a nested namespace; manual split required` |
+| A `file` type and at most one other type | skipped | `nothing to split: file-local types stay in their file and at most one other type is declared` |
+| A `file` type, and text an `#if` excludes anywhere in the file | skipped | `file-local type shares the file with conditionally excluded text; manual split required` |
+| A `file` type declares an extension method or an extension block | skipped | `file-local type declares extension members; manual split required` |
+| A using directive names a `file` type | skipped | `using directive names a file-local type; manual split required` |
 | Anything else that throws while handling one input | failed | the exception message |
+
+The five `file` rows apply in the order shown, and the first that holds decides the reason.
+The last two put the type's name in the row's `note`, for example `Numbers declares
+extension members`. A sixth `file` reason comes from `BuildPlan`, described under
+[File-local types](#file-local-types).
 
 The `stale plan:` rows are the exception to "before parsing" in one phase. The content
 phase applies its three straight after the read. The renames phase computes its plan row
@@ -564,6 +573,43 @@ original file name. The same reason covers two manifest rows that resolve to one
 Under `metadata`, differing by type parameter names is not enough: `Box<T>` and `Box<U>`
 share ``Box`1.cs`` and are refused this way.
 
+### File-local types
+
+A type declared with the `file` modifier never leaves its file, and that file is never
+renamed. The type is visible only in that file, and the compiler builds its metadata name
+from the file's name. The ordinary types beside it may move out. Decision 29 records the
+measurements behind each rule here.
+
+- **No rename, in any phase.** The kept path is the input path and `gitMove` is false. A
+  manifest row edited to plan a rename is refused in the content phase with `content phase
+  plan does not match manifest`, even when the file was renamed by hand to match.
+- **The plan is made over the ordinary types.** The keep rule picks the kept type among
+  them. Every other ordinary type moves. The `file` types stay in the kept file.
+- **One exception to the keep rule.** When no ordinary type is named for the file, the keep
+  rule only takes the first one. If exactly one ordinary type names a `file` type, that
+  type is kept instead, because it can never move.
+- **A moved type that names a `file` type refuses the input.** The row is `skipped` with
+  `moved type names a file-local type; manual split required`, and its `note` names both,
+  for example `Caller names AlphaHelper`. Any identifier counts: one in a method body, a
+  type argument, an attribute written without its `Attribute` suffix, `nameof`, or a
+  `cref` in a documentation comment. The scan compares the identifier's value, so
+  `@AlphaHelper` matches. It is a scan by name only. A member that merely shares the name
+  refuses the input too.
+- **The split row carries a note.** It reads `file-local type stayed in this file:
+  <names>; SA1402 still flags the file`. When the keep rule would have renamed the file,
+  the note adds `; the file keeps its name because a rename changes a file-local type's
+  metadata name`. Any directive note or collision note follows after ` | `.
+
+The split leaves the file with more than one type, so SA1402 can still report it. See
+[fix-sa1402-whole-repo.md](fix-sa1402-whole-repo.md#files-that-hold-a-file-type) for how
+to suppress that warning.
+
+Nothing else about the workflow changes. The row carries a content hash, and the content
+phase refuses a changed file as `stale plan:`. A retry reports the row as `already
+applied`. A moved type takes its name from `--file-naming`, and a colliding one from
+`--collision-naming`. Verified by the six `FileLocal*Tests` classes. Five of them compile
+the source before and after with the C# compiler, because a parse cannot show a binding.
+
 ### VerifyOutputs
 
 Runs before `WriteOutputs`. Throws, and the file is recorded `failed` and never written,
@@ -573,6 +619,11 @@ when any of these hold:
 - An output does not parse.
 - A type's declaration plus its owned trivia appears in more than one output, or in none.
 - The set of top level types across all outputs does not equal the input set.
+- The input declares a `file` type, and no output is written to the path that was read.
+  That would be a rename.
+- The input declares a `file` type, and an output for another path declares one or names
+  one. `BuildPlan` refuses these inputs first, so this fails a row only after a planning
+  mistake.
 
 ### VerifyLineConservation
 

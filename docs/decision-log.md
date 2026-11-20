@@ -252,6 +252,9 @@ the intended division of labor.
 > amount of manual work for the possibility of a silent miscompile. The manual tail is
 > cheaper.
 
+Decision 29 amends this one for `file` scoped types. The ordinary types beside one can now
+move, under a proof that decision records. The rule above did not change.
+
 ## 14. Exclusions come from the command line, not from the source
 
 **Decision.** `--exclude <path-substring>`, repeatable, empty by default. Matching is case
@@ -1150,6 +1153,104 @@ values were wrong, and only the exact match in `verify-package-contents.sh` caug
 Drop the workflow from `AGENTS.md` and NuGet MCP users lose it. Delete
 `PackagedAgentDocsTests` and the next renamed flag leaves both documents giving commands
 that exit 2.
+
+### Decision 29. A file that holds a `file` type is split around it
+
+**Context.** Decision 13 lists `file` scoped types among the inputs refused whole. One
+`file` helper beside several ordinary types is a common shape, and every such file was left
+for a human. Three facts were measured before this changed. The build was a scratch project
+on `net10.0` with StyleCop.Analyzers `1.2.0-beta.556`, and only SA1402 and SA1649 enabled.
+
+1. **SA1402 flags a file that holds a `file` class beside another class.** `internal class
+   Alpha`, `file class AlphaHelper`, and `internal class Sibling` in `Alpha.cs` raised
+   SA1402 at lines 8 and 12. After `Sibling` moved out, the warning at line 8 was still
+   there. No split makes such a file SA1402 clean. In these builds SA1402 left alone the
+   class the file is named for, or the first class when none matched, and flagged each
+   other class. Two `file` classes beside `Alpha` raised two warnings. SA1402 checks
+   classes only by default, so a `file struct` beside a class raised nothing.
+2. **Renaming the file changes the `file` type's metadata name.** `typeof(AlphaHelper).FullName`
+   was `Probe.<Alpha>F6987AE8...__AlphaHelper`. After `Alpha.cs` became `AlphaRenamed.cs`
+   it was `Probe.<AlphaRenamed>FD638230...__AlphaHelper`. An edit to the file's text left
+   the name alone.
+3. **SA1649 fires when the `file` type is declared first.** With `file class AlphaHelper`
+   above `internal class Alpha` in `Alpha.cs`, SA1649 reported line 3. That is a condition
+   of the source, and the tool does not fix it.
+
+**Decision.** This amends decision 13. A `file` type no longer refuses the whole input.
+Decision 13's rule stands: the tool splits only what it can prove safe, and never guesses.
+The split is on by default and has no flag.
+
+- A `file` type never leaves its file, and that file is never renamed. `gitMove` is false
+  for these inputs in every phase.
+- The kept type stays with the `file` types, and every other ordinary type moves. If one
+  type that would move fails the proof, the whole input is skipped.
+- The keep rule picks the kept type among the ordinary types. When no ordinary type is
+  named for the file, that rule only takes the first one. Then the one ordinary type that
+  names a `file` type is kept instead. This is safe because such a type can never move:
+  keeping it turns a refusal into a split whose moved types all pass the same proof. With
+  two such types one would have to move, so the input is skipped.
+- A moved type is refused when any identifier in it equals a `file` type's name. The scan
+  compares the identifier's value, so `@Name` and a Unicode escape match. It reads
+  documentation comments, where a `cref` lives. It matches an attribute written without
+  its `Attribute` suffix. A match counts even when it looks unrelated, because a `file`
+  type hides a same-named type from a namespace or a using directive.
+- Some inputs are refused before any type is chosen to move:
+  - A `file` type declares an extension method or an extension block. These bind with no
+    name at the call site: `foreach`, `await`, deconstruction, collection initializers,
+    and query syntax all do it. No name scan can see that.
+  - A using directive names a `file` type, as an alias or with `using static`. Every
+    output repeats every using directive, and rule 1 forbids pruning them.
+  - The input holds text a preprocessor directive excludes. The tool parses with no
+    symbols defined, so a scan cannot read that text.
+  - A `file` type sits in a nested namespace. The tool places types one namespace down
+    and no deeper, and would repeat the nested block in every output.
+  - The input declares at most one ordinary type. Nothing can move.
+- The split row's `note` says which `file` types stayed and that SA1402 still flags the
+  file. The note carries no path, because the content phase searches notes for collision
+  paths.
+- `OutputVerifier` asks again about the rendered text. One output must be written to the
+  path that was read, and no other output may declare or name a `file` type.
+
+The last two outright refusals, and the fifth, were added while building this. Richard's
+brief named the first two.
+
+**Why a name scan is enough.** Leaving the file changes two lookups for a moved type:
+lookup of a simple name, and lookup of extension members. Three compiler rules close the
+other paths, and each was observed in the same scratch build. CS9051 forbids a `file` type
+in the signature of a member of an ordinary type. CS9053 forbids one as the base of an
+ordinary type. CS9071 forbids two types of one name in one file. So a moved type can only
+reach a `file` type by writing its name in a body, an attribute, an interface list, or a
+comment. A binding made through a symbol is not a lookup by name. A `file` class named in a
+`CollectionBuilder` attribute was still bound from another file.
+
+**Rejected.** Moving the `file` type with the types that use it: the new file has a new
+name, so the metadata name changes. An opt in flag: a first run would still skip every
+such file, and the proof is the same either way. A semantic model: decision 1. Reading the
+excluded text of an `#if`: it means parsing once for each symbol set, and the tool does
+not know the sets.
+
+**Consequences.** This is a breaking change to default results. A file that was `skipped`
+with `contains file-local type; manual split required` is now `split`, or `skipped` with
+one of six new reasons. That old reason is gone. One SA1402 warning stays for each such
+file, and a person must suppress it. The scan is conservative, so some safe inputs are
+skipped: a moved type that merely has a member named like the `file` type, and any input
+with an `#if` branch the parse excludes.
+
+**Reversal warning.** Each item below was tested by removing it and compiling what the
+split would then write.
+
+- Let the keep rule rename the file, and the `file` type's metadata name changes with no
+  error. Reflection, logs, and serialized type names all read that name.
+- Drop the name scan, and a moved type that uses the `file` type stops compiling. When
+  another namespace holds a type of the same name, it compiles clean and binds to that
+  type instead. `FileLocalNameScanTests` shows the binding change.
+- Drop the extension refusal, and `foreach (var item in 3)` over a `file` class's
+  `GetEnumerator` extension stops compiling in the new file. No identifier names the class.
+- Drop the using refusal, and the new file carries an alias to a type it cannot see.
+- Drop the excluded text refusal, and the split compiles in one configuration and breaks
+  in another.
+- Compare raw token text in place of the identifier's value, and `@AlphaHelper` passes
+  the scan.
 
 ## Credit
 

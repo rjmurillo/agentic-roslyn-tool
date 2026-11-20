@@ -76,6 +76,10 @@ step runs the same build). Below, `<tool>` means whichever you use.
   starts `stale plan:`. Recover as step 5 says: rebuild the list file, then re-run the plan.
 - Do not edit the manifest. Renames and content read the plan from it, including the
   `collisionNaming` value.
+- A `split` row whose `note` starts with `file-local type` kept a C# `file` type in its
+  file. SA1402 still flags that file after the split, and the tool cannot fix that. Tell
+  the user, and suppress SA1402 for that file only, in `.editorconfig` or with a pragma.
+  Never move a `file` type or rename its file: both change the type's metadata name.
 - Keep every `using` the tool copied into a new file. One that looks unused can still
   supply an extension method.
 - This is a command line tool, not an MCP server. For symbol and reference questions, use

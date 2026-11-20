@@ -15,8 +15,10 @@ fires when "a C# code file contains more than one unique type." Which kinds coun
 so by default a delegate, enum, struct, or interface may share a file with a class. The
 setting accepts `class`, `interface`, `struct`, `enum`, and `delegate`.
 
-Two cases never trigger the rule. Parts of the same partial type may share a file. Types declared with
-the `file` modifier are exempt.
+One case never triggers the rule. Parts of the same partial type may share a file. A type
+declared with the `file` modifier is not exempt: in a build with StyleCop.Analyzers
+`1.2.0-beta.556`, a `file class` beside another class raised SA1402. See
+[Files that hold a `file` type](#files-that-hold-a-file-type).
 
 ## Why dotnet format and Fix All do nothing
 
@@ -246,7 +248,12 @@ are most likely to see:
 | Situation | Status | `reason` |
 | --- | --- | --- |
 | File has top-level statements | skipped | `contains top-level statements; manual split required` |
-| File declares a `file` type | skipped | `contains file-local type; manual split required` |
+| File declares a `file` type and one other type | skipped | `nothing to split: file-local types stay in their file and at most one other type is declared` |
+| A type that would move names a `file` type | skipped | `moved type names a file-local type; manual split required` |
+| A `file` type declares extension members | skipped | `file-local type declares extension members; manual split required` |
+| A using directive names a `file` type | skipped | `using directive names a file-local type; manual split required` |
+| A `file` type shares the file with an excluded `#if` branch | skipped | `file-local type shares the file with conditionally excluded text; manual split required` |
+| A `file` type sits in a nested namespace | skipped | `file-local type sits in a nested namespace; manual split required` |
 | An `#if` or `#region` spans two types | skipped | `<kind> group at line <n> crosses top-level type boundaries` |
 | Two types in one file share a name and type parameter list | skipped | `target path collision within split: <path>` |
 | File already has one type | skipped | `nothing to split: input has 1 top-level type declaration(s)` |
@@ -262,6 +269,89 @@ partial parts.
 Two types with the same name are split when their type parameter lists differ. A generic
 type gets its type parameter names in braces, unless it stays in a file already named for
 it. So `Box` and `Box<T>` become `Box.cs` and `Box{T}.cs`.
+
+## Files that hold a `file` type
+
+A type declared with the `file` modifier cannot move to its own file. It is visible only
+in the file that declares it, and the compiler builds its metadata name from that file's
+name. So the tool leaves every `file` type where it is and never renames that file. It
+still moves the ordinary types out, when none of them uses a `file` type.
+
+Take `Alpha.cs`:
+
+```csharp
+namespace Probe;
+
+internal class Alpha
+{
+    public static string HelperName() => typeof(AlphaHelper).FullName!;
+}
+
+file class AlphaHelper
+{
+}
+
+internal class Sibling
+{
+}
+```
+
+The plan row is a split, and its `note` says what stays:
+
+```csv
+"Alpha.cs","Alpha.cs",false,"split","","file-local type stayed in this file: AlphaHelper; SA1402 still flags the file","Sibling.cs","Sibling"
+```
+
+`Sibling` moves to `Sibling.cs`. `Alpha` and `AlphaHelper` stay in `Alpha.cs`.
+
+**One SA1402 warning stays, and the tool cannot remove it.** That build reported SA1402
+twice before the split, at `AlphaHelper` and at `Sibling`. After the split it reported
+once, at `Alpha.cs(8,12)`, the `file` class. Expect one warning for each `file` class. A
+`file struct` raised none, because SA1402 checks classes only by default. Suppress the
+warning in one of two ways. Both were run against that build.
+
+* **A section in `.editorconfig`.** It leaves the source alone, and works wherever the
+  warning lands:
+
+  ```ini
+  [src/Alpha.cs]
+  dotnet_diagnostic.SA1402.severity = none
+  ```
+
+* **A pragma around the declaration the warning names.**
+
+  ```csharp
+  #pragma warning disable SA1402 // A file-local type cannot move to its own file.
+  file class AlphaHelper
+  #pragma warning restore SA1402
+  {
+  }
+  ```
+
+  The warning names the `file` type when the file is named for the ordinary type. When no
+  type matches the file name and the `file` type comes first, it names the ordinary type.
+  Read the line number in the build output before you place the pragma.
+
+Either one is better than turning SA1402 off for the whole repository.
+
+The tool skips the file when it cannot prove the split is safe. It never guesses:
+
+* **A type that would move names a `file` type.** In the example, `Alpha` uses
+  `AlphaHelper`, and that is fine because `Alpha` stays. If `Sibling` used it, the row
+  would be `skipped`, and its `note` would read `Sibling names AlphaHelper`. The check is
+  by name. It also refuses a type that only has a member of the same name, or names the
+  type in a `cref`. Rename that member, or split the file by hand.
+* **A `file` type declares extension methods or an extension block.** Code can call these
+  without naming the class, so no check by name can find the callers.
+* **A `using` alias or `using static` names a `file` type.** Every new file repeats the
+  using directives, and the new file cannot see the type.
+* **The file has an `#if` branch that is excluded.** The tool cannot read excluded text.
+* **The file has only one other type.** There is nothing to move. The SA1402 warning on
+  such a file was there before, and you suppress it the same way.
+
+When the kept file would normally be renamed, it keeps its name here, and the note says
+so. SA1649 may then report that file. That warning was there before the split too. See
+[sa1402-sa1649-naming.md](sa1402-sa1649-naming.md#a-file-type-in-the-file).
 
 ## Stricter than SA1402 by default
 

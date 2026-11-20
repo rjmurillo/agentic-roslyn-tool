@@ -34,11 +34,20 @@ internal sealed class TopLevelType
     public IReadOnlyList<string> TypeParameters { get; }
 
     /// <summary>
-    /// True when the type is declared with the <c>file</c> modifier. File-local types
-    /// are refused because splitting them across files would change their visibility
-    /// contract.
+    /// True when the type is declared with the <c>file</c> modifier. Such a type never
+    /// leaves its file, and that file is never renamed: the type is visible only there, and
+    /// the compiler builds its metadata name from the file's name. The ordinary types
+    /// beside it may still move out. <see cref="FileLocalTypes"/> decides when.
     /// </summary>
-    public bool HasFileModifier => Node switch { BaseTypeDeclarationSyntax type => type.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.FileKeyword)), DelegateDeclarationSyntax type => type.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.FileKeyword)), _ => false, };
+    public bool HasFileModifier => IsFileLocal(Node);
+
+    /// <summary>True when a declaration carries the <c>file</c> modifier.</summary>
+    /// <param name="node">A type or delegate declaration. Any other node answers false.</param>
+    internal static bool IsFileLocal(MemberDeclarationSyntax node)
+    {
+        return node is BaseTypeDeclarationSyntax or DelegateDeclarationSyntax
+            && node.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.FileKeyword));
+    }
 
     /// <summary>
     /// Stable identity for the type across analysis passes. Non-generic types use the

@@ -24,8 +24,8 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 39 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 332 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 40 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 378 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -44,6 +44,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `InputSource.cs` | Turns whatever the caller supplied, a directory, a list file, a manifest, standard input, into an ordered list of absolute paths. |
 | `SplitPlanner.cs` | Decides what a split would do: which type stays, where each moved type lands, which inputs collide, which path a phase reads. Does not act. |
 | `DirectiveAnalyzer.cs` | Decides whether preprocessor directives make a split unsafe. Returns a verdict, never acts on one. |
+| `FileLocalTypes.cs` | Decides what a split may do with an input that declares a `file` type: the refusals, the kept type, the name scan, and the row's note. Returns a verdict, never acts on one. Read decision 29 before changing it. |
 | `OutputBuilder.cs` | Renders the text of every output file: name, carved source, required header, trailing newline. |
 | `OutputVerifier.cs` | The correctness checks, run against in-memory outputs before anything is written. A failure here means nothing reaches disk. |
 | `WorkspaceWriter.cs` | The only place the tool touches the working tree. Every rename runs through `git mv`; every write preserves encoding and byte order mark. |
@@ -64,9 +65,9 @@ Every source file, so you do not have to open one to find out whether it matters
 | `PlanMismatch.cs` | Words the note for a content phase row that disagrees with its manifest: the other `--file-naming` name, or what differs in the plan shape. |
 | `KeptRenameCollisions.cs` | Decides which planned kept file renames stand. Gives a rename target to the first input that claims it, and holds the renames phase to the renames the manifest plans. |
 | `EncodedSource.cs` | Reads bytes into text while capturing encoding, byte order mark, and newline style, then writes them back unchanged. |
-| `TopLevelType.cs` | One top level type declaration plus the file name it maps to. |
+| `TopLevelType.cs` | One top level type declaration plus the file name it maps to. `HasFileModifier` marks a `file` type. |
 | `SplitPlan.cs` | The decision for one input: keep, rename, split, or refuse. |
-| `PlannedFile.cs` | One output file inside a plan, before content is rendered. |
+| `PlannedFile.cs` | One output file inside a plan, before content is rendered. `Holds` says which types an output declares: its own, and in the kept file every `file` type. |
 | `PlannedOutputEntry.cs` | A planned output path paired with its owning input, used for cross file collision detection. |
 | `OutputFile.cs` | Rendered output. `BodyText` excludes any injected header; `Text` includes it. |
 | `BlankLineCollapser.cs` | Collapses the blank line runs left behind when a type is removed. |
@@ -88,7 +89,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 332 passed, 0 failed
+dotnet test  -c Release      # must be 378 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -186,6 +187,17 @@ weight.
     `split-types` command and each backticked flag fragment through `Options.Parse`. It
     proves the commands still parse, not that the two files agree in prose. Rename or
     remove a flag and update both files in the same change. See decision 28.
+
+16. **A `file` type never leaves its file, and that file is never renamed.** The type is
+    visible only there, and the compiler builds its metadata name from the file's name.
+    `gitMove` is false for such an input in every phase. An ordinary type moves out only
+    when no identifier in it equals a `file` type's name. An input is refused outright
+    when a `file` type declares extension members, when a using directive names one, or
+    when an `#if` excludes text the scan cannot read. Never relax the name scan to "looks
+    unrelated": a `file` type hides a same-named type from another namespace, and the
+    moved code would compile clean against that other type. `OutputVerifier` checks the
+    rendered text again. The `FileLocal*Tests` classes pin each rule by compiling. See
+    decision 29.
 
 ## Conventions for anything you write
 
@@ -397,9 +409,41 @@ agent does not pay again.
   stream, plans nothing, and exits 0. A test that pipes paths and expects `nextArgs` is
   testing the wrong thing.
 
+- **A parse proves nothing about a `file` type.** `OutputVerifier` only parses, and a moved
+  type that names a `file` type parses fine. Compile the source before and after with
+  `FileLocalCompiler`, and give every tree its real path: the compiler builds a `file`
+  type's metadata name from that path, so a tree with no path cannot show a rename.
+- **A refusal test must also compile what the refusal prevents.** A test that only asserts
+  the skip reason passes whether or not the refusal is needed.
+  `FileLocalCompiler.SplitUnchecked` builds the outputs with no refusal in the way. The
+  shadowing case compiles clean and binds to another type, so assert on the bound symbol
+  there, not on diagnostics.
+- **StyleCop SA1402 does not exempt a `file` type.** This repository's SA1402 guide said it
+  did. A build with StyleCop.Analyzers `1.2.0-beta.556` flagged a `file class` beside
+  another class. SA1402 checks classes only by default, so a `file struct` raised nothing.
+  Measure a StyleCop claim in a scratch project before you write it down.
+- **An extension block is a `TypeDeclarationSyntax`.** `OfType<TypeDeclarationSyntax>()`
+  returns it beside the classes, with an empty identifier. Find it by
+  `SyntaxKind.ExtensionBlockDeclaration`.
+- **Keep paths out of a row's note unless the collision pass wrote them.** The content
+  phase searches `planned.Note` for a collision name. The `file` type note carries type
+  names only for that reason.
+
 ## Known issues, not yet fixed
 
 Recorded so nobody rediscovers them and nobody assumes they are intentional.
+
+- A type in a nested namespace is copied into every output. `TopLevelType.Find` looks one
+  namespace down and no deeper, so `namespace A { class X { } class Y { } namespace B {
+  class Deep { } } }` splits, and both `X.cs` and `Y.cs` declare `Deep`. The build then
+  fails with a duplicate type. The line count check allows it, because text outside every
+  found type counts as shared. An input with a `file` type there is refused, as decision
+  29 records. Every other input with this shape still splits.
+
+- A `file` modifier inside an excluded `#if` branch is not seen. In `#if X` / `file` /
+  `#else` / `internal` / `#endif` / `class Maybe`, the parse reads `Maybe` as `internal`
+  and the tool moves it. A build that defines `X` then has a `file` type in a new file.
+  The refusal for excluded text applies only once the parse has found a `file` type.
 
 - The header probe matches a multi-line banner literally, so an existing banner whose
   internal lines carry trailing spaces or tabs is not recognized and a second copy is

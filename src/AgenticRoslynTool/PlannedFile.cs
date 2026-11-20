@@ -10,4 +10,12 @@ namespace AgenticRoslynTool;
 /// True when this entry represents the file being kept in place (possibly under a new name
 /// via <c>git mv</c>); false for every new sibling file created by the split.
 /// </param>
-internal sealed record PlannedFile(string Path, TopLevelType Type, bool IsKept);
+internal sealed record PlannedFile(string Path, TopLevelType Type, bool IsKept)
+{
+    /// <summary>
+    /// True when this output declares <paramref name="type"/>: its own type, and in the
+    /// kept file every <c>file</c> type too, because a <c>file</c> type never leaves the
+    /// file that declares it. Every other type is removed from this output.
+    /// </summary>
+    internal bool Holds(TopLevelType type) => ReferenceEquals(type, Type) || (IsKept && type.HasFileModifier);
+}

@@ -73,7 +73,7 @@ internal static class OutputBuilder
         var outputs = new List<OutputFile>();
         foreach (var file in plan.Files)
         {
-            var remove = types.Where(t => !ReferenceEquals(t, file.Type)).Select(t => t.Node).ToArray();
+            var remove = types.Where(t => !file.Holds(t)).Select(t => t.Node).ToArray();
             var newRoot = root.RemoveNodes(remove, SyntaxRemoveOptions.KeepUnbalancedDirectives) ?? root;
             if (!file.IsKept)
             {
