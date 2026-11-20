@@ -476,8 +476,10 @@ at any depth. A type in `namespace A { namespace B { class Deep { } } }` is a sp
 candidate like any other, and lands in exactly one output. The nested namespace block it
 sat in stays in every other output, empty, the way a sibling namespace block does.
 
-Two types with the same name at different depths map to the same output file. The plan
-skips that input with `target path collision within split`, and nothing is written.
+Two types with the same name and the same type parameters, at different depths, map to
+the same output file. The plan skips that input with `target path collision within split`,
+and nothing is written. A different arity gives a different file name, so that input
+splits.
 
 ### Input rejection, before parsing
 

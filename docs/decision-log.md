@@ -1166,7 +1166,8 @@ type is placed like any other type, and every guard now sees it.
 file with one outer type and one nested type. Another is a file whose only namespace
 holds a nested namespace with two types. The emptied nested block stays in each other
 output, which matches how a sibling namespace block is already left. Two types with one
-name at two depths share a file name, so the plan skips that input as a collision.
+name and arity at two depths share a file name, so the plan skips that input as a
+collision.
 `NestedNamespaceTests` pins all of this.
 
 **Reversal warning.** Stop the walk at one level and nested types are copied into every

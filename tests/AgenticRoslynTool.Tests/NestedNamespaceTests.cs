@@ -73,8 +73,108 @@ public sealed class NestedNamespaceTests
             new OutputFile("Second.cs", types[^1], second, second),
         };
 
-        Assert.Throws<InvalidOperationException>(
+        var ex = Assert.Throws<InvalidOperationException>(
             () => OutputVerifier.VerifyOutputs("Outer.cs", types, outputs, CSharpParseOptions.Default, null));
+
+        Assert.Contains("Deep appears 2 times", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Split_KeptTypeInsideNestedNamespace_MovesOuterTypeOut()
+    {
+        using var ws = new TempWorkspace();
+        var source =
+            "namespace A\n" +
+            "{\n" +
+            "    public class Outer { }\n" +
+            "\n" +
+            "    namespace B\n" +
+            "    {\n" +
+            "        public class Deep { }\n" +
+            "    }\n" +
+            "}\n";
+
+        var result = PlanThenContent(ws, "Deep.cs", source);
+
+        Assert.Equal("split", result.Status);
+        Assert.Equal(1, CountDeclarations(ws, "class Outer"));
+        Assert.Equal(1, CountDeclarations(ws, "class Deep"));
+        Assert.Contains("class Deep", File.ReadAllText(Path.Combine(ws.Root, "Deep.cs")), StringComparison.Ordinal);
+        Assert.Contains("class Outer", File.ReadAllText(Path.Combine(ws.Root, "Outer.cs")), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Split_SameNameDifferentArityAtTwoDepths_Splits()
+    {
+        using var ws = new TempWorkspace();
+        var source =
+            "namespace A\n" +
+            "{\n" +
+            "    public class Foo { }\n" +
+            "\n" +
+            "    namespace B\n" +
+            "    {\n" +
+            "        public class Foo<T> { }\n" +
+            "    }\n" +
+            "}\n";
+
+        var result = PlanThenContent(ws, "Foo.cs", source);
+
+        Assert.Equal("split", result.Status);
+        Assert.Contains("class Foo<T>", File.ReadAllText(Path.Combine(ws.Root, "Foo{T}.cs")), StringComparison.Ordinal);
+        Assert.DoesNotContain("Foo<T>", File.ReadAllText(Path.Combine(ws.Root, "Foo.cs")), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Split_DocCommentOnNestedType_TravelsWithIt()
+    {
+        using var ws = new TempWorkspace();
+        var source =
+            "namespace A\n" +
+            "{\n" +
+            "    public class Outer { }\n" +
+            "\n" +
+            "    namespace B\n" +
+            "    {\n" +
+            "        /// <summary>Deep docs.</summary>\n" +
+            "        public class Deep { }\n" +
+            "    }\n" +
+            "}\n";
+
+        var result = PlanThenContent(ws, "Outer.cs", source);
+
+        Assert.Equal("split", result.Status);
+        Assert.Contains("Deep docs.", File.ReadAllText(Path.Combine(ws.Root, "Deep.cs")), StringComparison.Ordinal);
+        Assert.DoesNotContain("Deep docs.", File.ReadAllText(Path.Combine(ws.Root, "Outer.cs")), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Plan_RegionSpanningTwoNestedTypes_IsRefused()
+    {
+        using var ws = new TempWorkspace();
+        var source =
+            "namespace A\n" +
+            "{\n" +
+            "    public class Outer { }\n" +
+            "\n" +
+            "#region Both\n" +
+            "    namespace B\n" +
+            "    {\n" +
+            "        public class First { }\n" +
+            "\n" +
+            "        public class Later { }\n" +
+            "    }\n" +
+            "#endregion\n" +
+            "}\n";
+
+        var path = ws.WriteFile("Outer.cs", source);
+        var listPath = ws.WriteInputList(path);
+        var plan = Assert.Single(new FileSplitter(new Options(listPath, Path.Combine(ws.Root, "m.csv"), ws.Root, Phase.Plan, null)).Run());
+
+        Assert.Equal("skipped", plan.Status);
+        Assert.EndsWith("crosses top-level type boundaries", plan.Reason, StringComparison.Ordinal);
+        Assert.Equal(source, File.ReadAllText(Path.Combine(ws.Root, "Outer.cs")));
+        Assert.Single(Directory.GetFiles(ws.Root, "*.cs"));
     }
 
     [Fact]

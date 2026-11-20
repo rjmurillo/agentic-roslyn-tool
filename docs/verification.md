@@ -139,7 +139,7 @@ Whitelisting header lines instead would hide a dropped source line with the same
 ## Check 4: same type set out as in
 
 The tool parses every output again and collects its top-level types. Top-level means
-declared in the compilation unit or directly inside its namespace. The sorted list of type
+declared in the compilation unit or inside a namespace at any depth. The sorted list of type
 keys must equal the sorted list from the input, or the file fails with
 `<input path>: output top-level type set does not match input`.
 
