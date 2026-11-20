@@ -90,12 +90,18 @@ public sealed partial class PackagedAgentDocsTests
     public void TheDoneRule_QuotesTheToolsOwnReasons(string relativePath)
     {
         // The done rule is an allow list of two skip reasons. Reword either in the code and
-        // the packaged docs stop matching what the tool prints.
-        var text = File.ReadAllText(Path.Combine(PackageDir, relativePath));
+        // the packaged docs stop matching what the tool prints. Line wrapping is not drift,
+        // so runs of whitespace are folded to one space first.
+        var text = string.Join(' ', File.ReadAllText(Path.Combine(PackageDir, relativePath)).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
         Assert.Contains(FileSplitter.NotPlannedReason, text, StringComparison.Ordinal);
         Assert.StartsWith("already applied", FileSplitter.AlreadyAppliedReason, StringComparison.Ordinal);
         Assert.Contains("starts with `already applied`", text, StringComparison.Ordinal);
+
+        // The other two conditions SkillDoneRule checks. A third allowed reason would also
+        // need SkillDoneRule changed, which this pins only through the two quoted ones.
+        Assert.Contains("`phase` is `content`", text, StringComparison.Ordinal);
+        Assert.Contains("`summary.failed` is", text, StringComparison.Ordinal);
     }
 
     [Fact]

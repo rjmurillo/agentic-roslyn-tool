@@ -971,7 +971,9 @@ run (decision 27). Exit 0 with no source change is accepted here, where decision
 it. Here the run did exactly what it was asked, and says what to do next. There, a run
 asked to apply a plan skipped rows without saying why on the exit code. Docs now tell
 readers to pass `--dry-run` or `--phase` explicitly, so a command means the same on
-version 0.1.1 and on later versions. `--report` is refused in the plan phase (decision 23),
+version 0.1.1 and on later versions. A published version is immutable, so restoring the
+old default would itself be a breaking change in a later version. `--report` is refused in
+the plan phase (decision 23),
 so `--report` with no `--phase` is now exit 2.
 
 **Reversal warning.** Restore `content` as the default and the first bare call from an
@@ -1000,7 +1002,7 @@ field. The rules, all in `CollisionNamingFlag.Resolve` and `ManifestCollisionNam
 - Renames, when a manifest exists, and content use the recorded value when the flag is
   absent. A flag that matches is accepted.
 - A flag that contradicts the recorded value ends the run with exit code 3, before any
-  file is read or moved. The error names both values and says what to do.
+  source file is read or moved. The error names both values and says what to do.
 - A missing column, or a blank, unknown, or mixed value, ends the run with exit code 3.
   Each of those means the file was edited or written by an older build. Both are cases
   decision 22 settled: no silent fallback.
@@ -1078,8 +1080,9 @@ points at `nextArgs`. Review found that the first version used double quotes, wh
 still expands, and later that zsh expands a leading `=` and PowerShell splats a leading
 `@`.
 
-`nextArgs` being `null` does not mean the split is done. A repeated renames run ends with
-`null` and every row `input file does not exist`. The packaged skill therefore defines
+`nextArgs` being `null` does not mean the split is done. A repeated renames run can end
+with `null`, for example when every split row was a rename and now says `input file does
+not exist`. The packaged skill therefore defines
 done positively: the last report's `phase` is `content`, `summary.failed` is 0, and every
 skipped row's reason is `not present as split in plan manifest` or starts with `already
 applied`. Those are the only content skips that leave no planned work behind. Three review
@@ -1105,8 +1108,8 @@ into a parser still works. A frontier model can ignore the field at no cost.
 manifest already records; after a fresh plan under another value, the copied flag would
 end the next run at exit 3. Return a suggestion for standard input and the next run plans
 nothing and exits 0. Suggest content after a renames run with no plan on disk and the
-next run exits 3. Add `=`, `@`, or `,` back to the bare set and a pasted `Next:` line
-breaks in zsh or PowerShell. Move the field after `files` and a truncated read loses it.
+next run exits 3. Add `=`, `@`, `,`, or `%` back to the bare set and a pasted `Next:`
+line breaks in zsh, PowerShell, or cmd.exe. Move the field after `files` and a truncated read loses it.
 
 ### Decision 28. The package ships an Agent Skill as well as `AGENTS.md`
 
@@ -1132,7 +1135,10 @@ through the phases, and every extra skill is more text every model has to read. 
 only proves their commands still parse. Project-graph tools never see the skill: a tool
 package cannot be a `PackageReference`, and restore says so with `NU1212`. Agents find it
 through `dotnet-inspect package`, through the install path, or through a copy committed
-to a repository. No evaluation has shown the skill helps any model. The NuGet team reports
+to a repository. No evaluation has shown the skill helps any model. Run the evaluation in
+[agent-skills-in-nuget.md](agent-skills-in-nuget.md) before the first release that ships
+the skill is a month old, or sooner if a user reports higher cost; dropping the skill
+after that is a next-version change. The NuGet team reports
 small gains for frontier models, and warns that a skill can raise cost.
 
 A release run checks out the tag it ships. A tag made before this change has no

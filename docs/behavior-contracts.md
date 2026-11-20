@@ -238,8 +238,8 @@ reader that truncates the document still sees it. The rules live in `NextStep.Fo
   when the last report's `phase` is `content`, `summary.failed` is 0, and every skipped
   row's reason is `not present as split in plan manifest` or starts with `already
   applied`. Those are the only content skips that leave no planned work behind. A repeated
-  renames run, for example, ends with `null` `nextArgs` and every row `input file does not
-  exist`, while content has not run. A content run without the plan's `--file-naming`
+  renames run can end with `null` `nextArgs`, for example when every split row was a
+  rename and now says `input file does not exist`, while content has not run. A content run without the plan's `--file-naming`
   ends with `null` and a plan mismatch row, while the file is still unsplit.
 - It repeats `--input`, `--manifest`, `--repo-root`, `--require-header`, every
   `--exclude`, and `--json` when this run had it. It repeats `--report` only when the

@@ -379,11 +379,14 @@ agent does not pay again.
 - **A test cannot take an internal type as a theory parameter.** xUnit test methods are
   public, and rule 7 keeps `Phase`, `FileResult`, and the rest internal. Pass a case name
   as a string and map it inside the test, as `NextStepTests` does. Never widen the type.
-- **Tests that run a child process share one limit.** `CliRunner.Run` and `RunIn` start
-  the real executable, and `GitFixture` starts `git`. Both read the redirected streams at
-  the same time and wait at most two minutes through `CliRunner.WaitOrKill`, which kills
-  the process tree and fails the test. A hung child must fail a test, not stall a CI or
-  release job. Add new process tests through these helpers, not through a private copy.
+- **Most tests that start a child process share one limit.** `CliRunner.Run` and `RunIn`
+  start the real executable, and `GitFixture` starts `git`. Both read the redirected
+  streams at the same time and wait at most two minutes through `CliRunner.WaitOrKill`,
+  which kills the process tree and fails the test. A hung child must fail a test, not
+  stall a CI or release job. Add new process tests through these helpers. Two exceptions
+  remain: `FileNamingRuns` (from #57) has its own runner with a 60 second limit, and a
+  renames test that runs `FileSplitter` in process reaches `WorkspaceWriter`'s `git mv`,
+  which waits with no limit. Neither workflow sets `timeout-minutes`.
 - **`nextArgs` being null does not mean the split is done.** The skill decides "done" with
   an allow list: a `content` report, no failed row, and every skipped row's reason either
   `not present as split in plan manifest` or starting with `already applied`. Three review
