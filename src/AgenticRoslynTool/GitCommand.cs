@@ -19,7 +19,8 @@ internal static class GitCommand
     private static readonly TimeSpan StreamDrainLimit = TimeSpan.FromSeconds(5);
 
     /// <summary>Runs <c>git</c> with the given arguments in <paramref name="repoRoot"/>.</summary>
-    /// <exception cref="InvalidOperationException">Thrown when git cannot be started or exits with a non-zero code.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when git exits with a non-zero code.</exception>
+    /// <exception cref="System.ComponentModel.Win32Exception">Thrown when git cannot be found or started.</exception>
     /// <exception cref="TimeoutException">Thrown when git does not exit within <paramref name="timeout"/>.</exception>
     internal static void Run(string repoRoot, TimeSpan timeout, params string[] arguments)
     {
@@ -52,7 +53,8 @@ internal static class GitCommand
         }
     }
 
-    private static string DescribeTimeout(string name, TimeSpan timeout, string repoRoot, bool stopped, string stderr)
+    /// <summary>Words the timeout error. Internal so tests can check both outcomes.</summary>
+    internal static string DescribeTimeout(string name, TimeSpan timeout, string repoRoot, bool stopped, string stderr)
     {
         var outcome = stopped ? "was killed" : "could not be stopped and may still be running";
         var message = $"{name} did not exit within {timeout.TotalSeconds} seconds and {outcome}. " +

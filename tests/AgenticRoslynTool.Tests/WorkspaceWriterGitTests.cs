@@ -65,7 +65,7 @@ public sealed class WorkspaceWriterGitTests : IDisposable
         var move = Task.Run(() => writer.RunGitMove(source, Path.Combine(_workspace.Root, "B.cs")));
         var finished = await Task.WhenAny(move, Task.Delay(OuterLimit)) == move;
         clock.Stop();
-        if (!finished)
+        if (!finished || ProcessesNaming(_workspace.Root).Count > 0)
         {
             await ReleaseBlockedReaderAsync(index, move);
         }
@@ -77,6 +77,18 @@ public sealed class WorkspaceWriterGitTests : IDisposable
         Assert.Contains("and was killed", error.Message, StringComparison.Ordinal);
         Assert.Contains("index.lock", error.Message, StringComparison.Ordinal);
         Assert.Empty(ProcessesNaming(_workspace.Root));
+    }
+
+    [Theory]
+    [InlineData(true, "and was killed.")]
+    [InlineData(false, "and could not be stopped and may still be running.")]
+    public void DescribeTimeout_SaysWhetherGitWasStopped(bool stopped, string expected)
+    {
+        var message = GitCommand.DescribeTimeout("git mv", TimeSpan.FromSeconds(120), "/repo", stopped, "fatal: stuck");
+
+        Assert.StartsWith($"git mv did not exit within 120 seconds {expected}", message, StringComparison.Ordinal);
+        Assert.Contains("git directory of /repo", message, StringComparison.Ordinal);
+        Assert.EndsWith("git said: fatal: stuck", message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -126,9 +138,9 @@ public sealed class WorkspaceWriterGitTests : IDisposable
         return found;
     }
 
-    // Runs only when RunGitMove regresses to an unbounded wait, leaving git blocked on the
-    // pipe. Opening the write end lets git read an empty index and exit, so the failing run
-    // does not leave a stuck process behind.
+    // Runs only when RunGitMove regresses and leaves git blocked on the pipe, by waiting
+    // forever or by skipping the kill. Opening the write end lets git read an empty index
+    // and exit, so the failing run does not leave a stuck process behind.
     private static async Task ReleaseBlockedReaderAsync(string fifo, Task move)
     {
         var open = Task.Run(() => File.OpenWrite(fifo).Dispose());

@@ -109,8 +109,9 @@ internal sealed class WorkspaceWriter
     /// Runs <c>git mv</c> from the configured repository root. Each path is its own
     /// argument, after a <c>--</c> so no path can be read as an option.
     /// </summary>
-    /// <exception cref="InvalidOperationException">Thrown when git cannot be started or exits with a non-zero code.</exception>
-    /// <exception cref="TimeoutException">Thrown when git does not exit within the time limit and is killed.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when git exits with a non-zero code.</exception>
+    /// <exception cref="System.ComponentModel.Win32Exception">Thrown when git cannot be found or started.</exception>
+    /// <exception cref="TimeoutException">Thrown when git does not exit within the time limit.</exception>
     internal void RunGitMove(string source, string target) =>
         GitCommand.Run(_repoRoot, _gitTimeout, "mv", "--", source, target);
 
