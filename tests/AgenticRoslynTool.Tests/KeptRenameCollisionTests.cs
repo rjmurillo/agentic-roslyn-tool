@@ -96,29 +96,50 @@ public sealed class KeptRenameCollisionTests
     }
 
     [Fact]
-    public void ClaimantTheRenamesPhaseRefuses_DoesNotTakeTheTarget()
+    public void WinnerTheRenamesPhaseRefuses_LeavesTheOtherInputAsPlanned()
     {
         // Foo.cs wins the target in the plan, then changes on disk. The renames phase
-        // refuses it as stale. The other part must then take the rename itself, not keep a
-        // dropped rename for a target nobody creates.
+        // refuses it as stale. The other part would now compute the rename for itself, but
+        // the plan recorded none for it and the content phase reads the planned path. So it
+        // stays put, and both files wait for a new plan. Nothing is moved or written.
         using var ws = new TempWorkspace();
         var first = ws.WriteFile("Foo.cs", FooPart);
         var second = ws.WriteFile("Foo.Extra.cs", FooExtraPart);
         var listPath = ws.WriteInputList(first, second);
         var manifestPath = Path.Combine(ws.Root, "m.csv");
         var target = Path.Combine(ws.Root, "Foo`1.cs");
-        FileNamingRuns.Git(ws.Root, "init", "--quiet");
-        FileNamingRuns.Git(ws.Root, "add", "Foo.cs", "Foo.Extra.cs");
         FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Plan, FileNamingConvention.Metadata);
-        File.WriteAllText(first, FooPart + "\n// edited after the plan\n");
+        var edited = FooPart + "\n// edited after the plan\n";
+        File.WriteAllText(first, edited);
 
         var renames = FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Renames, FileNamingConvention.Metadata);
 
         Assert.Equal("skipped", renames[0].Status);
         Assert.StartsWith("stale plan:", renames[0].Reason, StringComparison.Ordinal);
-        Assert.Equal(("split", target, true), (renames[1].Status, renames[1].KeptPath, renames[1].GitMove));
-        Assert.Equal(new[] { "Foo.cs", "Foo`1.cs" }, FileNamingRuns.CsFiles(ws));
-        Assert.Equal(FooExtraPart, File.ReadAllText(target));
+        Assert.Equal(("split", second, false), (renames[1].Status, renames[1].KeptPath, renames[1].GitMove));
+        Assert.Contains($"rename to {target} is not in the plan; kept original file name", renames[1].Note, StringComparison.Ordinal);
+        Assert.Equal(new[] { "Foo.Extra.cs", "Foo.cs" }, FileNamingRuns.CsFiles(ws));
+
+        var content = FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Content, FileNamingConvention.Metadata);
+
+        // The winner's planned rename never landed, which the content phase reports as it
+        // always has. The other part is skipped and told why.
+        Assert.Equal("failed", content[0].Status);
+        Assert.Contains("Run --phase renames", content[0].Reason, StringComparison.Ordinal);
+        Assert.Equal("skipped", content[1].Status);
+        Assert.Contains("if a planned rename has not landed, run the renames phase", content[1].Note, StringComparison.Ordinal);
+        Assert.Equal(new[] { "Foo.Extra.cs", "Foo.cs" }, FileNamingRuns.CsFiles(ws));
+        Assert.Equal((edited, FooExtraPart), (File.ReadAllText(first), File.ReadAllText(second)));
+
+        // A new plan sees the edit and settles both files.
+        FileNamingRuns.Git(ws.Root, "init", "--quiet");
+        FileNamingRuns.Git(ws.Root, "add", "Foo.cs", "Foo.Extra.cs");
+        FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Plan, FileNamingConvention.Metadata);
+        FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Renames, FileNamingConvention.Metadata);
+        var retry = FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Content, FileNamingConvention.Metadata);
+
+        Assert.All(retry, r => Assert.Equal("split", r.Status));
+        Assert.Equal(new[] { "Bar.cs", "Baz.cs", "Foo.Extra.cs", "Foo`1.cs" }, FileNamingRuns.CsFiles(ws));
     }
 
     [Fact]

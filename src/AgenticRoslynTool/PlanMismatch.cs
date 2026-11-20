@@ -14,7 +14,7 @@ namespace AgenticRoslynTool;
 internal static class PlanMismatch
 {
     /// <summary>The recovery step every note that blames <c>--file-naming</c> ends with.</summary>
-    private const string PlanAgain = "run the plan phase again and pass one value to every phase";
+    private const string PlanAgain = "run the content phase again with the value the plan was made with, or plan again and pass one value to every phase";
 
     /// <summary>
     /// Describes a manifest path that is the name the other <c>--file-naming</c> value

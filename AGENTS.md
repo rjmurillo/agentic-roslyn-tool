@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 36 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 270 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 271 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -82,7 +82,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 270 passed, 0 failed
+dotnet test  -c Release      # must be 271 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -261,10 +261,10 @@ agent does not pay again.
   it, and the shape check catches a changed kept path. The skipped row's note says which,
   in words from `PlanMismatch`. Any other hand-edited free path is still applied, which
   `CollisionNamingContentTests` pins, so do not widen the check. The plan keeps its `split`
-  row, so run the content phase again with the plan's value. The renames phase is not held
-  to planned paths. Under another value it can rename a file the plan left in place, and
-  the content phase then reports `input file does not exist`. Undo that rename with git.
-  See decision 24 and the known issue below.
+  row, so run the content phase again with the plan's value. The renames phase never runs
+  a rename the plan did not ask for, which `KeptRenameCollisions.DropUnplannedRename`
+  enforces. Under another value it can still leave out a planned rename. See decision 24
+  and the known issue below.
 - **A backtick in a path is escaped in `--json` output.** ``Foo`1.cs`` is written as
   `Foo\u00601.cs`. Parse the JSON before you search it for a file name. The CSV manifest
   holds the character itself.
@@ -332,15 +332,14 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   loosely would need a line-by-line comparer, which is not worth it until a real file hits
   this.
 
-- The renames phase does not compare its recomputed paths with the reviewed manifest. It
-  holds each file to the manifest's hash and status only. A renames run with a different
-  `--file-naming` over unchanged files follows that value. It can rename a kept file the
-  plan left in place, or leave out a rename the plan asked for. The plan is not rewritten,
-  so the content phase then skips that file and writes nothing.
-  `RenamesPhase_UnderAnotherConvention_CanRenameAFileThePlanLeftInPlace` pins this. A fix
-  means the renames phase refusing a row whose paths differ from the manifest, or the
-  manifest recording both naming flags. Either changes what that phase does today and waits
-  on a decision. See decision 24.
+- The renames phase holds each file to the manifest's hash, status, and one fact about its
+  paths: it never runs a rename the manifest row does not plan. It does not check the rest.
+  A renames run with a different `--file-naming` can leave out a rename the plan asked
+  for, and it reports that row as `split`. The content phase then fails the row with `Run
+  --phase renames`, and a renames run with the plan's value recovers.
+  `RenamesPhase_UnderAnotherConvention_CanLeaveOutAPlannedRename` pins this. A fix means
+  the manifest recording both naming flags, or the renames phase comparing every planned
+  path. Either waits on a decision. See decision 24.
 - A kept file's rename target is checked against other kept renames, not against new
   files. `KeptRenameCollisions` gives a rename target to the first input that claims it.
   `ResolvePlannedOutputCollisions` looks at new files only. So if one input plans to rename

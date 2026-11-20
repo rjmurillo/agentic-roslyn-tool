@@ -115,8 +115,9 @@ internal sealed class FileSplitter
         // applied keep the qualified paths the reviewed plan gave them. Every row is bound
         // before the first rename, so no binding sees a tree this run already changed.
         // Rename targets are handed out last, so a row this phase refuses never takes a
-        // target from a row that will act.
-        var bound = BuildResolvedPlan().Select(row => priorPlan is null ? row : PlanBinding.HoldRenamesRow(row, priorPlan)).ToArray();
+        // target from a row that will act. A rename the plan did not ask for is dropped
+        // first, because the content phase reads the path the manifest kept.
+        var bound = BuildResolvedPlan().Select(row => priorPlan is null ? row : KeptRenameCollisions.DropUnplannedRename(PlanBinding.HoldRenamesRow(row, priorPlan), priorPlan)).ToArray();
         return KeptRenameCollisions.Resolve(bound).Select(ApplyPlannedRename).ToArray();
     }
 

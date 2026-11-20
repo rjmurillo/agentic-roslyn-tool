@@ -190,9 +190,9 @@ If you pass `--file-naming metadata` to the plan, pass it to the renames and con
 too. The convention decides file names, so it has to be the same in all three. The content
 phase skips a file whose manifest row was made under the other convention, and writes
 nothing for it. The plan is unchanged, so run the content phase again with the right value.
-The renames phase does not compare file names with the plan. Under the wrong value it can
-rename a file the plan left in place, and the content phase then skips that file. Undo
-that rename with Git before you continue.
+The renames phase never runs a rename the plan did not ask for. Under the wrong value it
+can still leave out a rename the plan did ask for. The content phase then fails that file
+and tells you to run the renames phase, which works once the value is right.
 
 The renames phase recomputes the plan from the current files. It never writes the
 manifest, and records what it did in the report file, `split-types.report.csv` here. It

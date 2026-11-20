@@ -17,7 +17,9 @@ namespace AgenticRoslynTool;
 /// The later row gets the outcome and the note <see cref="SplitPlanner.BuildPlan"/> gives a
 /// rename whose target exists. That is what the content phase computes for it once the
 /// first rename has landed, so the two agree from then on. Until that rename lands the
-/// content phase still computes the rename and skips the row as a plan mismatch.
+/// content phase still computes the rename and skips the row as a plan mismatch. That
+/// includes a winner the renames phase refuses as stale: the later row keeps the plan's
+/// answer through <see cref="DropUnplannedRename"/>, and both wait for a new plan.
 /// </para>
 /// <para>
 /// Two things keep the agreement. Only a row that is still <c>split</c> claims a target, so
@@ -45,6 +47,30 @@ internal static class KeptRenameCollisions
             var note = SplitPlanner.CombineNotes(result.Note, DescribeDroppedRename(result.KeptPath));
             return result with { KeptPath = result.OriginalPath, GitMove = false, Note = note };
         }).ToArray();
+    }
+
+    /// <summary>
+    /// Renames phase only. Drops a rename the reviewed plan did not ask for.
+    /// </summary>
+    /// <remarks>
+    /// The renames phase recomputes the plan, so it can arrive at a rename the manifest row
+    /// records as none. Two things cause it. The row lost its target to another input in
+    /// the plan and that input has since been refused, or the run was given another
+    /// <c>--file-naming</c>. Either way the content phase reads the path the manifest
+    /// kept, so a rename made here would strand the file. The row stays as planned.
+    /// </remarks>
+    /// <param name="row">A renames phase row, already held to the manifest's hash and status.</param>
+    /// <param name="priorPlan">The plan manifest rows, indexed by input path.</param>
+    /// <returns>The row, without its rename when the manifest row plans none.</returns>
+    internal static FileResult DropUnplannedRename(FileResult row, Dictionary<string, FileResult> priorPlan)
+    {
+        if (row.Status != "split" || !row.GitMove || !priorPlan.TryGetValue(row.OriginalPath, out var planned) || planned.GitMove)
+        {
+            return row;
+        }
+
+        var note = SplitPlanner.CombineNotes(row.Note, $"rename to {row.KeptPath} is not in the plan; kept original file name");
+        return row with { KeptPath = row.OriginalPath, GitMove = false, Note = note };
     }
 
     /// <summary>The note for a planned rename that was dropped because its target is taken, on disk or by an earlier input.</summary>

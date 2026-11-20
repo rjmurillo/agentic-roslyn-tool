@@ -130,12 +130,11 @@ conventions still splits. That covers every file with no generic type. The run e
 and the plan is unchanged, so run the content phase again with the flag the plan was made
 with.
 
-The renames phase has no such check. It recomputes the plan and holds each file to the
-manifest's hash and status, not to its planned names. A renames run without the flag
-applies the `stylecop` renames. That can leave out a rename the plan asked for, and a
-renames run with the flag over a `stylecop` plan can rename a file the plan left in place.
-The content phase then skips that file. Undo an unplanned rename with `git mv`, then run
-the phases again with one value.
+The renames phase checks less. It recomputes the plan and holds each file to the manifest's
+hash and status. It never runs a rename the plan did not ask for. It can still leave out a
+rename the plan did ask for: a renames run without the flag over a `metadata` plan skips
+the rename to ``Foo`1.cs`` and reports success. The content phase then fails that file and
+says to run the renames phase. Run it with the flag and continue.
 
 If you decide to change the flag, plan again. After a rename has landed that needs one more
 step. A list file still names the old path, and the tool reports `input file does not

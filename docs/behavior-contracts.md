@@ -223,8 +223,9 @@ Promises:
   collision for <path>; kept original file name`. A skipped row claims nothing. Targets are
   compared the way the platform's disk compares them. The renames phase applies the same
   rule after it has held each row to the manifest, so a file it refuses as `stale plan:`
-  claims nothing either, and it never starts a `git mv` that must fail.
-  `KeptRenameCollisionTests` pins all of it.
+  claims nothing either. A row whose rename the plan dropped stays dropped, even when the
+  winner is refused, because the content phase reads the path the manifest kept. Both files
+  then wait for a new plan. `KeptRenameCollisionTests` pins all of it.
 - Every row for a file the run read carries that file's `contentHash`. Verified by
   `ContentHashPlanTests`.
 
@@ -279,12 +280,14 @@ Promises:
 Recomputes the plan. It reads the manifest on disk only to hold each file to its recorded
 hash and status, never to its paths. So it does not compare the `--collision-naming` or
 `--file-naming` value with the plan run. It does not write the manifest either, so the
-reviewed names stay as planned, and the content check still compares against them. A
-different `--file-naming` can still run a rename the plan did not ask for, or leave out one
-it did. The content phase then skips that file. A file the plan skipped under one value
-that renames would split under the other gets a `stale plan:` reason, because the manifest
-does not mark it `split`. Pass the same values here as in the plan run, so the report shows
-the same paths and no unplanned rename lands.
+reviewed names stay as planned, and the content check still compares against them. One
+path fact is held: a rename the manifest row does not plan is never run. The row keeps its
+original name, with the note `rename to <path> is not in the plan; kept original file
+name`. A different `--file-naming` can still leave out a rename the plan asked for. The
+content phase then fails that row and says to run the renames phase. A file the plan
+skipped under one value that renames would split under the other gets a `stale plan:`
+reason, because the manifest does not mark it `split`. Pass the same values here as in the
+plan run, so the report shows the same paths and every planned rename lands.
 
 Requires a real git repository to rename. Most of the test suite avoids this phase by
 keeping every fixture file name equal to its primary type name. `ContentHashRenamesTests`
