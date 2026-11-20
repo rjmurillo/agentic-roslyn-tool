@@ -123,9 +123,10 @@ content phase skips a file whose manifest row the other convention would have pl
 differently and writes nothing for it. The reason starts with
 `content phase plan does not match manifest` and then names the manifest path and the path
 this run computes. For a kept file the two conventions name differently, it reads
-``manifest keeps Foo`1.cs, this run keeps Foo.cs``, with full paths. A file whose paths come out the same under both conventions still splits.
-That covers every file with no generic type. The run exits 0 and its rows replace the plan,
-so run the plan phase again before you retry.
+``manifest keeps Foo`1.cs, this run keeps Foo.cs``, with full paths. A file whose paths
+come out the same under both conventions still splits. That covers every file with no
+generic type. The run exits 0 and its rows replace the plan, so run the plan phase again
+before you retry.
 
 The renames phase has no such check, because it recomputes the plan instead of replaying
 it. A renames run without the flag applies the `stylecop` renames and rewrites the manifest

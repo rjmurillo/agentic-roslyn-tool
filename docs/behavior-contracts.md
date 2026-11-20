@@ -194,11 +194,12 @@ Promises:
   output paths. Each planned output path must also be one this run could have planned: the
   path it computes for that type, or the cross-file qualified form of it. That is what
   catches a plan made under a different `--file-naming`. The reason starts with
-  `content phase plan does not match manifest` and then says what differs, naming the
-  manifest's kept path or new file path beside this run's. The skipped row replaces the
-  plan row, so that text is the only record of the manifest's value. The manifest carries
-  no content hash, so an edit that leaves type names and paths alone passes this check.
-  Treat it as drift detection on the plan shape, not as proof the source is unchanged.
+  `content phase plan does not match manifest` and then says what differs: the kept
+  path, the rename, or a new file path, with the manifest's value wherever it has one. The
+  skipped row replaces the plan row, so that text is the only record of the manifest's
+  value. The manifest carries no content hash, so an edit that leaves type names and paths
+  alone passes this check. Treat it as drift detection on the plan shape, not as proof the
+  source is unchanged.
 - Writes its own manifest to the same default path, which **overwrites the plan
   manifest**. Pass an explicit `--manifest` when you want to keep both.
 

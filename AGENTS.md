@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 30 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 124 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 128 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -75,7 +75,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 124 passed, 0 failed
+dotnet test  -c Release      # must be 128 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -182,7 +182,7 @@ agent does not pay again.
   output.
 - **`--file-naming` must be the same in every phase, and only the content phase checks.**
   It decides planned paths. The content phase skips a file whose manifest row was made
-  under the other value, because `BuildPlan` compares each manifest path with the path it
+  under the other value, because the planner compares each manifest path with the path it
   computed before substitution. The renames phase recomputes the plan and its rows replace
   the manifest. So a renames run under another value rewrites the reviewed plan, and the
   content check then compares against the rewritten plan and passes. Changed the flag?

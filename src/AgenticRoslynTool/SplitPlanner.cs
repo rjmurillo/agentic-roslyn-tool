@@ -275,8 +275,9 @@ internal static class SplitPlanner
     /// <remarks>
     /// The order is load-bearing. Existence and uniqueness of the substituted paths are
     /// checked first, then the plan shape, then each manifest path against the computed
-    /// one. Every mismatch reason names the manifest's value, because the row that
-    /// reports it replaces the plan row that held it.
+    /// one. The shape check compares path sets, which is only sound once uniqueness has
+    /// held. A mismatch reason names the manifest's value wherever the manifest has one,
+    /// because the row that reports it replaces the plan row that held it.
     /// </remarks>
     /// <param name="originalPath">The input path the plan row is keyed by.</param>
     /// <param name="files">The files this run computed, before any manifest path is used.</param>
@@ -345,9 +346,10 @@ internal static class SplitPlanner
     /// new file paths, and says what differs.
     /// </summary>
     /// <remarks>
-    /// The text names the manifest's value. The row that carries the reason replaces the
-    /// plan row, and that row records this run's kept path, so the reason is the only
-    /// place the manifest's value survives.
+    /// The text names the manifest's value wherever the manifest has one. A path only
+    /// this run plans has none, so that reason names the run's path. The row that carries
+    /// the reason replaces the plan row, and that row records this run's kept path, so the
+    /// reason is the only place the manifest's value survives.
     /// </remarks>
     /// <param name="planned">The plan manifest row for this input.</param>
     /// <param name="keptPath">The kept path this run computed.</param>
@@ -361,11 +363,10 @@ internal static class SplitPlanner
             return $"manifest keeps {planned.KeptPath}, this run keeps {keptPath}";
         }
 
+        // The kept paths agree here, and the row carries that path, so the text names none.
         if (planned.GitMove != gitMove)
         {
-            return planned.GitMove
-                ? $"manifest renames the kept file to {planned.KeptPath}, this run plans no rename"
-                : $"manifest plans no rename, this run renames the kept file to {keptPath}";
+            return $"manifest {DescribeRename(planned.GitMove)}, this run {DescribeRename(gitMove)}";
         }
 
         var plannedNewFiles = planned.NewFiles.Select(f => f.Path).ToArray();
@@ -379,8 +380,13 @@ internal static class SplitPlanner
             return $"this run plans {onlyInRun}, which the manifest lacks";
         }
 
-        return plannedNewFiles.Length == actualNewFiles.Count ? null : "manifest lists a new file path more than once";
+        // The run's paths are distinct, because the caller checks uniqueness first. With
+        // equal sets, a longer manifest list can only mean a repeated manifest path.
+        var repeated = plannedNewFiles.GroupBy(p => p, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
+        return repeated is null ? null : $"manifest lists {repeated.Key} more than once";
     }
+
+    private static string DescribeRename(bool gitMove) => gitMove ? "renames the kept file" : "plans no rename";
 
     /// <summary>
     /// Picks the type that stays in the input file, and says whether the file is already
