@@ -286,6 +286,11 @@ Promises:
 - Every row carries the run's `collisionNaming`: the flag's value, or `file-first` when
   the flag is absent. A plan never reads the value from an existing manifest, because a
   plan starts afresh. Verified by `CollisionNamingFlagTests` and `CollisionNamingRecordedTests`.
+- A `skipped` or `failed` row names the file's original path as `keptPath`, with
+  `gitMove` false. A refusal never renames. That holds for a `BuildPlan` refusal, an
+  empty directive shell, a verification failure, and a collision refusal, even when the
+  plan first chose a rename target. Only a `split` row names a planned rename target.
+  `RefusedRenameLocationTests` pins it.
 - Runs when `--phase` is absent. See decision 25.
 
 You can run `plan` as many times as you like. It is the review step, and it is the reason
@@ -384,6 +389,10 @@ Promises:
 
 - **Acts only on rows the plan marked `split`.** Anything else is skipped with the reason
   `not present as split in plan manifest`.
+- **A refused row names where the file is.** Its `keptPath` is the path the phase read:
+  the renamed path once the rename has landed, and the original path otherwise. It is
+  never a rename target this run computed but did not apply. `RefusedRenameLocationTests`
+  pins it.
 - **Finds a renamed file by its kept path.** A directory scan after the renames phase
   supplies the kept path, not the original. An input that equals the kept path of exactly
   one `split` row with a git move is applied as that row. An original path match wins over

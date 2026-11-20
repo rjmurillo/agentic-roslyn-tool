@@ -88,16 +88,18 @@ internal static class SplitPlanner
             .GroupBy(x => x.OriginalPath, PathComparison.Comparer)
             .ToDictionary(g => g.Key, g => string.Join(" | ", g.Select(x => x.Note).Distinct(StringComparer.Ordinal)), PathComparison.Comparer);
 
+        // A refused row names the original path. The plan pass moves nothing, so a planned
+        // rename target would name a path that holds no file.
         return results.Select(result =>
         {
             if (qualifiedCollisions.Contains(result.OriginalPath))
             {
-                return FileResult.Skip(result.OriginalPath, result.KeptPath, "qualified output path collision requires manual handling") with { ContentHash = result.ContentHash };
+                return FileResult.Skip(result.OriginalPath, result.OriginalPath, "qualified output path collision requires manual handling") with { ContentHash = result.ContentHash };
             }
 
             if (refusedNames.TryGetValue(result.OriginalPath, out var refused))
             {
-                return FileResult.Skip(result.OriginalPath, result.KeptPath, CollisionNames.GeneratedNameReason) with { Note = "refused output name: " + refused, ContentHash = result.ContentHash };
+                return FileResult.Skip(result.OriginalPath, result.OriginalPath, CollisionNames.GeneratedNameReason) with { Note = "refused output name: " + refused, ContentHash = result.ContentHash };
             }
 
             var newFiles = result.NewFiles.Select(file =>
