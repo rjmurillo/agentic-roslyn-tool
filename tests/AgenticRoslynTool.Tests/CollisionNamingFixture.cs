@@ -19,7 +19,7 @@ internal static class CollisionNamingFixture
     public static IReadOnlyList<FileResult> RunPhase(TempWorkspace ws, string listPath, string manifestPath, Phase phase, CollisionNaming naming)
     {
         var options = new Options(listPath, manifestPath, ws.Root, phase, null, CollisionNaming: naming);
-        return new FileSplitter(options).Run().ReportRows;
+        return new FileSplitter(options).Run();
     }
 
     public static string[] CsFiles(TempWorkspace ws)

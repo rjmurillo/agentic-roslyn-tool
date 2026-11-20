@@ -27,7 +27,7 @@ public sealed class RunReportTests
 
         var listPath = workspace.WriteInputList(split, excluded);
         var options = new Options(listPath, Path.Combine(workspace.Root, "m.csv"), workspace.Root, Phase.Plan, null, ["generated/"]);
-        var results = new FileSplitter(options).Run().ReportRows;
+        var results = new FileSplitter(options).Run();
 
         var report = RunReport.Create(results, Phase.Plan, options.ManifestPath);
 
@@ -46,7 +46,7 @@ public sealed class RunReportTests
         var source = workspace.WriteFile("Foo.cs", TwoTypes);
         var listPath = workspace.WriteInputList(source);
         var options = new Options(listPath, Path.Combine(workspace.Root, "m.csv"), workspace.Root, Phase.Plan, null);
-        var results = new FileSplitter(options).Run().ReportRows;
+        var results = new FileSplitter(options).Run();
 
         using var document = JsonDocument.Parse(RunReport.Create(results, Phase.Plan, options.ManifestPath).ToJson());
         var root = document.RootElement;
@@ -71,7 +71,7 @@ public sealed class RunReportTests
     [Fact]
     public void SummaryLine_NamesThePhaseAndEveryCount()
     {
-        var report = new RunReport("content", "m.csv", new RunSummary(3, 1, 1, 1, 2), []);
+        var report = new RunReport("content", "m.csv", "m.report.csv", new RunSummary(3, 1, 1, 1, 2), []);
 
         Assert.Equal("content: 3 input(s), 1 split, 1 skipped, 1 failed, 2 new file(s).", report.ToSummaryLine());
     }

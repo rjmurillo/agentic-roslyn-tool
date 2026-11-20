@@ -56,7 +56,7 @@ public sealed class ContentHashPlanTests : ContentHashTestBase
         Assert.All(planned, r => Assert.Contains("resolved output path collision", r.Note, StringComparison.Ordinal));
         Assert.All(planned, r => Assert.True(ContentHash.IsWellFormed(r.ContentHash)));
 
-        var rows = Content(a, b).ReportRows;
+        var rows = Content(a, b);
 
         Assert.All(rows, r => Assert.Equal("split", r.Status));
         Assert.True(File.Exists(Path.Combine(Workspace.Root, "A.Shared.cs")));

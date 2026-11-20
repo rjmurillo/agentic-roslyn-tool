@@ -13,7 +13,7 @@ public sealed class ContentHashContentPhaseTests : ContentHashTestBase
         var source = Workspace.WriteFile("Foo.cs", TwoTypes);
         var planned = Assert.Single(Plan(source));
 
-        var row = Assert.Single(Content(source).ReportRows);
+        var row = Assert.Single(Content(source));
 
         Assert.Equal("split", row.Status);
         Assert.Equal(planned.ContentHash, row.ContentHash);
@@ -30,7 +30,7 @@ public sealed class ContentHashContentPhaseTests : ContentHashTestBase
         File.WriteAllText(source, TwoTypes.Replace("=> 1;", "=> 2;", StringComparison.Ordinal));
         var edited = File.ReadAllBytes(source);
 
-        var row = Assert.Single(Content(source).ReportRows);
+        var row = Assert.Single(Content(source));
 
         Assert.Equal("skipped", row.Status);
         Assert.StartsWith("stale plan: input changed after the plan was written", row.Reason, StringComparison.Ordinal);
@@ -63,7 +63,7 @@ public sealed class ContentHashContentPhaseTests : ContentHashTestBase
 
         File.WriteAllBytes(source, editedBytes);
 
-        var row = Assert.Single(Content(source).ReportRows);
+        var row = Assert.Single(Content(source));
 
         Assert.True(row.Status == "skipped", $"{kind}: expected skipped, got {row.Status} ({row.Reason})");
         Assert.StartsWith(ContentHash.StalePlanPrefix, row.Reason, StringComparison.Ordinal);
@@ -80,7 +80,7 @@ public sealed class ContentHashContentPhaseTests : ContentHashTestBase
 
         File.AppendAllText(stale, "// edited\n");
 
-        var rows = Content(stale, fresh).ReportRows;
+        var rows = Content(stale, fresh);
 
         Assert.Equal("skipped", Assert.Single(rows, r => r.OriginalPath == stale).Status);
         Assert.Equal("split", Assert.Single(rows, r => r.OriginalPath == fresh).Status);
@@ -98,7 +98,7 @@ public sealed class ContentHashContentPhaseTests : ContentHashTestBase
         var keptPath = Path.Combine(Workspace.Root, "Order2.cs");
         File.Move(stuff, keptPath);
 
-        var row = Assert.Single(Content(stuff).ReportRows);
+        var row = Assert.Single(Content(stuff));
 
         Assert.Equal("split", row.Status);
         Assert.Equal(keptPath, row.KeptPath);
@@ -115,7 +115,7 @@ public sealed class ContentHashContentPhaseTests : ContentHashTestBase
         File.Move(stuff, keptPath);
         File.AppendAllText(keptPath, "// edited after the rename\n");
 
-        var row = Assert.Single(Content(stuff).ReportRows);
+        var row = Assert.Single(Content(stuff));
 
         Assert.Equal("skipped", row.Status);
         Assert.StartsWith(ContentHash.StalePlanPrefix, row.Reason, StringComparison.Ordinal);

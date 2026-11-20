@@ -21,16 +21,16 @@ public sealed class ContentHashRenamesTests : ContentHashTestBase
     {
         var planned = Assert.Single(Plan(_stuff));
 
-        var renames = RunAndWriteManifest(Phase.Renames, _stuff);
+        var renames = RunPhase(Phase.Renames, _stuff);
 
         var keptPath = Path.Combine(Workspace.Root, "Order2.cs");
-        var renamed = Assert.Single(renames.ReportRows);
+        var renamed = Assert.Single(renames);
         Assert.Equal("split", renamed.Status);
         Assert.Equal(planned.ContentHash, renamed.ContentHash);
         Assert.True(File.Exists(keptPath));
         Assert.False(File.Exists(_stuff));
 
-        var row = Assert.Single(Content(_stuff).ReportRows);
+        var row = Assert.Single(Content(_stuff));
 
         Assert.Equal("split", row.Status);
         Assert.Equal(keptPath, row.KeptPath);
@@ -40,15 +40,15 @@ public sealed class ContentHashRenamesTests : ContentHashTestBase
     [Fact]
     public void EditBetweenPlanAndRenames_IsRefusedByRenames_NotLaunderedIntoANewPlan()
     {
-        // The renames phase recomputes the plan and its rows replace the manifest. Without a
-        // check there, the edited bytes would be hashed into the new manifest and the
-        // content phase would apply an edit nobody reviewed.
+        // The renames phase recomputes the plan from the edited bytes. It is held to the
+        // manifest, so it refuses the file, and the content phase cannot apply an edit
+        // nobody reviewed.
         Plan(_stuff);
 
         File.WriteAllText(_stuff, Mismatched.Replace("class Line { }", "class Line { int x; }", StringComparison.Ordinal));
         var edited = File.ReadAllBytes(_stuff);
 
-        var renamed = Assert.Single(RunAndWriteManifest(Phase.Renames, _stuff).ReportRows);
+        var renamed = Assert.Single(RunPhase(Phase.Renames, _stuff));
 
         Assert.Equal("skipped", renamed.Status);
         Assert.StartsWith(ContentHash.StalePlanPrefix, renamed.Reason, StringComparison.Ordinal);
@@ -56,9 +56,11 @@ public sealed class ContentHashRenamesTests : ContentHashTestBase
         Assert.True(File.Exists(_stuff));
         Assert.False(File.Exists(Path.Combine(Workspace.Root, "Order2.cs")));
 
-        var row = Assert.Single(Content(_stuff).ReportRows);
+        // The plan still asks for the rename that was refused, so content will not act.
+        var row = Assert.Single(Content(_stuff));
 
-        Assert.Equal("skipped", row.Status);
+        Assert.Equal("failed", row.Status);
+        Assert.StartsWith("Content phase expected renamed file", row.Reason, StringComparison.Ordinal);
         Assert.Equal(edited, File.ReadAllBytes(_stuff));
         Assert.False(File.Exists(Path.Combine(Workspace.Root, "Line.cs")));
     }
@@ -71,14 +73,14 @@ public sealed class ContentHashRenamesTests : ContentHashTestBase
         // would have nothing to hold the file to.
         var planned = Assert.Single(Plan(_stuff));
 
-        var early = Assert.Single(RunAndWriteManifest(Phase.Content, _stuff).ManifestRows);
+        var early = Assert.Single(RunPhase(Phase.Content, _stuff));
         Assert.Equal("failed", early.Status);
         Assert.Contains("expected renamed file", early.Reason, StringComparison.Ordinal);
         Assert.Equal(planned.ContentHash, early.ContentHash);
 
         File.AppendAllText(_stuff, "// edited\n");
 
-        var renamed = Assert.Single(RunAndWriteManifest(Phase.Renames, _stuff).ManifestRows);
+        var renamed = Assert.Single(RunPhase(Phase.Renames, _stuff));
         Assert.Equal("skipped", renamed.Status);
         Assert.StartsWith(ContentHash.StalePlanPrefix, renamed.Reason, StringComparison.Ordinal);
         Assert.Equal(planned.ContentHash, renamed.ContentHash);
@@ -92,12 +94,12 @@ public sealed class ContentHashRenamesTests : ContentHashTestBase
         // After a real rename, a directory scan supplies Order2.cs, which the plan never
         // listed as an input. The row is found through its kept path.
         var planned = Assert.Single(Plan(_stuff));
-        RunAndWriteManifest(Phase.Renames, _stuff);
+        RunPhase(Phase.Renames, _stuff);
 
         var keptPath = Path.Combine(Workspace.Root, "Order2.cs");
         File.AppendAllText(keptPath, "// edited after the rename\n");
 
-        var row = Assert.Single(RunAndWriteManifest(Phase.Renames, keptPath).ManifestRows);
+        var row = Assert.Single(RunPhase(Phase.Renames, keptPath));
 
         Assert.Equal("skipped", row.Status);
         Assert.StartsWith("stale plan: input changed after the plan was written", row.Reason, StringComparison.Ordinal);
@@ -115,12 +117,12 @@ public sealed class ContentHashRenamesTests : ContentHashTestBase
         var copy = Path.Combine(Workspace.Root, "Order2.cs");
         File.Copy(_stuff, copy);
 
-        var rows = RunAndWriteManifest(Phase.Renames, _stuff, copy).ManifestRows;
+        var rows = RunPhase(Phase.Renames, _stuff, copy);
 
         var refused = Assert.Single(rows, r => r.OriginalPath == copy);
         Assert.Equal("stale plan: the plan manifest has no row for this file; re-run --phase plan", refused.Reason);
         Assert.Null(refused.ContentHash);
-        Assert.DoesNotContain(Content(_stuff, copy).ReportRows, r => r.OriginalPath == copy && r.Status == "split");
+        Assert.DoesNotContain(Content(_stuff, copy), r => r.OriginalPath == copy && r.Status == "split");
     }
 
     [Fact]
@@ -128,7 +130,7 @@ public sealed class ContentHashRenamesTests : ContentHashTestBase
     {
         // Nothing was planned, so there is nothing to be held to.
 
-        var row = Assert.Single(RunAndWriteManifest(Phase.Renames, _stuff).ManifestRows);
+        var row = Assert.Single(RunPhase(Phase.Renames, _stuff));
 
         Assert.Equal("split", row.Status);
         Assert.True(ContentHash.IsWellFormed(row.ContentHash));
