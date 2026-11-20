@@ -27,13 +27,26 @@ internal static class ManifestWriter
     /// input file.
     /// </summary>
     /// <param name="path">Absolute path to a manifest previously produced by <see cref="Write"/>.</param>
+    /// <param name="requireContentHash">
+    /// True when the caller is about to act on the rows' content hashes. A manifest with no
+    /// <c>contentHash</c> column then fails the read, before any file is touched.
+    /// </param>
     /// <returns>One <see cref="FileResult"/> per unique <c>originalPath</c> value, with its new files aggregated.</returns>
-    public static IReadOnlyList<FileResult> Read(string path)
+    /// <exception cref="InvalidOperationException">Thrown when <paramref name="requireContentHash"/> is set and the manifest has no <c>contentHash</c> column.</exception>
+    public static IReadOnlyList<FileResult> Read(string path, bool requireContentHash = false)
     {
         using var parser = new CsvFieldReader(path);
         var header = parser.ReadFields() ?? Array.Empty<string>();
         var indexes = header.Select((name, index) => (name, index)).ToDictionary(x => x.name, x => x.index, StringComparer.OrdinalIgnoreCase);
-        var rows = new List<(string OriginalPath, string KeptPath, bool GitMove, string Status, string Reason, string Note, string NewFilePath, string Type)>();
+        if (requireContentHash && !indexes.ContainsKey("contentHash"))
+        {
+            // A missing column is a property of the whole file, so it is one error for the
+            // run and not one skip per row. A run that skipped every row would exit 0 and
+            // look like a run with nothing to do.
+            throw new InvalidOperationException($"Plan manifest has no contentHash column, so it cannot prove the inputs are unchanged. An older version wrote it, or it is not a plan manifest. Re-run --phase plan to rebuild it: {path}");
+        }
+
+        var rows = new List<(string OriginalPath, string KeptPath, bool GitMove, string Status, string Reason, string Note, string NewFilePath, string Type, string ContentHash)>();
         while (!parser.EndOfData)
         {
             var fields = parser.ReadFields();
@@ -50,7 +63,8 @@ internal static class ManifestWriter
                 Get(fields, indexes, "reason"),
                 Get(fields, indexes, "note"),
                 Get(fields, indexes, "newFilePath"),
-                Get(fields, indexes, "type")));
+                Get(fields, indexes, "type"),
+                Get(fields, indexes, "contentHash")));
         }
 
         // The CSV repeats one logical row once per new file, so grouping reassembles them.
@@ -69,7 +83,13 @@ internal static class ManifestWriter
                     first.Status,
                     string.IsNullOrEmpty(first.Reason) ? null : first.Reason,
                     string.IsNullOrEmpty(first.Note) ? null : first.Note,
-                    g.Where(r => !string.IsNullOrEmpty(r.NewFilePath)).Select(r => new NewFileResult(r.NewFilePath, r.Type)).ToArray());
+                    g.Where(r => !string.IsNullOrEmpty(r.NewFilePath)).Select(r => new NewFileResult(r.NewFilePath, r.Type)).ToArray())
+                {
+                    // Kept as written, valid or not. Judging the value is the job of the
+                    // phase that compares it, and a malformed one has to reach that phase
+                    // to be refused.
+                    ContentHash = string.IsNullOrEmpty(first.ContentHash) ? null : first.ContentHash,
+                };
             })
             .ToArray();
     }
@@ -83,11 +103,13 @@ internal static class ManifestWriter
     /// Serializes the results to the manifest CSV format. Rows without any new files
     /// (skips and failures) still emit one row so their status is preserved; splits
     /// emit one row per new file so the content phase can read the exact target paths.
+    /// New columns are appended, never inserted, so a reader that addresses columns by
+    /// position keeps working.
     /// </summary>
     public static string ToCsv(IReadOnlyList<FileResult> results)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("originalPath,keptPath,gitMove,status,reason,note,newFilePath,type");
+        builder.AppendLine("originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash");
         foreach (var result in results)
         {
             if (result.NewFiles.Count == 0)
@@ -114,7 +136,8 @@ internal static class ManifestWriter
             .Append(Csv(result.Reason ?? string.Empty)).Append(',')
             .Append(Csv(result.Note ?? string.Empty)).Append(',')
             .Append(Csv(file?.Path ?? string.Empty)).Append(',')
-            .Append(Csv(file?.Type ?? string.Empty)).AppendLine();
+            .Append(Csv(file?.Type ?? string.Empty)).Append(',')
+            .Append(Csv(result.ContentHash ?? string.Empty)).AppendLine();
     }
 
     private static string Csv(string value)

@@ -71,12 +71,12 @@ internal class Result<T> : Result
 }
 ```
 
-The plan phase writes this manifest row. Paths are shortened here; the tool writes absolute
-paths.
+The plan phase writes this manifest row. Paths and hashes are shortened here; the tool
+writes absolute paths and a full 64 digit `contentHash`.
 
 ```csv
-originalPath,keptPath,gitMove,status,reason,note,newFilePath,type
-"src/Result.cs","src/Result.cs",false,"split","","","src/Result{T}.cs","Result<T>"
+originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash
+"src/Result.cs","src/Result.cs",false,"split","","","src/Result{T}.cs","Result<T>","sha256:9c1e..."
 ```
 
 After the content phase, `Result.cs` keeps `Result` and `Result{T}.cs` holds `Result<T>`.
@@ -134,9 +134,9 @@ outputs. By default the form is `<OriginalFileName>.<TypeName>.cs`. The plan say
 the `note` column:
 
 ```csv
-originalPath,keptPath,gitMove,status,reason,note,newFilePath,type
-"src/A.cs","src/A.cs",false,"split","","resolved output path collision: src/A.cs -> src/A.Shared.cs; src/B.cs -> src/B.Shared.cs","src/A.Shared.cs","Shared"
-"src/B.cs","src/B.cs",false,"split","","resolved output path collision: src/A.cs -> src/A.Shared.cs; src/B.cs -> src/B.Shared.cs","src/B.Shared.cs","Shared"
+originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash
+"src/A.cs","src/A.cs",false,"split","","resolved output path collision: src/A.cs -> src/A.Shared.cs; src/B.cs -> src/B.Shared.cs","src/A.Shared.cs","Shared","sha256:41d7..."
+"src/B.cs","src/B.cs",false,"split","","resolved output path collision: src/A.cs -> src/A.Shared.cs; src/B.cs -> src/B.Shared.cs","src/B.Shared.cs","Shared","sha256:b94d..."
 ```
 
 The collision check ignores case, so `Shared.cs` and `shared.cs` count as the same path.
@@ -152,9 +152,9 @@ Pass `--collision-naming type-first` and the tool swaps the two parts of the qua
 name. It emits `<TypeName>.<OriginalFileName>.cs`:
 
 ```csv
-originalPath,keptPath,gitMove,status,reason,note,newFilePath,type
-"src/A.cs","src/A.cs",false,"split","","resolved output path collision: src/A.cs -> src/Shared.A.cs; src/B.cs -> src/Shared.B.cs","src/Shared.A.cs","Shared"
-"src/B.cs","src/B.cs",false,"split","","resolved output path collision: src/A.cs -> src/Shared.A.cs; src/B.cs -> src/Shared.B.cs","src/Shared.B.cs","Shared"
+originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash
+"src/A.cs","src/A.cs",false,"split","","resolved output path collision: src/A.cs -> src/Shared.A.cs; src/B.cs -> src/Shared.B.cs","src/Shared.A.cs","Shared","sha256:41d7..."
+"src/B.cs","src/B.cs",false,"split","","resolved output path collision: src/A.cs -> src/Shared.A.cs; src/B.cs -> src/Shared.B.cs","src/Shared.B.cs","Shared","sha256:b94d..."
 ```
 
 SA1649 reads both names as `Shared`, so both files pass. The flag is opt-in, and the
@@ -166,8 +166,8 @@ to know:
   `content phase plan does not match manifest` and writes no source for it. The `note`
   column names the path and both values.
 * **The renames phase cannot check the value.** It recomputes the plan under the value it
-  is given and reads no manifest. It does not write the manifest either, so the reviewed
-  names stay as planned. Give it the same value as the plan run, so its report shows the
+  is given and does not compare collision names with the manifest. It does not write the
+  manifest either, so the reviewed names stay as planned. Give it the same value as the plan run, so its report shows the
   same paths.
 * **A mismatched content run leaves the plan alone.** Skips are not failures, so the run
   exits 0, and files with no collision are still split. The skipped rows go to the report

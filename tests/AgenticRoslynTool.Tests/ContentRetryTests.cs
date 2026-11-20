@@ -103,7 +103,7 @@ public sealed class ContentRetryTests
         var row = Assert.Single(new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run());
 
         Assert.Equal("skipped", row.Status);
-        Assert.Equal("nothing to split: input has 0 top-level type declaration(s)", row.Reason);
+        Assert.StartsWith(ContentHash.StalePlanPrefix, row.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -121,7 +121,26 @@ public sealed class ContentRetryTests
         var row = Assert.Single(new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run());
 
         Assert.NotEqual(AlreadyApplied, row.Reason);
-        Assert.Equal("nothing to split: input has 1 top-level type declaration(s)", row.Reason);
+        Assert.StartsWith(ContentHash.StalePlanPrefix, row.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AppliedFileThatNoLongerParses_IsStaleNotAlreadyApplied()
+    {
+        // Every output exists and the kept file declares none of the planned types, but it
+        // no longer parses. A file that does not parse cannot be shown to be applied work.
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", "public class Alpha { }\npublic class Beta { }\n");
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+
+        Assert.Equal("split", Assert.Single(workspace.RunPlanThenContent(listPath, manifestPath)).Status);
+        File.WriteAllText(input, "public class Alpha { \n");
+
+        var row = Assert.Single(new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run());
+
+        Assert.Equal("skipped", row.Status);
+        Assert.StartsWith(ContentHash.StalePlanPrefix, row.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -141,7 +160,7 @@ public sealed class ContentRetryTests
         var row = Assert.Single(new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run());
 
         Assert.Equal("skipped", row.Status);
-        Assert.Equal("nothing to split: input has 1 top-level type declaration(s)", row.Reason);
+        Assert.StartsWith(ContentHash.StalePlanPrefix, row.Reason, StringComparison.Ordinal);
         Assert.False(File.Exists(beta));
     }
 }

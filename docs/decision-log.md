@@ -93,9 +93,9 @@ agent can see the whole change before it happens, and if what gets applied is pr
 what was reviewed.
 
 **Consequences.** Three invocations instead of one. A plan whose shape has drifted is
-detected rather than applied. The check is structural: it compares the kept path, the git
-move flag, and the set of output paths. It does not hash content, so a source edit that
-leaves type names and paths alone will not be caught.
+detected rather than applied. That check is structural: it compares the kept path, the git
+move flag, and the set of output paths. On its own it missed a source edit that left type
+names and paths alone. Decision 22 added a content hash to close that gap.
 
 > **Warning.** Collapsing this into a single pass removes the review artifact and the
 > drift check together. At that point the tool is asking for trust it has not earned, on
@@ -357,7 +357,7 @@ rejected instead of letting argument order pick. A plan row the content phase ne
 received appears in the report as a skip and stays `split` in the plan. An earlier version
 rewrote the row as `skipped`, which destroyed the reviewed plan as soon as an agent applied
 content in batches. A second version carried the row forward through a `RunOutcome` with
-separate manifest and report views. Decision 22 removed that type along with the rewrite it
+separate manifest and report views. Decision 23 removed that type along with the rewrite it
 existed to make safe. A file symlink discovered alongside its target is
 de-duplicated by physical identity so one file is never split twice. Case sensitivity is
 taken from the operating system, not probed per volume; a case-sensitive volume mounted on
@@ -377,7 +377,7 @@ in `Options`, since a new value-taking option has to update both or the scan dri
 The same argument runs one level down, at the per-file boundary. The content phase rewrites
 source as it goes and writes its record once at the end, so an exception escaping one
 input strands every file already rewritten with no record of them. That record was the
-manifest when this was written, and is the report since decision 22. Three review rounds each found another site inside `Process`
+manifest when this was written, and is the report since decision 23. Three review rounds each found another site inside `Process`
 that threw past the write: enumeration of a lazy input list, `File.ReadAllBytes` on a file
 `File.Exists` had just approved, `GetReadPath` on a rename the operator never applied, and
 `BuildPlan` on a manifest carrying two rows for one type. Guarding them one at a time was
@@ -536,11 +536,12 @@ the manifest was rejected too. A column would give exact detection and one refus
 any row is touched. It also changes the manifest CSV for every caller, to serve one flag.
 Revisit it if a second flag ever changes planned paths.
 
-**Consequences.** The value must be passed to every phase. The renames phase reads no
-manifest, so it cannot check the value. When this was written it also wrote the manifest
-again from its own plan, so a renames run with a different value replaced the reviewed
-collision names. Decision 22 closed that gap: renames no longer writes the manifest, and
-the content check compares against the plan as reviewed. The content check
+**Consequences.** The value must be passed to every phase. The renames phase reads the
+manifest only for each row's hash and status, never for its paths, so it does not check
+the value. See decision 22. When this was written it also wrote the manifest again from
+its own plan, so a renames run with a different value replaced the reviewed collision
+names. Decision 23 closed that gap: renames no longer writes the manifest, and the
+content check compares against the plan as reviewed. The content check
 reads the plan's value from the path and the note together. It is per row. A row with no
 collision has the same paths under both values and still applies. A run without the flag
 plans the same paths as before, and it still accepts a free path typed into the manifest
@@ -555,7 +556,7 @@ for the same reason `Shared{T}.cs` does.
 A forgotten flag is the likely mistake, and it is not free. The mismatched rows are
 skipped, so the run exits 0, and the note on each row names the cause. Those rows go to
 the report and the plan keeps them as `split`, so the fix is to run the content phase
-again with the flag. Before decision 22 the content phase wrote them back as `skipped`,
+again with the flag. Before decision 23 the content phase wrote them back as `skipped`,
 which used up the reviewed plan.
 
 Type-first refuses a colliding source whose base name is `G`, `Designer`, or `Generated`,
@@ -577,7 +578,103 @@ this run computes" and every hand-edited path is refused. Flip the default and e
 existing plan with a collision goes stale at once. The flag name and its two values are
 now command line contract. Rename or remove one and every script that passes it exits 2.
 
-### Decision 22. Only the plan phase writes the manifest, and runs report to their own file
+### Decision 22. The plan manifest carries a content hash of every input
+
+**Context.** The content phase compared its recomputed plan against the manifest by shape
+only: kept path, git move flag, output paths. An edit that kept every type name and path,
+such as a changed method body, passed that check. The tool then applied a split to bytes
+nobody had reviewed. The maintainer chose to close this with a hash that is always on.
+
+**Decision.** Every manifest row for a file the plan read records `contentHash`, the SHA-256 of the input's raw
+bytes, written as `sha256:` plus 64 lowercase hexadecimal digits. It is the last CSV column
+and the last field of each JSON file entry. One rule governs it: **a run that starts a
+plan records hashes, and every later phase only carries and compares them.** The details
+below follow from that rule.
+
+- **Raw bytes, not decoded text.** The hash is taken from the bytes `FileSplitter` already
+  reads and hands to `EncodedSource`, so planning reads the file once. A change of
+  encoding, byte order mark, or newline style therefore counts. The tool re-emits all of
+  those, so the plan was reviewed against them too.
+- **Which rows carry it.** Every row for a file the plan read, whatever its status. A row
+  is empty only when the plan never read the file: excluded, missing, or unreadable. One
+  rule with no status cases is easier to keep true than a rule per status.
+- **Later phases never write their own hash.** Renames and content each write their rows
+  back over the manifest. If either stored the hash of the bytes it found, a refusal
+  would match on the next run and turn into permission. So a row written by renames or
+  content takes its hash from the manifest row it replaces, on every status and every
+  exit, including the exits that never read the file. A `split` row written by content
+  still shows the planned hash, not the hash of the rewritten kept file. Decision 23
+  stopped both phases writing the manifest. The rule stays for the rows they report, so
+  a report never shows a hash the plan phase did not record.
+- **A mismatch is a `skipped` row, not `failed`.** It matches the structural mismatch,
+  which was already a skip, and decision 13: refusing is the correct outcome. The reason
+  starts with `stale plan:` so a caller can find these rows without parsing hashes. In
+  the content phase the check runs straight after the read, before parsing and every
+  guard that follows it, and nothing is written.
+- **Renames is held to the plan.** The renames phase recomputes the plan, and it used to
+  apply whatever it computed. When a manifest exists it now refuses, with a `stale plan:`
+  reason and no rename, a file whose bytes differ from the recorded hash, a file it would
+  split that the manifest marks `skipped` or `failed`, and a file it would split that the
+  manifest has no row for. The byte check applies to every file renames reads that has a recorded hash, not only
+  the ones it would split, so a changed file is reported as changed. That covers a file
+  the plan skipped that later gains a type. Before decision 23 it also covered a file
+  content refused as stale and wrote back as `skipped`. A `git mv` does not change bytes, so a renamed file still matches in
+  the content phase. Renames is held to the hash and the status, not the shape: with
+  matching bytes it still applies the paths it recomputed.
+- **A manifest with no `contentHash` column ends the run.** Content and renames both exit
+  3 with a message that says to re-run the plan phase, before any source file is read or
+  moved.
+  See Rejected.
+- **An empty or malformed value refuses that one file.** It is a `skipped` row with the
+  same prefix. The comparison is ordinal against one canonical form, so uppercase digits,
+  a short value, or another algorithm's prefix never match by accident and never throw.
+- **The structural check stays.** The hash proves the source is unchanged. It says nothing
+  about the manifest. The structural comparison now catches an edited manifest over
+  unchanged source, which `ContentHashCarryTests` pins.
+
+**Rejected.** Falling back to the structural check when the column is missing. That is the
+silent path: a caller with an old manifest would get the old, weaker guarantee and no sign
+of it. Skipping every row for a missing column was also rejected. A run that skips
+everything exits 0 and looks like a run with nothing to do, and the cause is one fact about
+the file, not one per row. An opt in flag was rejected by the maintainer: a safety check
+that is off by default protects nobody who has not read about it. Hashing decoded text was
+rejected because it would pass a newline or encoding change the plan never showed. Letting
+renames check only the rows it was about to rename was tried first and rejected in review.
+Each row status it did not check was a path by which a fresh hash reached the manifest.
+
+**Consequences.** This is a manifest and JSON schema change. A manifest written by an
+earlier version cannot drive the renames or content phase; re-run the plan phase. A reader
+that addresses CSV columns by position keeps working, because the column is appended. A
+reader that rejects unknown columns or JSON fields needs an update. Renames now reads the
+manifest when one exists. It used to ignore and overwrite it. Renames no longer renames a
+file added to the input after the plan; re-run the plan phase to include it. The suite now
+starts `git` in several tests.
+
+Three limits remain.
+
+1. The phases trust the manifest on disk. Someone who edits a file and then edits its
+   `contentHash` to match defeats the check, and so does deleting the manifest before
+   renames. The hash detects drift. It does not authenticate the manifest.
+   A copy of a planned file has the same hash, so identity comes from the path. Renames
+   accepts a kept path only once the original is gone.
+2. Renames with no manifest on disk plans and hashes afresh, as it always could. Nothing
+   was planned, so there is nothing to hold the file to.
+3. A second content run, or a renames run, over a file content already split reports it as
+   `stale plan:`. The first run rewrote the kept file, so its bytes differ from the plan,
+   and the tool cannot tell its own write from an outside edit. Before the hash, that
+   second run reported `nothing to split`. The file is left alone either way. Decision 23
+   changed the content half: a content retry now reports such a file as `already applied`.
+   A renames run still reports `stale plan:`.
+
+**Reversal warning.** Remove the content check and an edit made after review is applied
+with no sign, as long as type names and paths survive it. Let renames or content store the
+hash of the bytes it found, on any row, and a refused edit matches on the next run. Let
+renames act on a file the manifest does not mark `split` and the same edit is planned
+afresh one phase early. Make the missing column a fallback and every old manifest silently
+loses the guarantee. Hash decoded text instead of bytes and a newline or encoding change
+slips through.
+
+### Decision 23. Only the plan phase writes the manifest, and runs report to their own file
 
 **Context.** `Program` wrote every run's rows back to the plan path. A content run that
 failed a row replaced that row's `split` plan with `failed`. The retry then answered `not
@@ -638,7 +735,8 @@ and `content` phases write what they did to a report file in the same CSV format
   and after a report that was not written.
   No existing field changed name or meaning. `manifest` is still the plan path.
 - **Renames keeps recomputing.** It still plans from the files as they are, and it no
-  longer writes the manifest. Its rows go to the report. A rename has to follow the file
+  longer writes the manifest. Its rows go to the report. Decision 22 holds it to the
+  hash and status of each manifest row when a manifest exists, and that stays. A rename has to follow the file
   as it is now, and the content phase already refuses a row whose rename state disagrees
   with the plan, so nothing downstream depended on the rewrite. Decision 19 needs the
   kept path of each `split` row, and the plan phase already records it. A rename that
@@ -647,7 +745,10 @@ and `content` phases write what they did to a report file in the same CSV format
 - **A retry skips what is already done.** A row whose planned outputs all exist, and whose
   file still declares a type but none of the planned ones, is `skipped` with the reason
   `already applied: every planned output exists and this file no longer declares the
-  planned types`. The check runs before `BuildPlan` and writes nothing.
+  planned types`. Such a file no longer matches the hash decision 22 records, so the
+  check sits inside the hash check and only picks the reason: `already applied` for this
+  case, `stale plan:` for every other change. Either way the file is skipped and nothing
+  is written. Decision 22 had listed the stale reason on a second content run as a limit.
 - **`RunOutcome` is gone.** It split a run into manifest rows and report rows so a content
   run could rewrite the manifest without losing unapplied rows. With no rewrite there is
   one view, and `FileSplitter.Run` returns it.
@@ -695,13 +796,13 @@ completes. The already
 applied check does not compare the types that remain with the plan, so a source edited
 after planning can read as applied when its planned outputs exist. A process killed
 between the files of one split can leave a planned output missing while the kept file no
-longer declares its type. A retry reports that file as `nothing to split`. That window
-predates this decision, and the retry contract makes it worth closing in its own change.
+longer declares its type. A retry reports that file as `stale plan:`, which is a skip at
+exit code 0. A renames run over a file content already split also reports `stale plan:`.
 
 **Reversal warning.** Write a later phase's rows back to the manifest and a failed row
 erases its own plan again. The retry then reports the file as not planned, at exit code 0.
 Remove the already applied check and a retry still exits 0, but every applied row reads
-`nothing to split`, which a caller cannot tell from a file that never needed splitting.
+`stale plan:`, which a caller cannot tell from a file someone edited.
 Widen that check into an exemption from the existence checks and an edited manifest can
 aim a write at an existing file, which rule 10 forbids. Replace a three way look with
 `File.Exists` and a path the system cannot look up reads as absent, which is how the
