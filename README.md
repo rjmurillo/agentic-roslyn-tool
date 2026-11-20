@@ -102,17 +102,26 @@ git diff --name-only --diff-filter=d HEAD~1 |
 
 Standard output carries a parseable document or nothing: the manifest CSV in `plan`, the
 JSON report under `--json`, and nothing at all in `renames` and `content` without `--json`.
-The manifest path, the one-line summary, and every error go to standard error, so a pipe
-stays clean. The JSON report leads with counts:
+The manifest path, the one-line summary, a `Next:` line, and every error go to standard
+error, so a pipe stays clean. The JSON report leads with counts and the next step:
 
 ```json
 {
   "phase": "plan",
   "manifest": "C:\\repo\\sa1402-split-manifest.csv",
+  "collisionNaming": "file-first",
   "summary": { "total": 2, "split": 1, "skipped": 1, "failed": 0, "newFiles": 1 },
+  "nextArgs": ["split-types", "--phase", "content", "--input", "C:\\repo\\src", "--manifest", "C:\\repo\\sa1402-split-manifest.csv", "--repo-root", "C:\\repo", "--json"],
   "files": [ ... ]
 }
 ```
+
+`nextArgs` is the exact argument list for the next phase. Put your tool command in front
+of it, such as `agentic-roslyn-tool` or `dnx AgenticRoslynTool --`, and run it. It points
+at `renames` only when a file needs a `git mv`; commit the renames before you run the
+`content` step it gives next. It is `null` when the run is finished, when a row failed,
+when nothing would split, and when the input came from standard input, which a second run
+cannot read again.
 
 Exit codes are distinct so a caller can branch without parsing anything:
 

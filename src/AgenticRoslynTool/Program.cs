@@ -70,7 +70,8 @@ try
 {
     var outcome = new FileSplitter(options).Run();
     ManifestWriter.Write(outcome.ManifestRows, options.ManifestPath, outcome.CollisionNaming);
-    var report = RunReport.Create(outcome.ReportRows, options.Phase, options.ManifestPath, outcome.CollisionNaming);
+    var nextArgs = NextStep.For(options, options.Phase, outcome.ReportRows);
+    var report = RunReport.Create(outcome.ReportRows, options.Phase, options.ManifestPath, outcome.CollisionNaming, nextArgs);
 
     if (options.Json)
     {
@@ -86,6 +87,11 @@ try
     // which belongs on standard error.
     Console.Error.WriteLine($"Manifest: {options.ManifestPath}");
     Console.Error.WriteLine(report.ToSummaryLine());
+    if (nextArgs is not null)
+    {
+        Console.Error.WriteLine(NextStep.Describe(nextArgs, options.Phase));
+    }
+
     return report.Summary.Failed > 0 ? 1 : 0;
 }
 // Unfiltered on purpose. This is the process boundary, and the contract an agent depends on
@@ -135,6 +141,13 @@ static void PrintUsage(TextWriter w)
     w.WriteLine("                                   The plan records the value; renames and content reuse it when the flag is absent.");
     w.WriteLine("  --help, -h                       Show help.");
     w.WriteLine();
+    w.WriteLine("Typical workflow. Use one list file and one manifest outside the repository for every step:");
+    w.WriteLine("  1. split-types --input <list> --manifest <csv> --json                    plan; changes no source file");
+    w.WriteLine("  2. split-types --input <list> --manifest <csv> --json --phase renames    git mv only; commit it");
+    w.WriteLine("  3. split-types --input <list> --manifest <csv> --json --phase content    rewrites files; build and test");
+    w.WriteLine("  With --json, nextArgs in the report holds the exact arguments for the next step.");
+    w.WriteLine();
     w.WriteLine("Exit codes: 0 no failures, 1 a file failed, 2 bad command line, 3 the run could not complete.");
-    w.WriteLine("Standard output carries the data (CSV or JSON); a one-line summary goes to standard error.");
+    w.WriteLine("Exit 0 can still mean nothing happened. Read summary.split, or the summary line.");
+    w.WriteLine("Standard output carries the data (CSV or JSON); the summary and a Next: line go to standard error.");
 }

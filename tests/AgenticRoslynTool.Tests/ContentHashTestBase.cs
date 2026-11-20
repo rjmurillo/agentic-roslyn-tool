@@ -1,6 +1,3 @@
-using System.Diagnostics;
-using Xunit;
-
 namespace AgenticRoslynTool.Tests;
 
 // Shared arrangement for the content hash tests: one scratch directory and one manifest
@@ -34,35 +31,10 @@ public abstract class ContentHashTestBase : IDisposable
     private protected RunOutcome RunAndWriteManifest(Phase phase, params string[] inputs)
     {
         var outcome = new FileSplitter(new Options(Workspace.WriteInputList(inputs), ManifestPath, Workspace.Root, phase, null)).Run();
-        ManifestWriter.Write(outcome.ManifestRows, ManifestPath, CollisionNaming.FileFirst);
+        ManifestWriter.Write(outcome.ManifestRows, ManifestPath, outcome.CollisionNaming);
         return outcome;
     }
 
-    // The renames phase runs git mv, which needs a repository and a tracked file. Nothing is
-    // committed, so no author identity is required on the machine running the test.
-    private protected void InitRepository(string trackedFile)
-    {
-        Git("init", "--quiet");
-        Git("add", "--", trackedFile);
-    }
-
-    private void Git(params string[] arguments)
-    {
-        var start = new ProcessStartInfo("git")
-        {
-            WorkingDirectory = Workspace.Root,
-            RedirectStandardError = true,
-            RedirectStandardOutput = true,
-            UseShellExecute = false,
-        };
-        foreach (var argument in arguments)
-        {
-            start.ArgumentList.Add(argument);
-        }
-
-        using var process = Process.Start(start) ?? throw new InvalidOperationException("failed to start git");
-        var error = process.StandardError.ReadToEnd();
-        process.WaitForExit();
-        Assert.True(process.ExitCode == 0, $"git {string.Join(' ', arguments)} failed: {error}");
-    }
+    // See GitFixture: a repository and a tracked file are enough for git mv.
+    private protected void InitRepository(string trackedFile) => GitFixture.InitAndTrack(Workspace.Root, trackedFile);
 }

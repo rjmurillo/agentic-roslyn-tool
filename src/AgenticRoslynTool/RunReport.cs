@@ -13,6 +13,7 @@ internal sealed record RunReport(
     [property: JsonPropertyName("manifest")] string Manifest,
     [property: JsonPropertyName("collisionNaming")] string CollisionNaming,
     [property: JsonPropertyName("summary")] RunSummary Summary,
+    [property: JsonPropertyName("nextArgs")] IReadOnlyList<string>? NextArgs,
     [property: JsonPropertyName("files")] IReadOnlyList<FileReport> Files)
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
@@ -29,7 +30,12 @@ internal sealed record RunReport(
     /// The naming the run used. Reported once at the top level, not per file: it is one value
     /// for the whole run. The CSV repeats it per row only because CSV has no file level slot.
     /// </param>
-    public static RunReport Create(IReadOnlyList<FileResult> results, Phase phase, string manifestPath, CollisionNaming collisionNaming)
+    /// <param name="nextArgs">
+    /// The arguments for the next phase from <see cref="NextStep.For"/>, or null. Placed
+    /// straight after <c>summary</c>, ahead of the long <c>files</c> array, so a reader that
+    /// truncates the document still sees it.
+    /// </param>
+    public static RunReport Create(IReadOnlyList<FileResult> results, Phase phase, string manifestPath, CollisionNaming collisionNaming, IReadOnlyList<string>? nextArgs)
     {
         var summary = new RunSummary(
             results.Count,
@@ -42,7 +48,7 @@ internal sealed record RunReport(
             .Select(r => new FileReport(r.OriginalPath, r.KeptPath, r.GitMove, r.Status, r.Reason, r.Note, r.NewFiles.Select(f => new NewFileReport(f.Path, f.Type)).ToArray(), r.ContentHash))
             .ToArray();
 
-        return new RunReport(PhaseName(phase), manifestPath, CollisionNames.FlagValue(collisionNaming), summary, files);
+        return new RunReport(PhaseName(phase), manifestPath, CollisionNames.FlagValue(collisionNaming), summary, nextArgs, files);
     }
 
     /// <summary>Serializes the report as indented JSON with a trailing newline omitted.</summary>

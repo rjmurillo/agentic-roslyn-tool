@@ -120,6 +120,7 @@ its status vocabulary match the CSV manifest, so the two formats are one contrac
   "manifest": "C:\\repo\\sa1402-split-manifest.csv",
   "collisionNaming": "file-first",
   "summary": { "total": 2, "split": 1, "skipped": 1, "failed": 0, "newFiles": 1 },
+  "nextArgs": ["split-types", "--phase", "content", "--input", "C:\\repo\\src", "--manifest", "C:\\repo\\sa1402-split-manifest.csv", "--repo-root", "C:\\repo", "--json"],
   "files": [
     {
       "originalPath": "C:\\repo\\src\\Foo.cs",
@@ -154,6 +155,29 @@ the manifest. It is one value for the whole run. CSV has no place for a file lev
 so the CSV repeats it on every row, and every row must agree. JSON carries it once, at the
 top, because a per-file copy would invite a reader to expect per-file differences. This
 is the one place the two formats differ in shape. See decision 24.
+
+`nextArgs` is JSON only. It is the argument list for the phase that should run next, from
+the verb onward, without the command name, because only the caller knows whether it ran
+`agentic-roslyn-tool`, `dotnet agentic-roslyn-tool`, or `dnx AgenticRoslynTool --`. Each
+element is one argument, so no shell quoting is involved. It sits before `files` so a
+reader that truncates the document still sees it. The rules live in `NextStep.For`:
+
+- After `plan`, it points at `renames` when any `split` row has `gitMove` true, and at
+  `content` otherwise. A renames run with nothing to move would spend a turn.
+- After `renames`, it points at `content`. Commit the renames first; the `Next:` line on
+  standard error says so.
+- It is `null` after `content`, when any row is `failed`, when no row is `split`, and when
+  `--input` was `-`. Standard input cannot be read again by a second process, so replaying
+  `--input -` would plan nothing and exit 0. Save the paths to a list file instead.
+- It repeats `--input`, `--manifest`, `--repo-root`, `--require-header`, every
+  `--exclude`, and `--json` when this run had it. It never repeats `--collision-naming`,
+  because the manifest records it. See decision 24.
+
+Standard error carries the same suggestion as one `Next:` line. It quotes an argument that
+holds a space. When an argument holds a double quote or a line break, no quoting is right
+for every shell, so the line falls back to a sentence that points at `nextArgs`.
+`NextStepTests.FollowingNextArgs_RunsTheWholeWorkflow` runs `nextArgs` exactly as printed,
+through a real `git mv`, and checks the split is done. See decision 25.
 
 ## Phase contracts
 

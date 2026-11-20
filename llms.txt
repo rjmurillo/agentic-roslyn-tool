@@ -1,6 +1,6 @@
 # AgenticRoslynTool
 
-> A .NET 10 command line tool that splits C# files into one type per file across a whole repository, so a codebase can enable StyleCop SA1402. dotnet format cannot do this because the SA1402 code fix has no Fix All. Not an MCP server. Agent friendly: --dry-run, --json report on stdout, exit codes 0/1/2/3. With no --phase it plans and changes no source file; only --phase content rewrites files. Version 0.1.1 defaulted to content.
+> A .NET 10 command line tool that splits C# files into one type per file across a whole repository, so a codebase can enable StyleCop SA1402. dotnet format cannot do this because the SA1402 code fix has no Fix All. Not an MCP server. Agent friendly: --json report on stdout with nextArgs for the next phase, and exit codes 0/1/2/3. With no --phase it plans and changes no source file; only --phase content rewrites files. Version 0.1.1 defaulted to content.
 
 ## Docs
 

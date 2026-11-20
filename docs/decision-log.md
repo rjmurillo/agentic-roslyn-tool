@@ -751,6 +751,37 @@ the exit 0 trap back in place. Let `Write` default the value and a future caller
 renames run rewrites reviewed names. Accept a blank value as "not recorded" and an edited
 manifest silently falls back to the flag.
 
+### Decision 25. The report says what to run next
+
+**Context.** The workflow is three runs with the same options, and the commonest mistake is
+a dropped option between them: a missing `--manifest`, a missing `--exclude`, or before
+decision 24 a missing `--collision-naming`. A frontier model reads the docs and carries the
+options forward. An economical model follows a literal command far more reliably than a
+paragraph of advice. The NuGet team's skill evaluation found the same gap between tiers.
+
+**Decision.** The JSON report carries `nextArgs`, the argument list for the next phase,
+and standard error carries a `Next:` line with the same suggestion. `NextStep.For` decides.
+After `plan` it points at `renames` only when a row needs a `git mv`, and at `content`
+otherwise. It is `null` after `content`, after a failed row, when nothing splits, and for
+standard input. `--help` now prints the three step workflow and says that exit 0 can mean
+nothing happened.
+
+**Rejected.** A full command line string. The command name differs by install method, and
+quoting differs by shell, so a string would be wrong for some caller. An argument array
+starting at the verb is right for all of them. Pointing at `renames` after every plan was
+rejected because a renames run with nothing to move is a wasted turn. Replaying `--input -`
+was rejected because the second process reads an empty stream and reports success.
+Suggesting a phase after a failed row was rejected, because a failure needs a decision.
+
+**Consequences.** Additive for the JSON: a reader that rejects unknown fields needs an
+update. Standard error gains one line on success. Standard output is unchanged, so a pipe
+into a parser still works. A frontier model can ignore the field at no cost.
+
+**Reversal warning.** Add `--collision-naming` to `nextArgs` and a renames run copies a
+value that may contradict the manifest. Return a suggestion for standard input and the
+next run plans nothing and exits 0. Move the field after `files` and a truncated read
+loses it.
+
 ## Unrecorded decisions
 
 Recorded so nobody assumes these were considered.
