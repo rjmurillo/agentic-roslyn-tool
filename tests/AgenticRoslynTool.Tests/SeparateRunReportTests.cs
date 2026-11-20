@@ -143,6 +143,38 @@ public sealed class SeparateRunReportTests
     }
 
     [Fact]
+    public void ForgottenCollisionNamingFlag_IsFixedByRunningContentAgainWithIt()
+    {
+        // Two inputs both emit Shared.cs, planned type-first. Content without the flag skips
+        // both rows. The plan keeps them as split, so the same command with the flag
+        // applies them. No plan run in between.
+        using var workspace = new TempWorkspace();
+        var (_, _, listPath) = CollisionNamingFixture.WriteSharedPair(workspace, sharedTypes: "public class Shared { }\n");
+        var manifestPath = Path.Combine(workspace.Root, "plan.csv");
+        var reportPath = Path.Combine(workspace.Root, "plan.report.csv");
+        Assert.Equal(0, Phase("plan", workspace, listPath, manifestPath, "--collision-naming", "type-first").ExitCode);
+        var planBytes = File.ReadAllBytes(manifestPath);
+
+        var forgotten = Phase("content", workspace, listPath, manifestPath);
+
+        Assert.Equal(0, forgotten.ExitCode);
+        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+        Assert.All(ManifestWriter.Read(reportPath), r =>
+        {
+            Assert.Equal("skipped", r.Status);
+            Assert.Equal("content phase plan does not match manifest", r.Reason);
+        });
+        Assert.Equal(["A.cs", "B.cs"], CollisionNamingFixture.CsFiles(workspace));
+
+        var retry = Phase("content", workspace, listPath, manifestPath, "--collision-naming", "type-first");
+
+        Assert.Equal(0, retry.ExitCode);
+        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
+        Assert.All(ManifestWriter.Read(reportPath), r => Assert.Equal("split", r.Status));
+        Assert.Equal(["A.cs", "B.cs", "Shared.A.cs", "Shared.B.cs"], CollisionNamingFixture.CsFiles(workspace));
+    }
+
+    [Fact]
     public void Renames_WritesTheReportAndNeverTheManifest()
     {
         // File names match their primary types, so no git process starts.

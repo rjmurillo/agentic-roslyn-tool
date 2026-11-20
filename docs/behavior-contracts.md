@@ -226,6 +226,11 @@ Promises:
 - Kept as a separate phase so the rename lands in its own commit. Git then records a
   rename instead of a delete plus an add, and the file history survives.
 
+Recomputes the plan and reads no manifest. So it cannot notice a `--collision-naming`
+value that differs from the plan run. It does not write the manifest either, so the
+reviewed collision names stay as planned, and the content check still compares against
+them. Pass the same value here as in the plan run, so the report shows the same paths.
+
 Requires a real git repository. Most of the test suite avoids this phase by keeping every
 fixture file name equal to its primary type name. One test,
 `RenameFailure_IsAFailedRowInTheReport`, asks for a rename outside a repository to pin the
@@ -252,6 +257,16 @@ Promises:
   output paths. The manifest carries no content hash, so an edit that leaves type names
   and paths alone passes this check. Treat it as drift detection on the plan shape, not as
   proof the source is unchanged.
+- Refuses a row the plan phase resolved under the `--collision-naming` value this run
+  was not given. Two things must hold: the output path has the other value's qualified
+  form, and the row's note records that the collision pass chose that path. The reason is
+  the same `content phase plan does not match manifest`, and the skipped row's note names
+  the path and both values. The content phase never reruns the collision pass, so this
+  check is the only thing that keeps the flag in step with the plan. A path typed into the
+  manifest by hand has no such note and is accepted as before. An edit that rewrites the
+  note to name the new path as well is refused, because it then reads as the plan's own. The skipped row goes to the report
+  and the plan keeps its `split` row, so recovery is to run the content phase again with
+  the value the plan was given.
 - **Never writes the manifest.** The plan is byte identical before and after a content
   run, whether rows succeed or fail. Results go to the report.
 - **Can be retried against the same plan.** A row that failed is still `split` in the
@@ -426,7 +441,13 @@ The things that would surprise a reader who only skimmed the signatures.
    so a failed content row can be retried against the plan that was reviewed.
 5. **A cross file name collision is usually resolved to `FileName.TypeName.cs`**, which
    satisfies SA1402 but violates SA1649, so those files need a human decision afterwards.
-   When the qualified names collide too, the tool gives up and skips every input involved
-   with `qualified output path collision requires manual handling`.
+   `--collision-naming type-first` resolves it to `TypeName.FileName.cs` instead, which
+   passes SA1649. Under either value, when the qualified names collide too, the tool gives
+   up and skips every input involved with
+   `qualified output path collision requires manual handling`. The plan does not probe the
+   disk for a qualified name. The content phase does, and refuses with
+   `target path already exists`. Under `type-first`, an input whose qualified name would
+   end in `.g`, `.g.i`, `.designer`, or `.generated` is skipped with
+   `qualified output name would be read as generated code; manual handling required`.
 6. **The tool trusts the plan manifest as a review artifact**, and refuses to proceed when
    reality has drifted from it. That refusal is a feature.
