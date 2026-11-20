@@ -86,6 +86,11 @@ jobs:
           VERSION: ${{ steps.version.outputs.value }}
         run: dotnet pack src/AgenticRoslynTool/AgenticRoslynTool.csproj --configuration Release --no-build --output artifacts -p:Version="$VERSION"
 
+      # Before the release exists. A published version can never be reused, so a package
+      # missing its agent files has to be caught here, not after the push.
+      - name: Verify package contents
+        run: bash .github/scripts/verify-package-contents.sh artifacts
+
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
