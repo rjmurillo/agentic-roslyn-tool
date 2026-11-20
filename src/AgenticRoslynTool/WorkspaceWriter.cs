@@ -39,6 +39,7 @@ internal sealed class WorkspaceWriter
     /// undone before reporting failure.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when <c>git mv</c> fails or altered the file's byte contents.</exception>
+    /// <exception cref="System.ComponentModel.Win32Exception">Thrown when git cannot be found or started.</exception>
     /// <exception cref="TimeoutException">Thrown when <c>git mv</c> does not exit within the time limit.</exception>
     internal void ApplyRenameOnly(string originalPath, byte[] originalBytes, string keptPath)
     {
