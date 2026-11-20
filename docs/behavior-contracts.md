@@ -223,9 +223,10 @@ Promises:
   collision for <path>; kept original file name`. A skipped row claims nothing. Targets are
   compared the way the platform's disk compares them. The renames phase applies the same
   rule after it has held each row to the manifest, so a file it refuses as `stale plan:`
-  claims nothing either. A row whose rename the plan dropped stays dropped, even when the
-  winner is refused, because the content phase reads the path the manifest kept. Both files
-  then wait for a new plan. `KeptRenameCollisionTests` pins all of it.
+  claims nothing either. A row whose rename the plan dropped stays dropped, with the same
+  note, even when the winner is refused or missing. The content phase reads the kept path
+  the manifest holds, so the two files then wait for a new plan.
+  `KeptRenameCollisionTests` pins all of it.
 - Every row for a file the run read carries that file's `contentHash`. Verified by
   `ContentHashPlanTests`.
 
@@ -260,8 +261,9 @@ Promises:
 - A row is found by its original path, or by its kept path once the rename has landed. A
   file at the kept path while the original still exists is not the planned file, even
   with the same bytes, and counts as having no row.
-- The check covers the hash and the status, not the shape. With matching bytes, this
-  phase still applies the paths it recomputed, as it did before the hash existed.
+- The check covers the hash and the status, not the whole shape. With matching bytes, this
+  phase still reports the new file paths it recomputed. A kept-file rename is the one
+  exception: it runs only when the manifest row plans that same rename.
 - **Never reports a hash of its own when a manifest exists.** Every row it reports copies
   `contentHash` from the manifest row for that file, whatever the row's status. A file
   the manifest has no row for gets an empty hash. So the report never shows a hash the
@@ -277,14 +279,20 @@ Promises:
 - Kept as a separate phase so the rename lands in its own commit. Git then records a
   rename instead of a delete plus an add, and the file history survives.
 
-Recomputes the plan. It reads the manifest on disk only to hold each file to its recorded
-hash and status, never to its paths. So it does not compare the `--collision-naming` or
-`--file-naming` value with the plan run. It does not write the manifest either, so the
-reviewed names stay as planned, and the content check still compares against them. One
-path fact is held: a rename the manifest row does not plan is never run. The row keeps its
-original name, with the note `rename to <path> is not in the plan; kept original file
-name`. A different `--file-naming` can still leave out a rename the plan asked for. The
-content phase then fails that row and says to run the renames phase. A file the plan
+Recomputes the plan. It reads the manifest on disk to hold each file to its recorded hash
+and status, and to one path: the kept-file rename. It does not compare the
+`--collision-naming` or `--file-naming` value with the plan run, or any new file path. It
+does not write the manifest either, so the reviewed names stay as planned, and the content
+check still compares against them.
+
+A rename runs only when the manifest row plans that same rename, to that same target. Any
+other recomputed rename is dropped and the file stays where the plan left it. That covers a
+row with no planned rename and a row whose planned rename has another target. An input
+that lost its target to an earlier input in the plan keeps the plan's note, `rename
+collision for <path>; kept original file name`. Any other dropped rename gets `rename to
+<path> is not in the plan; kept original file name`. A different `--file-naming` can still
+leave out a rename the plan asked for. The content phase then fails that row and says to
+run the renames phase, and a renames run with the plan's value lands it. A file the plan
 skipped under one value that renames would split under the other gets a `stale plan:`
 reason, because the manifest does not mark it `split`. Pass the same values here as in the
 plan run, so the report shows the same paths and every planned rename lands.

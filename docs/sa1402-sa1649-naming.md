@@ -131,8 +131,9 @@ and the plan is unchanged, so run the content phase again with the flag the plan
 with.
 
 The renames phase checks less. It recomputes the plan and holds each file to the manifest's
-hash and status. It never runs a rename the plan did not ask for. It can still leave out a
-rename the plan did ask for: a renames run without the flag over a `metadata` plan skips
+hash and status. It runs a rename only when the plan holds that same rename, so under the
+wrong value it moves nothing the plan did not ask for. It can still leave out a rename the
+plan did ask for: a renames run without the flag over a `metadata` plan skips
 the rename to ``Foo`1.cs`` and reports success. The content phase then fails that file and
 says to run the renames phase. Run it with the flag and continue.
 

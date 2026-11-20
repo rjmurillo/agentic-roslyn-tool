@@ -95,7 +95,9 @@ internal sealed class FileSplitter
     /// It never writes the manifest: the rows it returns go to the run report. When a
     /// manifest exists, the phase is bound to it. It renames only a file the manifest marks
     /// <c>split</c> whose bytes still match the recorded hash, and no row it returns carries
-    /// a hash of its own. See <see cref="PlanBinding.HoldRenamesRow"/>.
+    /// a hash of its own. See <see cref="PlanBinding.HoldRenamesRow"/>. It also runs a rename
+    /// only when the manifest row plans that same rename. See
+    /// <see cref="KeptRenameCollisions.HoldToPlannedRename"/>.
     /// </para>
     /// <para>
     /// With no manifest on disk nothing was planned, so there is nothing to be held to, and
@@ -115,9 +117,9 @@ internal sealed class FileSplitter
         // applied keep the qualified paths the reviewed plan gave them. Every row is bound
         // before the first rename, so no binding sees a tree this run already changed.
         // Rename targets are handed out last, so a row this phase refuses never takes a
-        // target from a row that will act. A rename the plan did not ask for is dropped
-        // first, because the content phase reads the path the manifest kept.
-        var bound = BuildResolvedPlan().Select(row => priorPlan is null ? row : KeptRenameCollisions.DropUnplannedRename(PlanBinding.HoldRenamesRow(row, priorPlan), priorPlan)).ToArray();
+        // target from a row that will act. A rename that is not the plan's own is dropped
+        // first, because the content phase reads the kept path the manifest holds.
+        var bound = BuildResolvedPlan().Select(row => priorPlan is null ? row : KeptRenameCollisions.HoldToPlannedRename(PlanBinding.HoldRenamesRow(row, priorPlan), priorPlan)).ToArray();
         return KeptRenameCollisions.Resolve(bound).Select(ApplyPlannedRename).ToArray();
     }
 

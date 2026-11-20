@@ -886,14 +886,16 @@ with no generic type. The run exits 0 and the plan is unchanged, so recovery is 
 content phase again with the plan's value. The mismatch note says so first, and offers a
 new plan as the other way out.
 
-The renames phase is held to one path fact. It never runs a rename the manifest row does
-not plan, because the content phase reads the path the manifest kept and such a rename
-would strand the file. `KeptRenameCollisions.DropUnplannedRename` enforces it and the row's
-note says so. That closes the worse half of a flag mismatch in the renames phase. The
-other half stays open. A renames run under another value can leave out a planned rename
-and report the row as `split`. The content phase then fails that row and says to run the
-renames phase, and a renames run with the plan's value recovers. `AGENTS.md` lists this as
-a known issue.
+The renames phase is held to one path: the kept-file rename. It runs a rename only when the
+manifest row plans that same rename, to that same target. The content phase reads the kept
+path the manifest holds, so any other rename would strand the file.
+`KeptRenameCollisions.HoldToPlannedRename` enforces it. A dropped rename leaves the file
+where the plan left it, and the row's note says why. That closes the worse half of a flag
+mismatch in the renames phase: it can no longer move a file the plan left in place, or
+move one to the other convention's name. The other half stays open. A renames run under
+another value can leave out a planned rename and report the row as `split`. The content
+phase then fails that row and says to run the renames phase, and a renames run with the
+plan's value recovers. `AGENTS.md` lists this as a known issue.
 
 `metadata` also renames more kept files, which exposed an older gap. Two inputs could plan
 one rename target, because the per-file plan only sees targets that already exist. A
@@ -918,10 +920,10 @@ row, in the renames phase after the manifest binding too, so a refused row never
 target. And it compares targets the way the disk does, because the content phase asks the
 disk. A dropped rename is only settled once the winner's rename lands. Before that, the
 content phase skips the row and its note says to run the renames phase. When the winner is
-refused as stale, the later input does not take the rename. Its plan row says no rename,
-so it waits with the winner for a new plan. On `main` that later input was renamed and
-split, because its own plan row carried the rename. Here the plan gives the target to one
-input, and one stale file holds back both. A kept rename that
+refused as stale, or is missing, the later input does not take the rename. Its plan row
+says no rename, so it waits with the winner for a new plan. On `main` that later input was
+renamed and split, because its own plan row carried the rename. Here the plan gives the
+target to one input, and one refused file holds back both. A kept rename that
 collides with another input's new file is still open, and `AGENTS.md` lists it.
 
 **Reversal warning.** Remove the other convention check and a content run whose flag
@@ -931,7 +933,7 @@ the other convention. Widen it to refuse every path the run did not compute and 
 ``Foo`1.cs`` loses `Foo<T>` to a new file, which is the opposite of what the flag is for.
 Change the default and every existing plan and test that involves a generic type changes
 names. Remove `KeptRenameCollisions` and two inputs with one rename target plan a rename that
-fails. Remove `DropUnplannedRename` and the renames phase can move a file the content
+fails. Remove `HoldToPlannedRename` and the renames phase can move a file the content
 phase will then not find. The flag name and its two values are command line contract: rename or
 remove one and every caller that passes it exits 2.
 

@@ -35,7 +35,9 @@ public sealed class KeptRenameCollisionTests
 
         var renames = FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Renames, FileNamingConvention.Metadata);
 
+        // The report uses the plan's words for the input that lost the target.
         Assert.All(renames, r => Assert.Equal("split", r.Status));
+        Assert.Equal($"rename collision for {target}; kept original file name", renames[1].Note);
         Assert.Equal(new[] { "Foo.Extra.cs", "Foo`1.cs" }, FileNamingRuns.CsFiles(ws));
         Assert.Equal(FooExtraPart, File.ReadAllText(second));
 
@@ -117,7 +119,7 @@ public sealed class KeptRenameCollisionTests
         Assert.Equal("skipped", renames[0].Status);
         Assert.StartsWith("stale plan:", renames[0].Reason, StringComparison.Ordinal);
         Assert.Equal(("split", second, false), (renames[1].Status, renames[1].KeptPath, renames[1].GitMove));
-        Assert.Contains($"rename to {target} is not in the plan; kept original file name", renames[1].Note, StringComparison.Ordinal);
+        Assert.Equal($"rename collision for {target}; kept original file name", renames[1].Note);
         Assert.Equal(new[] { "Foo.Extra.cs", "Foo.cs" }, FileNamingRuns.CsFiles(ws));
 
         var content = FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Content, FileNamingConvention.Metadata);
