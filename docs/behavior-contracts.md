@@ -476,10 +476,15 @@ at any depth. A type in `namespace A { namespace B { class Deep { } } }` is a sp
 candidate like any other, and lands in exactly one output. The nested namespace block it
 sat in stays in every other output, empty, the way a sibling namespace block does.
 
-Two types with the same name and the same type parameters, at different depths, map to
-the same output file. The plan skips that input with `target path collision within split`,
-and nothing is written. A different arity gives a different file name, so that input
-splits.
+Two types at different depths can map to the same output file. The plan then skips the
+input with `target path collision within split`, and nothing is written. Which pairs
+collide depends on `--file-naming`:
+
+| Pair | `stylecop` | `metadata` |
+|---|---|---|
+| `Foo` and `Foo` | collision | collision |
+| `Box<T>` and `Box<U>` | splits, `Box{U}.cs` | collision on ``Box`1.cs`` |
+| `Foo` and `Foo<T>` | splits, `Foo{T}.cs` | splits, ``Foo`1.cs`` |
 
 ### Input rejection, before parsing
 

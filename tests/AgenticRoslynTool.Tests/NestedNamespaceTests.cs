@@ -126,6 +126,29 @@ public sealed class NestedNamespaceTests
     }
 
     [Fact]
+    public void Plan_SameArityDifferentTypeParameterNames_SplitsUnderStyleCop()
+    {
+        using var ws = new TempWorkspace();
+
+        var plan = PlanOnly(ws, "Box.cs", BoxSource, FileNamingConvention.StyleCop);
+
+        Assert.Equal("split", plan.Status);
+        Assert.Contains(plan.NewFiles, f => f.Path.EndsWith("Box{U}.cs", StringComparison.Ordinal) && f.Type == "Box<U>");
+    }
+
+    [Fact]
+    public void Plan_SameArityDifferentTypeParameterNames_CollidesUnderMetadata()
+    {
+        using var ws = new TempWorkspace();
+
+        var plan = PlanOnly(ws, "Box.cs", BoxSource, FileNamingConvention.Metadata);
+
+        Assert.Equal("skipped", plan.Status);
+        Assert.StartsWith("target path collision within split", plan.Reason, StringComparison.Ordinal);
+        Assert.EndsWith("Box`1.cs", plan.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Split_DocCommentOnNestedType_TravelsWithIt()
     {
         using var ws = new TempWorkspace();
@@ -276,6 +299,27 @@ public sealed class NestedNamespaceTests
         Assert.Equal("skipped", content.Status);
         Assert.Equal(source, File.ReadAllText(Path.Combine(ws.Root, "Same.cs")));
         Assert.Single(Directory.GetFiles(ws.Root, "*.cs"));
+    }
+
+    private const string BoxSource =
+        "namespace A\n" +
+        "{\n" +
+        "    public class Box<T> { }\n" +
+        "\n" +
+        "    public class Other { }\n" +
+        "\n" +
+        "    namespace B\n" +
+        "    {\n" +
+        "        public class Box<U> { }\n" +
+        "    }\n" +
+        "}\n";
+
+    private static FileResult PlanOnly(TempWorkspace ws, string fileName, string source, FileNamingConvention naming)
+    {
+        var path = ws.WriteFile(fileName, source);
+        var listPath = ws.WriteInputList(path);
+        var options = new Options(listPath, Path.Combine(ws.Root, "m.csv"), ws.Root, Phase.Plan, null, FileNaming: naming);
+        return Assert.Single(new FileSplitter(options).Run());
     }
 
     private static FileResult PlanThenContent(TempWorkspace ws, string fileName, string source)
