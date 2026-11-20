@@ -144,6 +144,47 @@ public sealed class ContentRetryTests
     }
 
     [Fact]
+    public void EditedSourceThatStillDeclaresAPlannedType_IsStaleNotAlreadyApplied()
+    {
+        // The planned output exists and the source changed, which is half of what an applied
+        // split looks like. The source still declares the type the plan moves out, so it is
+        // not applied work.
+        using var workspace = new TempWorkspace();
+        var edited = "public class Alpha { }\npublic class Beta { }\n// edited\n";
+        var input = workspace.WriteFile("Alpha.cs", "public class Alpha { }\npublic class Beta { }\n");
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+
+        ManifestWriter.Write(new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run(), manifestPath);
+        var output = workspace.WriteFile("Beta.cs", "// someone else's file\n");
+        File.WriteAllText(input, edited);
+
+        var row = Assert.Single(new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run());
+
+        Assert.Equal("skipped", row.Status);
+        Assert.StartsWith(ContentHash.StalePlanPrefix, row.Reason, StringComparison.Ordinal);
+        Assert.Equal(edited, File.ReadAllText(input));
+        Assert.Equal("// someone else's file\n", File.ReadAllText(output));
+    }
+
+    [Fact]
+    public void AppliedFileThatNoLongerDecodes_IsStaleNotAlreadyApplied()
+    {
+        using var workspace = new TempWorkspace();
+        var input = workspace.WriteFile("Alpha.cs", "public class Alpha { }\npublic class Beta { }\n");
+        var listPath = workspace.WriteInputList(input);
+        var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
+
+        Assert.Equal("split", Assert.Single(workspace.RunPlanThenContent(listPath, manifestPath)).Status);
+        File.WriteAllBytes(input, [0x2F, 0x2F, 0x20, 0xC3, 0x28, 0x0A]);
+
+        var row = Assert.Single(new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run());
+
+        Assert.Equal("skipped", row.Status);
+        Assert.StartsWith(ContentHash.StalePlanPrefix, row.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MissingOutputAfterAnAppliedSplit_IsNotCalledAlreadyApplied()
     {
         // The claim in the reason is that every planned output exists. When one was deleted

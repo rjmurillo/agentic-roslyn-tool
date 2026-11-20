@@ -713,7 +713,7 @@ and `content` phases write what they did to a report file in the same CSV format
 - **A manifest path must end in a file name.** A fifth version compared the two file
   names as text and met `--manifest plan.csv/`. The operating system still found the
   file, the last part of the path read as empty, and the names looked different. The
-  renames phase never opens the manifest, so the report replaced the plan. A trailing
+  renames phase did not open the manifest then, so the report replaced the plan. A trailing
   separator on `--manifest` is now a rejected command line, and `ReportFile` refuses a
   manifest path that ends in one or names a directory.
 - **A linked manifest path is refused in `renames` and `content`.** That removes the last
@@ -766,7 +766,8 @@ tree can. Nothing in the tool reads a report.
 
 **Rejected.** Treating `target path already exists` as success on a retry. An existing
 output proves nothing about who wrote it. The already applied check asks a narrower
-question, and a file that fails it still reaches every existence check with no exemption.
+question, and a file that fails it is refused as a stale plan. A file whose bytes still
+match the plan never reaches the check, and meets every existence check as before.
 
 **Consequences.** Two files instead of one, and the report is replaced by every run that
 completes, so it describes the last such run. A run that ends with exit code 3 before

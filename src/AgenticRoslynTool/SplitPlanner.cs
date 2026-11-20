@@ -191,11 +191,12 @@ internal static class SplitPlanner
     /// <remarks>
     /// Both halves are required. The file read must still declare a type while declaring
     /// none of the types the plan moved out, and every planned output must exist. A file
-    /// that still declares a planned type is not applied work. It goes on to
-    /// <see cref="BuildPlan"/>, where an existing output is the collision that method
-    /// refuses. This method never grants an exemption from that check, and nothing is
-    /// written on any path through it. The check does not compare the types that remain
-    /// against the plan, so a source edited after planning can read as applied.
+    /// that still declares a planned type is not applied work. The one caller asks only
+    /// about a file whose bytes no longer match the plan, and a false answer there leaves
+    /// the file a stale plan refusal. This method only ever picks the reason for a skip. It
+    /// grants no exemption from any check, and nothing is written on any path through it.
+    /// The check does not compare the types that remain against the plan, so a source
+    /// edited after planning can read as applied.
     /// </remarks>
     /// <param name="planned">The manifest row for the file.</param>
     /// <param name="types">The top level types the file declares now.</param>

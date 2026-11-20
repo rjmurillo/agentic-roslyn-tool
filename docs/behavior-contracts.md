@@ -318,9 +318,10 @@ Promises:
   not mark `split` repeats the hash of that input's manifest row, when it has one. The
   row is found by the input's original path, or by its kept path while the manifest row
   still records that kept path.
-- A second run over a file an earlier run already split reports that file as
-  `stale plan:`, and so does a renames run after it. The earlier run rewrote the kept file, so its bytes differ from the plan.
-  The file is left alone.
+- A renames run over a file an earlier content run already split reports that file as
+  `stale plan:`. The content run rewrote the kept file, so its bytes differ from the
+  plan. A second content run reports it as `already applied`, as set out below. The file
+  is left alone either way.
 - Refuses a file when the recomputed plan disagrees with the manifest it was handed. The
   comparison is structural: it covers the kept path, the git move flag, and the set of
   output paths. With the hash in front of it, this check now guards the other side: the

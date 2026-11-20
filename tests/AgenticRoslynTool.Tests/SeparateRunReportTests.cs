@@ -827,8 +827,7 @@ public sealed class SeparateRunReportTests
     public void ManifestPathEndingInASeparator_IsRejectedAndThePlanIsKept()
     {
         // "plan.csv/" still finds the file, and its last part reads as empty. Compared as
-        // text it is not "plan.csv", so the report could be aimed at the plan itself. The
-        // renames phase never opens the manifest, so nothing else would object.
+        // text it is not "plan.csv", so the report could be aimed at the plan itself.
         using var workspace = new TempWorkspace();
         var misnamed = workspace.WriteFile("Zed.cs", OtherTwoTypes);
         var listPath = workspace.WriteInputList(misnamed);

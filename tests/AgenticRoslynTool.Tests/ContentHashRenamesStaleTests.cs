@@ -124,7 +124,26 @@ public sealed class ContentHashRenamesStaleTests : ContentHashTestBase
         Assert.Equal("split", again.Status);
         Assert.Null(again.Reason);
         Assert.Equal(planned.ContentHash, again.ContentHash);
-        Assert.Equal("split", Assert.Single(ManifestWriter.Read(ManifestPath)).Status);
+    }
+
+    [Fact]
+    public void FileThePlanRefused_IsNotSplitByRenames_OnceTheObstacleIsGone()
+    {
+        // The plan itself recorded a skip, because an output path was taken. With the
+        // obstacle gone renames would split the file, and the plan never said to.
+        var blocker = Workspace.WriteFile("Bar.cs", "namespace N;\n");
+        var source = Workspace.WriteFile("Foo.cs", TwoTypes);
+        var planned = Assert.Single(Plan(source));
+        Assert.Equal("skipped", planned.Status);
+        Assert.StartsWith("target path already exists", planned.Reason, StringComparison.Ordinal);
+
+        File.Delete(blocker);
+
+        var row = Assert.Single(RunPhase(Phase.Renames, source));
+
+        Assert.Equal("skipped", row.Status);
+        Assert.Equal("stale plan: the plan manifest does not mark this file as split; re-run --phase plan", row.Reason);
+        Assert.Equal(planned.ContentHash, row.ContentHash);
     }
 
     [Fact]

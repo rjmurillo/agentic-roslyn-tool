@@ -33,8 +33,8 @@ internal static class PlanBinding
     /// <item>A row that would act, a <c>split</c>, is refused unless the manifest marks that
     /// file <c>split</c>.</item>
     /// </list>
-    /// A refusal keeps the recorded hash, so it stays a refusal on the next run. Only the
-    /// plan phase starts a new plan.</remarks>
+    /// A refusal keeps the recorded hash, so it stays a refusal on every later run for as
+    /// long as the file differs from the plan. Only the plan phase starts a new plan.</remarks>
     internal static FileResult HoldRenamesRow(FileResult row, Dictionary<string, FileResult> priorPlan)
     {
         var wouldAct = row.Status == "split";
