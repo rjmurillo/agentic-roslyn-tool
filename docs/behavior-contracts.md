@@ -198,9 +198,9 @@ Promises:
 Recomputes the plan and writes the manifest again with its own rows. It reads the manifest
 on disk only to hold each file to its recorded hash and status, never to its paths. So it
 does not compare the `--collision-naming` value with the plan run, and a different value
-replaces the reviewed collision names with the other form. One case is refused: a file the
-plan skipped under one value that renames would split under the other gets a
-`stale plan:` reason, because the manifest does not mark it `split`. The content check then
+replaces the reviewed collision names with the other form. A file the plan skipped under
+one value that renames would split under the other gets a `stale plan:` reason, because
+the manifest does not mark it `split`. The content check then
 sees a manifest that agrees with whatever renames was given. Pass the same value here as
 in the plan run.
 
