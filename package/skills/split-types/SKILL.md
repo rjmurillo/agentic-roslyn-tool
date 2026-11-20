@@ -19,7 +19,8 @@ SA1402 code fix has no Fix All. This skill ships inside the package, so it match
 installed version.
 
 Run the tool as `agentic-roslyn-tool` (global tool), `dotnet agentic-roslyn-tool` (local
-tool), or `dnx AgenticRoslynTool --` (no install). Below, `<tool>` means whichever you use.
+tool), or `dnx AgenticRoslynTool@<version> --` (no install; pin the version so every
+step runs the same build). Below, `<tool>` means whichever you use.
 
 ## Steps
 
@@ -38,24 +39,26 @@ tool), or `dnx AgenticRoslynTool --` (no install). Below, `<tool>` means whichev
    front. Pass each element as its own argument; do not join them into one string. Each
    run prints a new report with a new `nextArgs`. Repeat until `nextArgs` is `null`.
    After a `renames` step, commit only the renamed files before you run the next step.
-5. When `nextArgs` is `null`, the split is done only when all three hold: the report's
-   `phase` is `content`, `summary.failed` is `0`, and no `skipped` row's reason starts
-   with `stale plan:` or `content phase plan does not match manifest`. Then build and run
-   the tests. Otherwise, in this order:
-   - A `skipped` row whose reason starts with `stale plan:` means that file changed after
-     the plan, and nothing was applied to it. Re-run steps 1 and 2, then continue. Step 1
-     matters: after a committed rename, the old list names the file's old path, and a
-     plan from it finds nothing to split.
+5. When `nextArgs` is `null`, the split is done only when the report's `phase` is
+   `content`, `summary.failed` is `0`, and every `skipped` row's reason is
+   `not present as split in plan manifest` or starts with `already applied`. Those two mean
+   the plan never split that file, or an earlier run already did. Then build and run the
+   tests. Any other `skipped` row is a planned split that did not happen. Otherwise:
    - `summary.failed` above `0`: read `reason` on each `failed` row, fix the cause, and
      run the same command again.
-   - The input came from standard input: `nextArgs` is always `null` then. Use a list file.
-   - A `skipped` row whose reason is `content phase plan does not match manifest`: this
-     run did not use the plan's `--file-naming`. Run content again with the value the plan
-     used.
+   - A reason starting `stale plan:`: that file changed after the plan, and nothing was
+     applied to it. Re-run steps 1 and 2, then continue. Step 1 matters: after a committed
+     rename, the old list names the file's old path, and a plan from it finds nothing.
+   - `content phase plan does not match manifest`: this run did not use the plan's
+     `--file-naming`. Run content again with the value the plan used.
+   - `planned as split but not supplied to the content phase input`: the input missed that
+     file. Run content again with the full list.
    - The report's `phase` is `plan` or `renames`: run `--phase content` with every option
      the plan had, including `--file-naming metadata` when the plan used it. This happens
      after renames ran twice, when every row says `input file does not exist` because the
      files already moved.
+   - The input came from standard input: `nextArgs` is always `null` then. Use a list file.
+   - Any other reason: read it. Most name the fix.
 
 ## Exit codes
 

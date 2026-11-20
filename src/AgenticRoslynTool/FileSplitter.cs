@@ -41,15 +41,20 @@ internal sealed class FileSplitter
 
     private readonly WorkspaceWriter _writer;
 
-    /// <summary>Reason recorded when the content phase is handed a file the plan never covered.</summary>
-    private const string NotPlannedReason = "not present as split in plan manifest";
+    /// <summary>
+    /// Reason recorded when the content phase is handed a file the plan never covered.
+    /// Published: the packaged skill counts this skip, and <see cref="AlreadyAppliedReason"/>,
+    /// as the only skips that leave no planned work behind. <c>PackagedAgentDocsTests</c>
+    /// fails if the skill stops quoting it.
+    /// </summary>
+    internal const string NotPlannedReason = "not present as split in plan manifest";
 
     /// <summary>
     /// Reason recorded when a content run meets a row an earlier content run already applied.
     /// The words say what was checked and nothing more. The leading <c>already applied</c> is
     /// published: callers match on it to tell this skip from a refusal, so it must not change.
     /// </summary>
-    private const string AlreadyAppliedReason = "already applied: every planned output exists and this file no longer declares the planned types";
+    internal const string AlreadyAppliedReason = "already applied: every planned output exists and this file no longer declares the planned types";
 
     /// <summary>Constructs a splitter bound to a set of parsed options.</summary>
     /// <param name="options">The options that select the input list, manifest path, repository root, phase, and optional required header.</param>

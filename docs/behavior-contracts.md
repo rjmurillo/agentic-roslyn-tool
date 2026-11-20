@@ -235,8 +235,9 @@ reader that truncates the document still sees it. The rules live in `NextStep.Fo
   instead. A renames run with no manifest plans afresh, but content exits 3 without one,
   so suggesting content there is sure to fail.
 - `null` does not mean the split is done. The packaged skill says the split is done only
-  when the last report's `phase` is `content`, `summary.failed` is 0, and no skipped row
-  starts with `stale plan:` or `content phase plan does not match manifest`. A repeated
+  when the last report's `phase` is `content`, `summary.failed` is 0, and every skipped
+  row's reason is `not present as split in plan manifest` or starts with `already
+  applied`. Those are the only content skips that leave no planned work behind. A repeated
   renames run, for example, ends with `null` `nextArgs` and every row `input file does not
   exist`, while content has not run. A content run without the plan's `--file-naming`
   ends with `null` and a plan mismatch row, while the file is still unsplit.
@@ -247,9 +248,9 @@ reader that truncates the document still sees it. The rules live in `NextStep.Fo
   manifest records it. See decision 26.
 
 Standard error carries the same suggestion as one `Next:` line. An argument made only of
-letters, digits, and `_ . / : + % -` is printed bare. One that also holds a space or a
+letters, digits, and `_ . / : + -` is printed bare. One that also holds a space or a
 backslash is put in single quotes, which bash, zsh, and PowerShell read literally. Any
-other character, such as `$`, a backtick, `&`, a quote, `=`, `@`, `,`, or a line break,
+other character, such as `$`, a backtick, `&`, a quote, `=`, `@`, `,`, `%`, or a line break,
 turns the line into a sentence that points at `nextArgs`, because no quoting is right for
 every shell.
 `NextStepWorkflowTests.FollowingNextArgs_RunsTheWholeWorkflow` runs `nextArgs` exactly as printed,

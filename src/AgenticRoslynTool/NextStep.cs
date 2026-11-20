@@ -11,7 +11,7 @@ namespace AgenticRoslynTool;
 /// A caller that copies the next command exactly cannot drop a flag between phases. This is
 /// expected to help economical models most. The NuGet team measured lower skill compliance
 /// in weaker models, and one literal command asks for less compliance than a paragraph of
-/// advice. No evaluation of this tool has measured it. A frontier model ignores the field.
+/// advice. No evaluation of this tool has measured it. A frontier model can ignore the field.
 /// </para>
 /// <para>
 /// The arguments start at the verb and leave out the command name. The tool runs as
@@ -29,9 +29,10 @@ internal static class NextStep
     /// <remarks>
     /// <c>=</c>, <c>@</c>, and <c>,</c> are left out on purpose. zsh expands a word that
     /// starts with <c>=</c>, PowerShell splats one that starts with <c>@</c>, and PowerShell
-    /// reads <c>a,b</c> as an array. Review found the first two by running the line.
+    /// reads <c>a,b</c> as an array. Review found the first two by running the line. <c>%</c>
+    /// is left out too, because cmd.exe expands <c>%NAME%</c>.
     /// </remarks>
-    private static readonly SearchValues<char> Bare = SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_./:+%-");
+    private static readonly SearchValues<char> Bare = SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_./:+-");
 
     /// <summary>The arguments for the next phase, or null when there is no safe next phase to suggest.</summary>
     /// <param name="options">The options this run was given, including the phase that ran.</param>

@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 39 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 328 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 332 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -88,7 +88,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 328 passed, 0 failed
+dotnet test  -c Release      # must be 332 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -384,6 +384,12 @@ agent does not pay again.
   the same time and wait at most two minutes through `CliRunner.WaitOrKill`, which kills
   the process tree and fails the test. A hung child must fail a test, not stall a CI or
   release job. Add new process tests through these helpers, not through a private copy.
+- **`nextArgs` being null does not mean the split is done.** The skill decides "done" with
+  an allow list: a `content` report, no failed row, and every skipped row's reason either
+  `not present as split in plan manifest` or starting with `already applied`. Three review
+  rounds each found one more reason an exclusion list missed. Do not turn the rule back
+  into a list of bad reasons. `SkillDoneRule` mirrors it in tests, and
+  `PackagedAgentDocsTests` fails if the docs stop quoting `FileSplitter.NotPlannedReason`.
 - **`nextArgs` is null for `--input -` on purpose.** A second process reads an empty
   stream, plans nothing, and exits 0. A test that pipes paths and expects `nextArgs` is
   testing the wrong thing.

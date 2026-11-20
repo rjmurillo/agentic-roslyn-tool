@@ -84,6 +84,20 @@ public sealed partial class PackagedAgentDocsTests
         }
     }
 
+    [Theory]
+    [InlineData("AGENTS.md")]
+    [InlineData("skills/split-types/SKILL.md")]
+    public void TheDoneRule_QuotesTheToolsOwnReasons(string relativePath)
+    {
+        // The done rule is an allow list of two skip reasons. Reword either in the code and
+        // the packaged docs stop matching what the tool prints.
+        var text = File.ReadAllText(Path.Combine(PackageDir, relativePath));
+
+        Assert.Contains(FileSplitter.NotPlannedReason, text, StringComparison.Ordinal);
+        Assert.StartsWith("already applied", FileSplitter.AlreadyAppliedReason, StringComparison.Ordinal);
+        Assert.Contains("starts with `already applied`", text, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void AgentsMd_PointsAtTheSkillItShipsWith()
     {

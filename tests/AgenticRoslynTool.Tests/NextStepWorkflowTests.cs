@@ -33,6 +33,10 @@ public sealed class NextStepWorkflowTests
         Assert.Equal(1, report.RootElement.GetProperty("summary").GetProperty("split").GetInt32());
         Assert.DoesNotContain("Next:", content.StandardError, StringComparison.Ordinal);
 
+        // The excluded file comes back "not present as split in plan manifest", which the
+        // skill's done rule allows, so a model following the skill stops here, correctly.
+        Assert.True(SkillDoneRule.Holds(report.RootElement));
+
         var dir = Path.Combine(ws.Root, "my src");
         Assert.Equal(["A.cs", "B.cs"], Directory.GetFiles(dir, "*.cs").Select(f => Path.GetFileName(f)!).Order(StringComparer.Ordinal));
         Assert.Equal(generatedBefore, File.ReadAllBytes(generated));

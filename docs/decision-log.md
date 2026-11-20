@@ -855,6 +855,9 @@ planned paths, or a report of a renames run that left out a planned rename becau
 differed. The guides already tell a `metadata` repository to pass the flag to every phase,
 so that advice is not the trigger.
 
+Since then, decision 26 added a `collisionNaming` column, so `--file-naming` is the only
+naming flag the manifest does not record.
+
 **Consequences.** The content phase gained a check. It writes the paths the manifest
 holds, so a plan made under the other convention was applied as it stood. It differs only
 in a moved file's name, and the path set comparison runs after those paths are substituted
@@ -1032,8 +1035,14 @@ name from decision 24.
 Decision 21 said to revisit a manifest column "if a second flag ever changes planned
 paths". `--file-naming` (decision 24) is that second flag, and it landed on main while this
 change was in review. It is not recorded here. `nextArgs` repeats `--file-naming metadata`
-for the next phase (decision 27), so a caller who follows it cannot drop the flag. Whether
-to record it in the manifest the same way is an open decision for the maintainer.
+for the next phase (decision 27), so a caller who follows it cannot drop the flag.
+
+Decision 24 called a column for one naming flag and not the other "half a design". This
+change adds that half anyway, for two reasons. The collision flag's failure was observed:
+a forgotten flag skipped rows at exit 0, and before decision 23 it also rewrote reviewed
+names. And the column, the strict read, and `CollisionNamingFlag.Resolve` are the pattern a
+`fileNaming` column would reuse. Recording `--file-naming` the same way is the named
+follow-up, and whether to do it is an open decision for the maintainer.
 
 **Reversal warning.** Drop the column and every phase must be told the value again, with
 the exit 0 trap back in place. Let `Write` default the value and a future caller records
@@ -1062,20 +1071,24 @@ a content run under the other convention skips the affected rows.
 `--help` now prints the three step workflow and says that exit 0 can mean nothing happened.
 
 The `Next:` line prints an argument bare when it holds only letters, digits, and
-`_ . / : + % -`, and in single quotes when it also holds a space or a backslash. Bash, zsh,
+`_ . / : + -`, and in single quotes when it also holds a space or a backslash. Bash, zsh,
 and PowerShell all read single quotes literally. Any other character, such as `$`, a
-backtick, `&`, a quote, `=`, `@`, `,`, or a line break, turns the line into a sentence that
+backtick, `&`, a quote, `=`, `@`, `,`, `%`, or a line break, turns the line into a sentence that
 points at `nextArgs`. Review found that the first version used double quotes, where `$`
 still expands, and later that zsh expands a leading `=` and PowerShell splats a leading
 `@`.
 
 `nextArgs` being `null` does not mean the split is done. A repeated renames run ends with
 `null` and every row `input file does not exist`. The packaged skill therefore defines
-done positively: the last report's `phase` is `content`, `summary.failed` is 0, and no
-skipped row starts with `stale plan:` or `content phase plan does not match manifest`.
-Review reproduced the second case: after a metadata plan and a repeated renames run, a
-content run without `--file-naming` skipped the file at exit 0. The skill's fallback now
-repeats every option the plan had.
+done positively: the last report's `phase` is `content`, `summary.failed` is 0, and every
+skipped row's reason is `not present as split in plan manifest` or starts with `already
+applied`. Those are the only content skips that leave no planned work behind. Three review
+rounds each found one more skip reason that an exclusion list missed: `stale plan:`, then
+`content phase plan does not match manifest`, then `planned as split but not supplied to
+the content phase input`. An allow list of the two harmless reasons ends that pattern.
+`FileSplitter.NotPlannedReason` and `AlreadyAppliedReason` are `internal` so that
+`PackagedAgentDocsTests` can fail when the skill stops quoting them. The skill's fallback
+repeats every option the plan had, `--file-naming` included.
 
 **Rejected.** A full command line string. The command name differs by install method, and
 quoting differs by shell, so a string would be wrong for some caller. An argument array

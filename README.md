@@ -130,9 +130,11 @@ be written.
 of it, such as `agentic-roslyn-tool` or `dnx AgenticRoslynTool --`, and run it. It points
 at `renames` only when a file needs a `git mv`; commit the renames before you run the
 `content` step it gives next. It is `null` when the run is finished, when a row failed,
-when nothing would split, and when the input came from standard input, which a second run
-cannot read again. It is also
-`null` when the report file could not be written. It repeats `--report` only when you
+when nothing would split, when the input came from standard input, which a second run
+cannot read again, and after a renames run that found no plan on disk. It is also
+`null` when the report file could not be written. `null` does not mean the split is done:
+the split is done when a `content` report has no failed row and every skipped row says
+`not present as split in plan manifest` or starts with `already applied`. It repeats `--report` only when you
 chose a path, and `--file-naming` when it is `metadata`. Pass each element as its own argument; do not join them into one string.
 
 Exit codes are distinct so a caller can branch without parsing anything:

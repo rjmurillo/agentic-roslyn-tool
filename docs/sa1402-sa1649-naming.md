@@ -167,7 +167,7 @@ Three things the flag does not do:
 * It does not fix the default qualified form used for a
   [cross-file collision](#same-type-name-in-two-namespaces). That becomes
   ``A.Shared`1.cs``, which SA1649 reads as `A` and still rejects. Add
-  `--collision-naming type-first` to every phase and the name becomes ``Shared`1.A.cs``,
+  `--collision-naming type-first` to the plan and the name becomes ``Shared`1.A.cs``,
   which SA1649 reads as ``Shared`1`` and accepts.
 * It does not change your StyleCop settings. If nothing depends on `metadata`, switching
   the repository to `stylecop` also works. See
