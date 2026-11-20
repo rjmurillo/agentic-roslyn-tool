@@ -1,12 +1,10 @@
-using System;
-using System.IO;
 using Xunit;
 
 namespace AgenticRoslynTool.Tests;
 
-// The manifest's collisionNaming column and the rule that picks a run's naming from it.
+// The manifest's collisionNaming column: how it is written, and what a strict read refuses.
 // Decision 24 in docs/decision-log.md records why the column exists.
-public sealed class CollisionNamingColumnTests
+public sealed class ManifestCollisionNamingTests
 {
     private const string Header = "originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash,collisionNaming";
 
@@ -27,7 +25,7 @@ public sealed class CollisionNamingColumnTests
         Assert.Equal(Header, lines[0]);
         Assert.Equal(4, lines.Length);
         Assert.All(lines[1..], line => Assert.EndsWith(",\"type-first\"", line, StringComparison.Ordinal));
-        Assert.Equal(CollisionNaming.TypeFirst, ManifestWriter.ReadCollisionNaming(manifest));
+        Assert.Equal(CollisionNaming.TypeFirst, ManifestCollisionNaming.Read(manifest));
     }
 
     [Fact]
@@ -37,7 +35,7 @@ public sealed class CollisionNamingColumnTests
         using var ws = new TempWorkspace();
         var manifest = ws.WriteFile("m.csv", Header + "\n");
 
-        Assert.Null(ManifestWriter.ReadCollisionNaming(manifest));
+        Assert.Null(ManifestCollisionNaming.Read(manifest));
     }
 
     [Fact]
@@ -46,7 +44,7 @@ public sealed class CollisionNamingColumnTests
         using var ws = new TempWorkspace();
         var manifest = ws.WriteFile("m.csv", "originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash\n\"/a/A.cs\",\"/a/A.cs\",false,\"skipped\",\"\",\"\",\"\",\"\",\"\"\n");
 
-        var error = Assert.Throws<InvalidOperationException>(() => ManifestWriter.ReadCollisionNaming(manifest));
+        var error = Assert.Throws<InvalidOperationException>(() => ManifestCollisionNaming.Read(manifest));
         Assert.Contains("no collisionNaming column", error.Message, StringComparison.Ordinal);
         Assert.Contains("Re-run --phase plan", error.Message, StringComparison.Ordinal);
     }
@@ -65,7 +63,7 @@ public sealed class CollisionNamingColumnTests
             + "\"/a/A.cs\",\"/a/A.cs\",false,\"skipped\",\"\",\"\",\"\",\"\",\"\",\"type-first\"\n"
             + $"\"/a/B.cs\",\"/a/B.cs\",false,\"skipped\",\"\",\"\",\"\",\"\",\"\",\"{secondRowValue}\"\n");
 
-        var error = Assert.Throws<InvalidOperationException>(() => ManifestWriter.ReadCollisionNaming(manifest));
+        var error = Assert.Throws<InvalidOperationException>(() => ManifestCollisionNaming.Read(manifest));
         Assert.Contains(expected, error.Message, StringComparison.Ordinal);
     }
 
@@ -79,32 +77,7 @@ public sealed class CollisionNamingColumnTests
             + "\"/a/A.cs\",\"/a/A.cs\",false,\"skipped\",\"\",\"two\nlines\",\"\",\"\",\"\",\"type-first\"\n"
             + "\"/a/B.cs\",\"/a/B.cs\",false,\"skipped\",\"\",\"\",\"\",\"\",\"\",\"bogus\"\n");
 
-        var error = Assert.Throws<InvalidOperationException>(() => ManifestWriter.ReadCollisionNaming(manifest));
+        var error = Assert.Throws<InvalidOperationException>(() => ManifestCollisionNaming.Read(manifest));
         Assert.Contains("data row 2 ", error.Message, StringComparison.Ordinal);
     }
-
-    [Theory]
-    [InlineData(null, null, "file-first")]
-    [InlineData("type-first", null, "type-first")]
-    [InlineData(null, "type-first", "type-first")]
-    [InlineData("type-first", "type-first", "type-first")]
-    [InlineData("file-first", "file-first", "file-first")]
-    public void Resolve_PrefersTheRecordedValue_ThenTheFlag_ThenFileFirst(string? given, string? recorded, string expected)
-    {
-        Assert.Equal(expected, CollisionNames.FlagValue(CollisionNames.Resolve(Parse(given), Parse(recorded), "m.csv")));
-    }
-
-    [Theory]
-    [InlineData("file-first", "type-first")]
-    [InlineData("type-first", "file-first")]
-    public void Resolve_RefusesAFlagThatContradictsThePlan(string given, string recorded)
-    {
-        var error = Assert.Throws<InvalidOperationException>(() => CollisionNames.Resolve(Parse(given), Parse(recorded), "m.csv"));
-
-        Assert.Contains($"--collision-naming {given} contradicts the plan manifest, which was planned with {recorded}", error.Message, StringComparison.Ordinal);
-        Assert.Contains("Omit --collision-naming", error.Message, StringComparison.Ordinal);
-    }
-
-    private static CollisionNaming? Parse(string? value) =>
-        value is null ? null : CollisionNames.TryParseFlagValue(value, out var parsed) ? parsed : throw new ArgumentException(value);
 }

@@ -713,7 +713,7 @@ models stop there. The maintainer chose to make the break.
 
 **Decision.** Every manifest row carries `collisionNaming`, `file-first` or `type-first`,
 appended after `contentHash`. The JSON report carries the same value once, as a top level
-field. The rules, all in `CollisionNames.Resolve` and `ManifestWriter.ReadCollisionNaming`:
+field. The rules, all in `CollisionNamingFlag.Resolve` and `ManifestCollisionNaming.Read`:
 
 - The plan phase uses the flag, or `file-first` when it is absent, and records that.
   It never reads an existing manifest's value.

@@ -11,9 +11,6 @@ namespace AgenticRoslynTool;
 /// </summary>
 internal static class ManifestWriter
 {
-    /// <summary>The header of the column that records the run's <c>--collision-naming</c> value.</summary>
-    internal const string CollisionNamingColumn = "collisionNaming";
-
     /// <summary>Writes the manifest CSV to disk as UTF-8 without a BOM, creating the parent directory when needed.</summary>
     /// <param name="results">The per-input results to serialize.</param>
     /// <param name="path">Absolute destination path.</param>
@@ -25,61 +22,6 @@ internal static class ManifestWriter
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path) ?? ".");
         File.WriteAllText(path, ToCsv(results, collisionNaming), new UTF8Encoding(false));
-    }
-
-    /// <summary>
-    /// Reads the collision naming a plan recorded in its <c>collisionNaming</c> column.
-    /// </summary>
-    /// <remarks>
-    /// The value belongs to the whole run, but CSV has no place for a file level value, so
-    /// <see cref="ToCsv"/> repeats it on every row. Every row must therefore agree. A blank,
-    /// unknown, or mixed value means someone edited the file, and guessing would pick
-    /// output paths nobody reviewed, so each of those ends the run.
-    /// Call it only after <see cref="Read"/> with <c>requireContentHash</c>, so a manifest from
-    /// an older version reports the <c>contentHash</c> error first. That error carries the
-    /// same advice, re-run the plan, and is the one older manifests have always produced.
-    /// </remarks>
-    /// <param name="path">Absolute path to a manifest produced by <see cref="Write"/>.</param>
-    /// <returns>The recorded value, or null when the manifest has no data rows.</returns>
-    /// <exception cref="InvalidOperationException">Thrown when the column is missing, or any row's value is blank, unknown, or differs from another row's.</exception>
-    public static CollisionNaming? ReadCollisionNaming(string path)
-    {
-        using var parser = new CsvFieldReader(path);
-        var header = parser.ReadFields() ?? Array.Empty<string>();
-        var index = Array.FindIndex(header, name => StringComparer.OrdinalIgnoreCase.Equals(name, CollisionNamingColumn));
-        if (index < 0)
-        {
-            throw new InvalidOperationException($"Plan manifest has no {CollisionNamingColumn} column, so the run cannot tell which --collision-naming the plan used. An older version wrote it. Re-run --phase plan to rebuild it: {path}");
-        }
-
-        // Counts data records, not file lines: a quoted note can span several lines.
-        CollisionNaming? recorded = null;
-        var row = 0;
-        while (!parser.EndOfData)
-        {
-            var fields = parser.ReadFields();
-            if (fields is null || fields.Length == 0)
-            {
-                continue;
-            }
-
-            row++;
-
-            var value = index < fields.Length ? fields[index] : string.Empty;
-            if (!CollisionNames.TryParseFlagValue(value, out var parsed))
-            {
-                throw new InvalidOperationException($"Plan manifest data row {row} has {CollisionNamingColumn} '{value}'. Expected file-first or type-first on every row. Re-run --phase plan to rebuild it: {path}");
-            }
-
-            if (recorded is { } first && first != parsed)
-            {
-                throw new InvalidOperationException($"Plan manifest mixes {CollisionNamingColumn} values: data row {row} has {CollisionNames.FlagValue(parsed)} and an earlier row has {CollisionNames.FlagValue(first)}. Re-run --phase plan to rebuild it: {path}");
-            }
-
-            recorded = parsed;
-        }
-
-        return recorded;
     }
 
     /// <summary>
@@ -168,12 +110,12 @@ internal static class ManifestWriter
     /// position keeps working.
     /// </summary>
     /// <param name="results">The per-input results to serialize.</param>
-    /// <param name="collisionNaming">The run's collision naming, repeated on every row. See <see cref="ReadCollisionNaming"/>.</param>
+    /// <param name="collisionNaming">The run's collision naming, repeated on every row. See <see cref="ManifestCollisionNaming"/>.</param>
     public static string ToCsv(IReadOnlyList<FileResult> results, CollisionNaming collisionNaming)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash," + CollisionNamingColumn);
-        var naming = CollisionNames.FlagValue(collisionNaming);
+        builder.AppendLine("originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash," + ManifestCollisionNaming.Column);
+        var naming = ManifestCollisionNaming.Format(collisionNaming);
         foreach (var result in results)
         {
             if (result.NewFiles.Count == 0)

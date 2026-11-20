@@ -22,9 +22,10 @@ namespace AgenticRoslynTool;
 /// </remarks>
 internal static class NextStep
 {
-    /// <summary>
-    /// The arguments for the next phase, or null when there is no safe next phase to suggest.
-    /// </summary>
+    /// <summary>Characters no single quoting style handles in every shell.</summary>
+    private static readonly System.Buffers.SearchValues<char> Unquotable = System.Buffers.SearchValues.Create("\"\r\n");
+
+    /// <summary>The arguments for the next phase, or null when there is no safe next phase to suggest.</summary>
     /// <param name="options">The options this run was given.</param>
     /// <param name="phase">The phase that just ran.</param>
     /// <param name="reportRows">The rows describing what this run did.</param>
@@ -48,32 +49,17 @@ internal static class NextStep
             ? "renames"
             : "content";
 
-        var args = new List<string>
-        {
-            "split-types", "--phase", next,
-            "--input", options.InputPath,
-            "--manifest", options.ManifestPath,
-            "--repo-root", options.RepoRoot,
-        };
+        (string Flag, string Value)[] valued =
+        [
+            ("--phase", next),
+            ("--input", options.InputPath),
+            ("--manifest", options.ManifestPath),
+            ("--repo-root", options.RepoRoot),
+            .. options.RequiredHeader is { } header ? [("--require-header", header)] : Array.Empty<(string, string)>(),
+            .. (options.Excludes ?? []).Select(exclude => ("--exclude", exclude)),
+        ];
 
-        if (options.RequiredHeader is not null)
-        {
-            args.Add("--require-header");
-            args.Add(options.RequiredHeader);
-        }
-
-        foreach (var exclude in options.Excludes ?? [])
-        {
-            args.Add("--exclude");
-            args.Add(exclude);
-        }
-
-        if (options.Json)
-        {
-            args.Add("--json");
-        }
-
-        return args;
+        return ["split-types", .. valued.SelectMany(o => new[] { o.Flag, o.Value }), .. options.Json ? ["--json"] : Array.Empty<string>()];
     }
 
     /// <summary>
@@ -86,7 +72,7 @@ internal static class NextStep
     public static string Describe(IReadOnlyList<string> args, Phase phase)
     {
         var commitFirst = phase == Phase.Renames ? "commit the renames, then " : string.Empty;
-        if (args.Any(a => a.Contains('"', StringComparison.Ordinal) || a.Contains('\n', StringComparison.Ordinal) || a.Contains('\r', StringComparison.Ordinal)))
+        if (args.Any(a => a.AsSpan().IndexOfAny(Unquotable) >= 0))
         {
             return $"Next: {commitFirst}run {args[1]} {args[2]} with the same options. --json prints the exact arguments as nextArgs.";
         }

@@ -24,7 +24,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 34 files. |
+| `src/AgenticRoslynTool/` | The entire product. 36 files. |
 | `tests/AgenticRoslynTool.Tests/` | xUnit tests. 204 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
@@ -58,7 +58,8 @@ Every source file, so you do not have to open one to find out whether it matters
 | `PathComparison.cs` | The path equality rule used for identity. Platform aware on purpose. |
 | `Phase.cs` | The `plan`, `renames`, `content` enum. |
 | `CollisionNaming.cs` | The `file-first`, `type-first` enum behind `--collision-naming`. |
-| `CollisionNames.cs` | Builds the qualified name for a cross file collision, and recognizes one the plan phase wrote. Owns the `file-first` and `type-first` spellings and `Resolve`, which picks a run's naming from the flag and the manifest. |
+| `CollisionNames.cs` | Builds the qualified name for a cross file collision, and recognizes one the plan phase wrote. |
+| `CollisionNamingFlag.cs` | The `file-first` and `type-first` spellings, and `Resolve`, which picks a run's naming from the flag and the manifest. |
 | `EncodedSource.cs` | Reads bytes into text while capturing encoding, byte order mark, and newline style, then writes them back unchanged. |
 | `TopLevelType.cs` | One top level type declaration plus the file name it maps to. |
 | `SplitPlan.cs` | The decision for one input: keep, rename, split, or refuse. |
@@ -70,7 +71,8 @@ Every source file, so you do not have to open one to find out whether it matters
 | `DirectiveSafety.cs` | Verdict on whether directives make a file unsafe to split. |
 | `FileResult.cs` | One manifest row. Owns the `split`, `skipped`, `failed` status vocabulary. |
 | `NewFileResult.cs` | One created file inside a manifest row. |
-| `ManifestWriter.cs` | Reads and writes the CSV manifest that carries state between phases. `ReadCollisionNaming` reads the plan's `collisionNaming` column strictly. |
+| `ManifestWriter.cs` | Reads and writes the CSV manifest that carries state between phases. |
+| `ManifestCollisionNaming.cs` | The manifest's `collisionNaming` column. `Read` refuses a missing, blank, unknown, or mixed value. |
 | `ContentHash.cs` | Computes and compares the `sha256:` content hash a manifest row carries for its input. Owns the `stale plan:` refusal text. |
 | `PlanBinding.cs` | Binds the rows renames and content write to the plan manifest they read. Carries the planned hash and refuses a stale file. Decides, never acts. |
 | `CsvFieldReader.cs` | Quote aware CSV field parsing for the manifest and for CSV inputs. |
@@ -222,9 +224,18 @@ agent does not pay again.
   `.qualityrc.json` lowers that one floor to 6.5 for test files only. Every other value in
   it restates a scanner default, including the scanner's own floor of 3 for test
   testability. Do not lower another floor to get a file through.
+- **Check that scanner's version before you act on its scores.** On 2026-11-20 the
+  installed plugin copy (`b5e05e9c6ba4`) lagged upstream in two ways. It counted a
+  `using var x = ...;` statement as an import, so a test that creates four disposables
+  failed coupling (upstream issue #7459). It counted braces and doc comment lines as
+  duplicates, which upstream fixed in #7473. Both fail new test files here with no real
+  defect. Upstream `main` at `99bff810ea`, run from a venv with `tree-sitter==0.26.1`
+  and `tree-sitter-c-sharp==0.23.5`, passed this repository's last branch in regression
+  mode. The gate also stops at the first failing quality, so one run names one file
+  (upstream issue #7481). Read the JSON for every file instead of trusting the log.
 - **`--collision-naming` lives in the manifest now, and there are two guards.** The plan
   records it in the `collisionNaming` column. Renames and content resolve it once, through
-  `CollisionNames.Resolve`, and a flag that contradicts the column exits 3 before any file
+  `CollisionNamingFlag.Resolve`, and a flag that contradicts the column exits 3 before any file
   is touched. That is the first guard, and `CollisionNamingRecordedTests` pins it through
   the real executable. The second is older: the content phase never reruns the collision
   pass, so the per-row check in `SplitPlanner.BuildPlan` refuses a row the plan resolved

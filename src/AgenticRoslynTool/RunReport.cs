@@ -48,7 +48,7 @@ internal sealed record RunReport(
             .Select(r => new FileReport(r.OriginalPath, r.KeptPath, r.GitMove, r.Status, r.Reason, r.Note, r.NewFiles.Select(f => new NewFileReport(f.Path, f.Type)).ToArray(), r.ContentHash))
             .ToArray();
 
-        return new RunReport(PhaseName(phase), manifestPath, CollisionNames.FlagValue(collisionNaming), summary, nextArgs, files);
+        return new RunReport(PhaseName(phase), manifestPath, CollisionNamingFlag.Format(collisionNaming), summary, nextArgs, files);
     }
 
     /// <summary>Serializes the report as indented JSON with a trailing newline omitted.</summary>

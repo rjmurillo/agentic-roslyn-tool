@@ -26,7 +26,7 @@ namespace AgenticRoslynTool;
 /// How two outputs that collide across input files are qualified, or null when
 /// <c>--collision-naming</c> was absent. Null is not <see cref="CollisionNaming.FileFirst"/>:
 /// the plan phase reads it as file-first, and the renames and content phases read it as
-/// "use the value the plan recorded". See <see cref="CollisionNames.Resolve"/>.
+/// "use the value the plan recorded". See <see cref="CollisionNamingFlag.Resolve"/>.
 /// </param>
 internal sealed record Options(string InputPath, string ManifestPath, string RepoRoot, Phase Phase, string? RequiredHeader, IReadOnlyList<string>? Excludes = null, bool Json = false, CollisionNaming? CollisionNaming = null)
 {
@@ -190,7 +190,7 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
 
     private static CollisionNaming ParseCollisionNaming(string value)
     {
-        return CollisionNames.TryParseFlagValue(value, out var collisionNaming)
+        return CollisionNamingFlag.TryParse(value, out var collisionNaming)
             ? collisionNaming
             : throw new ArgumentException($"Unknown collision naming: {value}. Use file-first or type-first.");
     }

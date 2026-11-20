@@ -111,8 +111,8 @@ internal sealed class FileSplitter
         // This phase reruns the collision pass, so it must name collisions the way the plan
         // did. Before the column existed, a renames run with a different flag replaced the
         // reviewed names and the content check then agreed with the replacement.
-        var recorded = priorPlan is null ? null : ManifestWriter.ReadCollisionNaming(_options.ManifestPath);
-        var collisionNaming = CollisionNames.Resolve(_options.CollisionNaming, recorded, _options.ManifestPath);
+        var recorded = priorPlan is null ? null : ManifestCollisionNaming.Read(_options.ManifestPath);
+        var collisionNaming = CollisionNamingFlag.Resolve(_options.CollisionNaming, recorded, _options.ManifestPath);
 
         // Collisions are resolved first, over every row, and the rows are bound to the plan
         // after. A file refused here still took part in naming, so the inputs that are
@@ -188,7 +188,7 @@ internal sealed class FileSplitter
         //
         // Read already collapses the CSV to one row per path, so nothing re-groups here.
         var manifestPlan = ManifestWriter.Read(_options.ManifestPath, requireContentHash: true);
-        var collisionNaming = CollisionNames.Resolve(_options.CollisionNaming, ManifestWriter.ReadCollisionNaming(_options.ManifestPath), _options.ManifestPath);
+        var collisionNaming = CollisionNamingFlag.Resolve(_options.CollisionNaming, ManifestCollisionNaming.Read(_options.ManifestPath), _options.ManifestPath);
         var plannedFiles = SplitPlanner.IndexByInputPath(manifestPlan.Where(r => r.Status == "split"));
 
         // Every row, under the same paths the split index uses, so an input handed over by

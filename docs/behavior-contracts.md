@@ -176,7 +176,7 @@ reader that truncates the document still sees it. The rules live in `NextStep.Fo
 Standard error carries the same suggestion as one `Next:` line. It quotes an argument that
 holds a space. When an argument holds a double quote or a line break, no quoting is right
 for every shell, so the line falls back to a sentence that points at `nextArgs`.
-`NextStepTests.FollowingNextArgs_RunsTheWholeWorkflow` runs `nextArgs` exactly as printed,
+`NextStepWorkflowTests.FollowingNextArgs_RunsTheWholeWorkflow` runs `nextArgs` exactly as printed,
 through a real `git mv`, and checks the split is done. See decision 25.
 
 ## Phase contracts

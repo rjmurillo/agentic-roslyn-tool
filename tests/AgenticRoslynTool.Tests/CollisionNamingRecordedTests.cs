@@ -1,5 +1,3 @@
-using System;
-using System.IO;
 using System.Text.Json;
 using Xunit;
 
@@ -79,7 +77,7 @@ public sealed class CollisionNamingRecordedTests
         Assert.True(result.ExitCode == 0, result.StandardError);
         using var report = JsonDocument.Parse(result.StandardOutput);
         Assert.Equal(expected, report.RootElement.GetProperty("collisionNaming").GetString());
-        Assert.Equal(expected, CollisionNames.FlagValue(ManifestWriter.ReadCollisionNaming(manifest)!.Value));
+        Assert.Equal(expected, CollisionNamingFlag.Format(ManifestCollisionNaming.Read(manifest)!.Value));
         Assert.Equal(0, report.RootElement.GetProperty("summary").GetProperty("failed").GetInt32());
     }
 }
