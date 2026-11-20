@@ -15,10 +15,14 @@ internal static class ManifestWriter
     /// <summary>Writes the manifest CSV to disk as UTF-8 without a BOM, creating the parent directory when needed.</summary>
     /// <param name="results">The per-input results to serialize.</param>
     /// <param name="path">Absolute destination path.</param>
-    public static void Write(IReadOnlyList<FileResult> results, string path)
+    /// <param name="collisionNaming">
+    /// The collision naming the run used. Required, never defaulted, because a later phase
+    /// takes it from the manifest instead of from its own command line.
+    /// </param>
+    public static void Write(IReadOnlyList<FileResult> results, string path, CollisionNaming collisionNaming)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path) ?? ".");
-        File.WriteAllText(path, ToCsv(results), new UTF8Encoding(false));
+        File.WriteAllText(path, ToCsv(results, collisionNaming), new UTF8Encoding(false));
     }
 
     /// <summary>
@@ -106,28 +110,31 @@ internal static class ManifestWriter
     /// New columns are appended, never inserted, so a reader that addresses columns by
     /// position keeps working.
     /// </summary>
-    public static string ToCsv(IReadOnlyList<FileResult> results)
+    /// <param name="results">The per-input results to serialize.</param>
+    /// <param name="collisionNaming">The run's collision naming, repeated on every row. See <see cref="ManifestCollisionNaming"/>.</param>
+    public static string ToCsv(IReadOnlyList<FileResult> results, CollisionNaming collisionNaming)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash");
+        builder.AppendLine("originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash," + ManifestCollisionNaming.Column);
+        var naming = CollisionNamingFlag.Format(collisionNaming);
         foreach (var result in results)
         {
             if (result.NewFiles.Count == 0)
             {
-                AppendRow(builder, result, null);
+                AppendRow(builder, result, null, naming);
                 continue;
             }
 
             foreach (var file in result.NewFiles)
             {
-                AppendRow(builder, result, file);
+                AppendRow(builder, result, file, naming);
             }
         }
 
         return builder.ToString();
     }
 
-    private static void AppendRow(StringBuilder builder, FileResult result, NewFileResult? file)
+    private static void AppendRow(StringBuilder builder, FileResult result, NewFileResult? file, string collisionNaming)
     {
         builder.Append(Csv(result.OriginalPath)).Append(',')
             .Append(Csv(result.KeptPath)).Append(',')
@@ -137,7 +144,8 @@ internal static class ManifestWriter
             .Append(Csv(result.Note ?? string.Empty)).Append(',')
             .Append(Csv(file?.Path ?? string.Empty)).Append(',')
             .Append(Csv(file?.Type ?? string.Empty)).Append(',')
-            .Append(Csv(result.ContentHash ?? string.Empty)).AppendLine();
+            .Append(Csv(result.ContentHash ?? string.Empty)).Append(',')
+            .Append(Csv(collisionNaming)).AppendLine();
     }
 
     private static string Csv(string value)

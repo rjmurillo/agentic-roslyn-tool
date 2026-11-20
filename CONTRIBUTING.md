@@ -10,7 +10,7 @@ orientation for a human too.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 274 passed, 0 failed
+dotnet test  -c Release      # must be 332 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on. A warning fails the build. There is no separate lint step.
@@ -93,6 +93,11 @@ the version taken from the tag.
 git tag v0.2.0
 git push origin v0.2.0
 ```
+
+A release that carries a breaking change bumps the minor version while the major is 0.
+`--generate-notes` lists pull request titles only, so edit the release notes to name each
+break and its recovery step. Decisions 22, 23, 25, and 26 hold the wording: re-run the plan, and pass
+`--phase` or `--dry-run` explicitly.
 
 The same workflow also runs from `workflow_dispatch`, so a release can be cut without
 pushing a tag. It takes a `version` input and a `push_nuget` toggle. Run it with

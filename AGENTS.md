@@ -24,13 +24,16 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 36 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 274 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 39 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 332 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
-| `package/AGENTS.md` | Agent instructions packed at the NuGet package root. |
-| `.github/workflows/ci.yml` | The CI gate. Build and test on push and pull request. |
+| `package/AGENTS.md` | Agent instructions packed at the NuGet package root. NuGet MCP returns this file. |
+| `package/skills/split-types/SKILL.md` | The Agent Skill packed at `skills/split-types/SKILL.md`. Skill tools such as `dotnet-inspect` read this file. |
+| `docs/agent-skills-in-nuget.md` | What was tested about skills in a tool package, what finds them, and how to check again. Read before touching `package/`. |
+| `.github/workflows/ci.yml` | The CI gate. Build, test, pack, and check the package's entry names on push and pull request. |
+| `.github/scripts/verify-package-contents.sh` | Fails when the `.nupkg` lacks an agent file, by exact entry name. CI and the release workflow both run it. |
 | `.qualityrc.json` | One waiver for a local review scanner some agents run. Not read by the build or by CI. |
 
 Every source file, so you do not have to open one to find out whether it matters:
@@ -46,7 +49,8 @@ Every source file, so you do not have to open one to find out whether it matters
 | `WorkspaceWriter.cs` | The only place the tool touches the working tree. Every rename runs through `git mv`; every write preserves encoding and byte order mark. |
 | `Program.cs` | Top level statements. Verb dispatch, error handling, exit codes, output selection. Decides which file a run writes: the manifest in `plan`, the report otherwise. Declares no type. |
 | `Options.cs` | Command line parsing and the option record. Add a new flag here. |
-| `RunReport.cs` | Builds the `--json` report and the one-line summary from the rows a run returned. |
+| `RunReport.cs` | Builds the `--json` report and the one-line summary from the rows a run returned. Carries `collisionNaming` and `nextArgs` at the top level. |
+| `NextStep.cs` | Decides `nextArgs`, the arguments for the next phase, and the `Next:` line on standard error. Read decision 27 before changing when it returns null. |
 | `ReportFile.cs` | Owns the report file. Refuses an unsafe report path before a renames or content run changes anything, then writes the report by moving a staged file into place. Never opens an existing file for writing. |
 | `RunSummary.cs` | The aggregate counts inside that report. |
 | `FileReport.cs` | One manifest or report row in JSON form. Field names mirror the CSV columns. |
@@ -55,6 +59,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `Phase.cs` | The `plan`, `renames`, `content` enum. |
 | `CollisionNaming.cs` | The `file-first`, `type-first` enum behind `--collision-naming`. |
 | `CollisionNames.cs` | Builds the qualified name for a cross file collision, and recognizes one the plan phase wrote. |
+| `CollisionNamingFlag.cs` | The `file-first` and `type-first` spellings, and `Resolve`, which picks a run's naming from the flag and the manifest. |
 | `FileNamingConvention.cs` | The `stylecop`, `metadata` enum behind `--file-naming`. Selects the naming rule `OutputBuilder` and `SplitPlanner` apply. |
 | `PlanMismatch.cs` | Words the note for a content phase row that disagrees with its manifest: the other `--file-naming` name, or what differs in the plan shape. |
 | `KeptRenameCollisions.cs` | Decides which planned kept file renames stand. Gives a rename target to the first input that claims it, and holds the renames phase to the renames the manifest plans. |
@@ -70,6 +75,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `FileResult.cs` | One manifest or report row. Owns the `split`, `skipped`, `failed` status vocabulary. |
 | `NewFileResult.cs` | One created file inside a manifest or report row. |
 | `ManifestWriter.cs` | Reads and writes the CSV format shared by the plan manifest and the run report. |
+| `ManifestCollisionNaming.cs` | The `collisionNaming` column in the manifest and the report. `Read` refuses a missing, blank, unknown, or mixed value. |
 | `ContentHash.cs` | Computes and compares the `sha256:` content hash a manifest row carries for its input. Owns the `stale plan:` refusal text. |
 | `PlanBinding.cs` | Binds the rows renames and content report to the plan manifest they read. Carries the planned hash and refuses a stale file. Decides, never acts. |
 | `CsvFieldReader.cs` | Quote aware CSV field parsing for the manifest and for CSV inputs. |
@@ -82,7 +88,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 274 passed, 0 failed
+dotnet test  -c Release      # must be 332 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -165,6 +171,22 @@ weight.
     status and every exit. Review found a launder path through each exit that forgot
     this. The `ContentHash*Tests` classes pin all of it. See decision 22.
 
+13. **A run with no `--phase` plans.** Only `--phase content` rewrites source. An agent's
+    first call usually has no phase, so that call must change nothing. See decision 25.
+
+14. **The plan records `--collision-naming`. Later phases read it and never default it.**
+    `ManifestWriter.Write` takes the value as a required argument. `Options.CollisionNaming`
+    is null when the flag is absent, and null is not `file-first` once a manifest exists. A
+    contradicting flag, a missing column, and a blank, unknown, or mixed value each exit 3
+    before any file is touched. See decision 26.
+
+15. **Every command in a packaged agent document must parse.** `package/AGENTS.md` and
+    `package/skills/split-types/SKILL.md` both carry the workflow on purpose: NuGet MCP
+    reads the first, skill tools read the second. `PackagedAgentDocsTests` runs each full
+    `split-types` command and each backticked flag fragment through `Options.Parse`. It
+    proves the commands still parse, not that the two files agree in prose. Rename or
+    remove a flag and update both files in the same change. See decision 28.
+
 ## Conventions for anything you write
 
 [CONTRIBUTING.md](CONTRIBUTING.md) owns the commit and style rules. The two that agents
@@ -239,22 +261,38 @@ agent does not pay again.
   `.qualityrc.json` lowers that one floor to 6.5 for test files only. Every other value in
   it restates a scanner default, including the scanner's own floor of 3 for test
   testability. Do not lower another floor to get a file through.
-- **The content phase never reruns the cross file collision pass.** It takes every output
-  path from the manifest. So `--collision-naming` would be ignored there without the check
-  in `SplitPlanner.BuildPlan` that refuses a row the plan resolved under the other value.
-  The check reads the row's note, so it depends on `CollisionNames.FormatResolution`. A test that
-  only runs plan and content with one value cannot see that check go missing.
-  `CollisionNamingContentTests` runs the two phases with different values for this reason.
+- **Check that scanner's version before you act on its scores.** On 2026-11-20 the
+  installed plugin copy (`b5e05e9c6ba4`) lagged upstream in two ways. It counted a
+  `using var x = ...;` statement as an import, so a test that creates four disposables
+  failed coupling (upstream issue #7459). It counted braces and doc comment lines as
+  duplicates, which upstream fixed in #7473. Both fail new test files here with no real
+  defect. Upstream `main` at `99bff810ea`, run from a venv with `tree-sitter==0.26.1`
+  and `tree-sitter-c-sharp==0.23.5`, passed this repository's last branch in regression
+  mode. The gate also stops at the first failing quality, so one run names one file
+  (upstream issue #7481). Read the JSON for every file instead of trusting the log.
+- **`--collision-naming` lives in the manifest now, and there are two guards.** The plan
+  records it in the `collisionNaming` column. Renames and content resolve it once, through
+  `CollisionNamingFlag.Resolve`, and a flag that contradicts the column exits 3 before any file
+  is touched. That is the first guard, and `CollisionNamingRecordedTests` pins it through
+  the real executable. The second is older: the content phase never reruns the collision
+  pass, so the per-row check in `SplitPlanner.BuildPlan` refuses a row the plan resolved
+  under the other value. Since the column, only a hand edit of the column reaches it, so
+  `CollisionNamingContentTests` writes the manifest with the other value to exercise it.
+  The check reads the row's note, so it depends on `CollisionNames.FormatResolution`.
+- **Tests that write a manifest must pick a collision naming.** `ManifestWriter.Write` takes
+  it as a required argument on purpose. Pass the value the plan used, or the test reaches
+  the contradiction error instead of the behavior it means to check. Use
+  `CollisionNamingFixture.PlanAndRecord` to plan and write the way `Program` does.
 - **Exit codes are 0, 1, 2, 3, and they mean different things.** 0 the run completed with
   no failures, 1 a row is `failed`, 2 the command line was wrong, 3 the run could not
   complete. Skips are not failures, so a run that skips everything exits 0. Read
   `summary` from `--json`, or the summary line on standard error, to learn whether work
   happened.
 - **Standard output is one document or nothing, standard error is everything else.** The
-  manifest path, the report path, the summary line, and every `error:` message go to
-  standard error so a caller can pipe standard output straight into a parser. Do not add
-  chatter to standard output. When the report file cannot be written, its rows print to
-  standard output as that one document, and the run exits 3.
+  manifest path, the report path, the summary line, the `Next:` line, and every `error:`
+  message go to standard error so a caller can pipe standard output straight into a
+  parser. Do not add chatter to standard output. When the report file cannot be written,
+  its rows print to standard output as that one document, and the run exits 3.
 - **`--file-naming` must be the same in every phase.** It decides planned paths. The
   content phase skips a file whose manifest row was made under the other value.
   `SplitPlanner` refuses a moved type whose manifest path is the name the other value gives
@@ -264,7 +302,9 @@ agent does not pay again.
   row, so run the content phase again with the plan's value. The renames phase runs only
   a rename the manifest row plans, to the planned target, which
   `KeptRenameCollisions.HoldToPlannedRename` enforces. Under another value it can still
-  leave out a planned rename. See decision 24 and the known issue below.
+  leave out a planned rename. See decision 24 and the known issue below. `nextArgs`
+  repeats `--file-naming metadata` for the next phase, because the manifest does not
+  record it; see decision 27.
 - **A backtick in a path is escaped in `--json` output.** ``Foo`1.cs`` is written as
   `Foo\u00601.cs`. Parse the JSON before you search it for a file name. The CSV manifest
   holds the character itself.
@@ -322,6 +362,41 @@ agent does not pay again.
   version can never be reused, so that click is the last human check. An agent must never
   approve a pending deployment, even though the maintainer's token would let it.
 
+- **`PackagePath="skills"` is the only value that packs the skill correctly.** With a
+  `**` wildcard, NuGet appends the matched folder itself. `skills\%(RecursiveDir)` nested
+  the file one level too deep, and `skills\` wrote the entry as `skills//split-types/SKILL.md`.
+  A substring check accepts the second one. `verify-package-contents.sh` matches exact
+  names for that reason.
+- **A tool package can never be a `PackageReference`.** Restore fails with `NU1212`. So
+  anything that finds skills by scanning a project's packages, such as
+  `dotnet-inspect project` or `project.assets.json`, never sees this package's skill. Use
+  `dotnet-inspect package AgenticRoslynTool -S Skills`, or the install path in
+  `docs/agent-skills-in-nuget.md`.
+- **An old `dotnet-inspect` shows no skills, for any package.** Version 0.5.3 lists none,
+  even for `markout`, the package the NuGet team uses as its example. 0.28.0 lists them.
+  Run `dnx dotnet-inspect@0.28.0 --yes -- ...`, the version tested here, to get a current one before concluding a skill is
+  missing.
+- **A test cannot take an internal type as a theory parameter.** xUnit test methods are
+  public, and rule 7 keeps `Phase`, `FileResult`, and the rest internal. Pass a case name
+  as a string and map it inside the test, as `NextStepTests` does. Never widen the type.
+- **Most tests that start a child process share one limit.** `CliRunner.Run` and `RunIn`
+  start the real executable, and `GitFixture` starts `git`. Both read the redirected
+  streams at the same time and wait at most two minutes through `CliRunner.WaitOrKill`,
+  which kills the process tree and fails the test. A hung child must fail a test, not
+  stall a CI or release job. Add new process tests through these helpers. Two exceptions
+  remain: `FileNamingRuns` (from #57) has its own runner with a 60 second limit, and a
+  renames test that runs `FileSplitter` in process reaches `WorkspaceWriter`'s `git mv`,
+  which waits with no limit. Neither workflow sets `timeout-minutes`.
+- **`nextArgs` being null does not mean the split is done.** The skill decides "done" with
+  an allow list: a `content` report, no failed row, and every skipped row's reason either
+  `not present as split in plan manifest` or starting with `already applied`. Three review
+  rounds each found one more reason an exclusion list missed. Do not turn the rule back
+  into a list of bad reasons. `SkillDoneRule` mirrors it in tests, and
+  `PackagedAgentDocsTests` fails if the docs stop quoting `FileSplitter.NotPlannedReason`.
+- **`nextArgs` is null for `--input -` on purpose.** A second process reads an empty
+  stream, plans nothing, and exits 0. A test that pipes paths and expects `nextArgs` is
+  testing the wrong thing.
+
 ## Known issues, not yet fixed
 
 Recorded so nobody rediscovers them and nobody assumes they are intentional.
@@ -334,12 +409,14 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
 
 - The renames phase holds each file to the manifest's hash and status, and runs a rename
   only when the manifest row plans that same rename. It does not check new file paths or
-  either naming flag. A renames run with a different `--file-naming` moves nothing the plan
+  `--file-naming`. `--collision-naming` is different: the plan records it, and renames
+  exits 3 on a contradicting value (rule 14). A renames run with a different `--file-naming` moves nothing the plan
   did not ask for, but it can leave out a rename the plan did ask for, and it reports that
   row as `split`. The content phase then fails the row with `Run --phase renames`, and a
   renames run with the plan's value recovers.
   `RenamesPhase_UnderAnotherConvention_CanLeaveOutAPlannedRename` pins this. A fix means
-  the manifest recording both naming flags. That waits on a decision. See decision 24.
+  the manifest recording `--file-naming` too, as decision 26 does for `--collision-naming`.
+  That waits on a decision. See decisions 24 and 26.
 - A kept file's rename target is checked against other kept renames, not against new
   files. `KeptRenameCollisions` gives a rename target to the first input that claims it.
   `ResolvePlannedOutputCollisions` looks at new files only. So if one input plans to rename

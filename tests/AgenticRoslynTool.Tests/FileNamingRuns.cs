@@ -22,14 +22,16 @@ internal static class FileNamingRuns
         return RunPhase(ws, listPath, manifestPath, Phase.Content, contentNaming);
     }
 
-    // Runs one phase the way Program does: only the plan phase writes the manifest.
-    public static FileResult[] RunPhase(TempWorkspace ws, string listPath, string manifestPath, Phase phase, FileNamingConvention naming, CollisionNaming collisionNaming = CollisionNaming.FileFirst)
+    // Runs one phase the way Program does: only the plan phase writes the manifest, and it
+    // records the collision naming the run resolved. recordAs replaces that recorded value,
+    // which stands in for a hand edit of the manifest's collisionNaming column.
+    public static FileResult[] RunPhase(TempWorkspace ws, string listPath, string manifestPath, Phase phase, FileNamingConvention naming, CollisionNaming? collisionNaming = null, CollisionNaming? recordAs = null)
     {
         var options = new Options(listPath, manifestPath, ws.Root, phase, RequiredHeader: null, CollisionNaming: collisionNaming, FileNaming: naming);
-        var rows = new FileSplitter(options).Run();
+        var rows = new FileSplitter(options).Run(out var resolved);
         if (phase == Phase.Plan)
         {
-            ManifestWriter.Write(rows, manifestPath);
+            ManifestWriter.Write(rows, manifestPath, recordAs ?? resolved);
         }
 
         return rows.ToArray();

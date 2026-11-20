@@ -37,3 +37,6 @@ jobs:
 
       - name: Pack
         run: dotnet pack src/AgenticRoslynTool/AgenticRoslynTool.csproj --configuration Release --no-build --output artifacts
+
+      - name: Verify package contents
+        run: bash .github/scripts/verify-package-contents.sh artifacts

@@ -217,7 +217,8 @@ These rules decide what goes where:
 - **Name clashes across files.** When two input files would create the same file name,
   the tool usually names both `FileName.TypeName.cs`. That name breaks StyleCop SA1649, so
   those files need a decision from you afterward. Pass `--collision-naming type-first` to
-  every phase to get `TypeName.FileName.cs`, which SA1649 accepts.
+  the plan phase to get `TypeName.FileName.cs`, which SA1649 accepts. The plan records the
+  value, and the later phases reuse it.
 - **What travels with a type.** Its XML doc comments, attributes, and ordinary comments.
 
 Enums, interfaces, and delegates move too. Some teams keep those next to the class that

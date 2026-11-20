@@ -157,7 +157,7 @@ public sealed class InputSourceTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var planOptions = new Options(workspace.WriteInputList(planned), manifestPath, workspace.Root, Phase.Plan, null);
-        ManifestWriter.Write(new FileSplitter(planOptions).Run(), manifestPath);
+        ManifestWriter.Write(new FileSplitter(planOptions).Run(), manifestPath, CollisionNaming.FileFirst);
 
         // Content phase runs with an empty input list. The plan row must not vanish.
         var emptyList = Path.Combine(workspace.Root, "empty.txt");
@@ -179,7 +179,7 @@ public sealed class InputSourceTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var planOptions = new Options(workspace.WriteInputList(planned), manifestPath, workspace.Root, Phase.Plan, null);
-        ManifestWriter.Write(new FileSplitter(planOptions).Run(), manifestPath);
+        ManifestWriter.Write(new FileSplitter(planOptions).Run(), manifestPath, CollisionNaming.FileFirst);
 
         var contentOptions = new Options(workspace.WriteInputList(planned, unplanned), manifestPath, workspace.Root, Phase.Content, null);
         var outcome = new FileSplitter(contentOptions).Run();
@@ -201,7 +201,7 @@ public sealed class InputSourceTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var planOptions = new Options(workspace.WriteInputList(first, second), manifestPath, workspace.Root, Phase.Plan, null);
-        ManifestWriter.Write(new FileSplitter(planOptions).Run(), manifestPath);
+        ManifestWriter.Write(new FileSplitter(planOptions).Run(), manifestPath, CollisionNaming.FileFirst);
 
         // Batch one applies only First.cs. No content run writes the manifest.
         var batchOne = Path.Combine(workspace.Root, "batch1.txt");

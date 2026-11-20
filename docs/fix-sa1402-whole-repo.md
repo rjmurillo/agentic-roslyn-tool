@@ -65,8 +65,9 @@ dotnet tool install --global AgenticRoslynTool
 ```
 
 > [!IMPORTANT]
-> The default phase is `content`, which rewrites source files. Always start with
-> `--dry-run`. Never run `split-types` without `--dry-run` or `--phase`.
+> Versions after 0.1.1 run the `plan` phase when `--phase` is missing, and change no
+> source file. Version 0.1.1 and earlier run `content` instead, which rewrites source.
+> Pass `--dry-run` or `--phase` every time, so a script means the same on any version.
 
 Run these from the repository root. The list file and the manifest live one directory up,
 outside the repository, so a later `git add -A` does not commit them. The

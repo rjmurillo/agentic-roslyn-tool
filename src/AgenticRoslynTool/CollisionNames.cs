@@ -76,11 +76,9 @@ internal static class CollisionNames
             return null;
         }
 
-        return $"manifest path {plannedPath} is the --collision-naming {FlagValue(other)} form and this run used {FlagValue(collisionNaming)}; run the plan phase again and pass one value to every phase";
+        return $"manifest path {plannedPath} is the --collision-naming {CollisionNamingFlag.Format(other)} form and this run used {CollisionNamingFlag.Format(collisionNaming)}; run the plan phase again, and do not edit the collisionNaming column";
     }
 
     /// <summary>The text the collision pass writes into a row's note for one resolved output.</summary>
     internal static string FormatResolution(string originalPath, string resolvedPath) => $"{originalPath} -> {resolvedPath}";
-
-    private static string FlagValue(CollisionNaming collisionNaming) => collisionNaming == CollisionNaming.TypeFirst ? "type-first" : "file-first";
 }

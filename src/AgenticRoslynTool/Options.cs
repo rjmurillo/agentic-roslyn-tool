@@ -10,7 +10,10 @@ namespace AgenticRoslynTool;
 /// </param>
 /// <param name="ManifestPath">Absolute path to the CSV plan manifest. Defaults to <c>sa1402-split-manifest.csv</c> next to the input. Only the plan phase writes it.</param>
 /// <param name="RepoRoot">Absolute repository root used as the working directory for <c>git mv</c> calls.</param>
-/// <param name="Phase">Which of the <see cref="AgenticRoslynTool.Phase"/> stages to execute.</param>
+/// <param name="Phase">
+/// Which of the <see cref="AgenticRoslynTool.Phase"/> stages to execute. <see cref="Parse"/>
+/// defaults it to <see cref="Phase.Plan"/>, so only an explicit <c>--phase</c> changes source.
+/// </param>
 /// <param name="RequiredHeader">Optional file header to require and prepend to every output file.</param>
 /// <param name="Excludes">
 /// Path substrings that mark an input as untouchable, for example generated output
@@ -27,14 +30,16 @@ namespace AgenticRoslynTool;
 /// disk before a run, whoever built the options.
 /// </param>
 /// <param name="CollisionNaming">
-/// How two outputs that collide across input files are qualified. Changes planned paths, so
-/// the plan, renames, and content runs of one split must all be given the same value.
+/// How two outputs that collide across input files are qualified, or null when
+/// <c>--collision-naming</c> was absent. Null is not <see cref="CollisionNaming.FileFirst"/>:
+/// the plan phase reads it as file-first, and the renames and content phases read it as
+/// "use the value the plan recorded". See <see cref="CollisionNamingFlag.Resolve"/>.
 /// </param>
 /// <param name="FileNaming">
 /// Which SA1649 file naming convention planned file names follow. It shapes planned paths,
 /// so every phase of one split must be run with the same value.
 /// </param>
-internal sealed record Options(string InputPath, string ManifestPath, string RepoRoot, Phase Phase, string? RequiredHeader, IReadOnlyList<string>? Excludes = null, bool Json = false, string? ReportPath = null, CollisionNaming CollisionNaming = CollisionNaming.FileFirst, FileNamingConvention FileNaming = FileNamingConvention.StyleCop)
+internal sealed record Options(string InputPath, string ManifestPath, string RepoRoot, Phase Phase, string? RequiredHeader, IReadOnlyList<string>? Excludes = null, bool Json = false, string? ReportPath = null, CollisionNaming? CollisionNaming = null, FileNamingConvention FileNaming = FileNamingConvention.StyleCop)
 {
     /// <summary>
     /// Parses the raw argument array into an <see cref="Options"/> instance, resolving
@@ -52,10 +57,12 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
         string? requiredHeader = null;
         var excludes = new List<string>();
         var json = false;
-        var collisionNaming = CollisionNaming.FileFirst;
+        CollisionNaming? collisionNaming = null;
         var fileNaming = FileNamingConvention.StyleCop;
         string repoRoot = Directory.GetCurrentDirectory();
-        var phase = Phase.Content;
+        // Plan, never content. A caller that has not read the docs, which is the usual agent,
+        // runs the command with no --phase first. That first call must change no source file.
+        var phase = Phase.Plan;
         var dryRun = false;
         var phaseGiven = false;
 
@@ -236,12 +243,9 @@ internal sealed record Options(string InputPath, string ManifestPath, string Rep
 
     private static CollisionNaming ParseCollisionNaming(string value)
     {
-        return value.ToLowerInvariant() switch
-        {
-            "file-first" => CollisionNaming.FileFirst,
-            "type-first" => CollisionNaming.TypeFirst,
-            _ => throw new ArgumentException($"Unknown collision naming: {value}. Use file-first or type-first."),
-        };
+        return CollisionNamingFlag.TryParse(value, out var collisionNaming)
+            ? collisionNaming
+            : throw new ArgumentException($"Unknown collision naming: {value}. Use file-first or type-first.");
     }
 
     private static FileNamingConvention ParseFileNaming(string value)

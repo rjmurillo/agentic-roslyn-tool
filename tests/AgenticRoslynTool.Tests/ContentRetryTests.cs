@@ -43,7 +43,7 @@ public sealed class ContentRetryTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var plan = new FileSplitter(new Options(source, manifestPath, workspace.Root, Phase.Plan, null)).Run();
-        ManifestWriter.Write(plan, manifestPath);
+        ManifestWriter.Write(plan, manifestPath, CollisionNaming.FileFirst);
         Assert.True(Assert.Single(plan).GitMove);
 
         // Stand in for the renames phase, which needs a real repository to run git mv.
@@ -74,7 +74,7 @@ public sealed class ContentRetryTests
         var listPath = workspace.WriteInputList(input);
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
-        ManifestWriter.Write(new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run(), manifestPath);
+        ManifestWriter.Write(new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run(), manifestPath, CollisionNaming.FileFirst);
         var squatter = workspace.WriteFile("Beta.cs", "// unrelated file\n");
 
         var row = Assert.Single(new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run());
@@ -96,7 +96,7 @@ public sealed class ContentRetryTests
         var listPath = workspace.WriteInputList(input);
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
-        ManifestWriter.Write(new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run(), manifestPath);
+        ManifestWriter.Write(new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run(), manifestPath, CollisionNaming.FileFirst);
         workspace.WriteFile("Beta.cs", "public class Beta { }\n");
         File.WriteAllText(input, "// emptied by hand\n");
 
@@ -155,7 +155,7 @@ public sealed class ContentRetryTests
         var listPath = workspace.WriteInputList(input);
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
-        ManifestWriter.Write(new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run(), manifestPath);
+        ManifestWriter.Write(new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run(), manifestPath, CollisionNaming.FileFirst);
         var output = workspace.WriteFile("Beta.cs", "// someone else's file\n");
         File.WriteAllText(input, edited);
 

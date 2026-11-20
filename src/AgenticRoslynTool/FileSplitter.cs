@@ -41,15 +41,20 @@ internal sealed class FileSplitter
 
     private readonly WorkspaceWriter _writer;
 
-    /// <summary>Reason recorded when the content phase is handed a file the plan never covered.</summary>
-    private const string NotPlannedReason = "not present as split in plan manifest";
+    /// <summary>
+    /// Reason recorded when the content phase is handed a file the plan never covered.
+    /// Published: the packaged skill counts this skip, and <see cref="AlreadyAppliedReason"/>,
+    /// as the only skips that leave no planned work behind. <c>PackagedAgentDocsTests</c>
+    /// fails if the skill stops quoting it.
+    /// </summary>
+    internal const string NotPlannedReason = "not present as split in plan manifest";
 
     /// <summary>
     /// Reason recorded when a content run meets a row an earlier content run already applied.
     /// The words say what was checked and nothing more. The leading <c>already applied</c> is
     /// published: callers match on it to tell this skip from a refusal, so it must not change.
     /// </summary>
-    private const string AlreadyAppliedReason = "already applied: every planned output exists and this file no longer declares the planned types";
+    internal const string AlreadyAppliedReason = "already applied: every planned output exists and this file no longer declares the planned types";
 
     /// <summary>Constructs a splitter bound to a set of parsed options.</summary>
     /// <param name="options">The options that select the input list, manifest path, repository root, phase, and optional required header.</param>
@@ -66,22 +71,37 @@ internal sealed class FileSplitter
     /// One row per input describing what the run did. The plan phase's rows are the manifest.
     /// The rows of the other phases are the run report, and never reach the manifest.
     /// </returns>
-    /// <exception cref="InvalidOperationException">Thrown if the phase value is unrecognized, if the content phase finds no plan manifest, or if the renames or content phase finds a manifest with no <c>contentHash</c> column.</exception>
-    public IReadOnlyList<FileResult> Run()
+    /// <exception cref="InvalidOperationException">Thrown if the phase value is unrecognized, if the content phase finds no plan manifest, if the renames or content phase finds a manifest with no <c>contentHash</c> or <c>collisionNaming</c> column, or if <c>--collision-naming</c> contradicts it.</exception>
+    public IReadOnlyList<FileResult> Run() => Run(out _);
+
+    /// <inheritdoc cref="Run()"/>
+    /// <param name="collisionNaming">
+    /// The collision naming this run used, after <see cref="CollisionNamingFlag.Resolve"/>.
+    /// <c>Program</c> records it in the manifest or the report, so it is the resolved value
+    /// and never the raw flag.
+    /// </param>
+    public IReadOnlyList<FileResult> Run(out CollisionNaming collisionNaming)
     {
-        return _options.Phase switch
+        (var rows, collisionNaming) = _options.Phase switch
         {
             Phase.Plan => RunPlan(),
             Phase.Renames => RunRenames(),
             Phase.Content => RunContent(),
             _ => throw new InvalidOperationException($"Unsupported phase: {_options.Phase}"),
         };
+        return rows;
     }
 
     /// <summary>Plan phase entry point. Builds the resolved plan and returns it without writing anything.</summary>
-    private IReadOnlyList<FileResult> RunPlan()
+    /// <remarks>
+    /// A plan starts afresh, so it never reads an existing manifest's naming. An absent flag
+    /// means <see cref="CollisionNaming.FileFirst"/>, and the value is then recorded for the
+    /// phases that follow.
+    /// </remarks>
+    private (IReadOnlyList<FileResult> Rows, CollisionNaming Naming) RunPlan()
     {
-        return KeptRenameCollisions.Resolve(BuildResolvedPlan());
+        var collisionNaming = _options.CollisionNaming ?? CollisionNaming.FileFirst;
+        return (KeptRenameCollisions.Resolve(BuildResolvedPlan(collisionNaming)), collisionNaming);
     }
 
     /// <summary>
@@ -105,12 +125,17 @@ internal sealed class FileSplitter
     /// manifest, so the content phase cannot run until the plan phase has.
     /// </para>
     /// </remarks>
-    /// <exception cref="InvalidOperationException">Thrown when a manifest exists and has no <c>contentHash</c> column.</exception>
-    private IReadOnlyList<FileResult> RunRenames()
+    /// <exception cref="InvalidOperationException">Thrown when a manifest exists and has no <c>contentHash</c> or <c>collisionNaming</c> column, or when <c>--collision-naming</c> contradicts it.</exception>
+    private (IReadOnlyList<FileResult> Rows, CollisionNaming Naming) RunRenames()
     {
         var priorPlan = File.Exists(_options.ManifestPath)
             ? SplitPlanner.IndexByInputPath(ManifestWriter.Read(_options.ManifestPath, requireContentHash: true))
             : null;
+
+        // This phase reruns the collision pass, so it names collisions the way the plan did.
+        // A different value would compute paths the reviewed plan never held.
+        var recorded = priorPlan is null ? null : ManifestCollisionNaming.Read(_options.ManifestPath);
+        var collisionNaming = CollisionNamingFlag.Resolve(_options.CollisionNaming, recorded, _options.ManifestPath);
 
         // Collisions are resolved first, over every row, and the rows are bound to the plan
         // after. A file refused here still took part in naming, so the inputs that are
@@ -119,8 +144,8 @@ internal sealed class FileSplitter
         // Rename targets are handed out last, so a row this phase refuses never takes a
         // target from a row that will act. A rename that is not the plan's own is dropped
         // first, because the content phase reads the kept path the manifest holds.
-        var bound = BuildResolvedPlan().Select(row => priorPlan is null ? row : KeptRenameCollisions.HoldToPlannedRename(PlanBinding.HoldRenamesRow(row, priorPlan), priorPlan)).ToArray();
-        return KeptRenameCollisions.Resolve(bound).Select(ApplyPlannedRename).ToArray();
+        var bound = BuildResolvedPlan(collisionNaming).Select(row => priorPlan is null ? row : KeptRenameCollisions.HoldToPlannedRename(PlanBinding.HoldRenamesRow(row, priorPlan), priorPlan)).ToArray();
+        return (KeptRenameCollisions.Resolve(bound).Select(ApplyPlannedRename).ToArray(), collisionNaming);
     }
 
     /// <summary>
@@ -168,15 +193,15 @@ internal sealed class FileSplitter
     }
 
     /// <summary>Runs the plan for every input path and resolves any cross-file output-name collisions into their qualified form.</summary>
-    private IReadOnlyList<FileResult> BuildResolvedPlan()
+    private IReadOnlyList<FileResult> BuildResolvedPlan(CollisionNaming collisionNaming)
     {
         var results = new List<FileResult>();
         foreach (var path in InputSource.ReadRunnableInputs(_options.InputPath).ToArray())
         {
-            results.Add(Process(path, Phase.Plan, null));
+            results.Add(Process(path, Phase.Plan, null, collisionNaming));
         }
 
-        return SplitPlanner.ResolvePlannedOutputCollisions(results, _options.CollisionNaming);
+        return SplitPlanner.ResolvePlannedOutputCollisions(results, collisionNaming);
     }
 
     /// <summary>
@@ -186,7 +211,7 @@ internal sealed class FileSplitter
     /// <see cref="SplitPlanner.IndexByInputPath"/>). Files not present as <c>split</c> in
     /// the manifest are skipped with a diagnostic reason.
     /// </summary>
-    /// <exception cref="InvalidOperationException">Thrown when the manifest file does not exist, or has no <c>contentHash</c> column.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the manifest file does not exist, has no <c>contentHash</c> or <c>collisionNaming</c> column, or when <c>--collision-naming</c> contradicts it.</exception>
     /// <remarks>
     /// The input list is materialized before the loop. Enumeration itself can fail, on an
     /// unreadable list file or a malformed path, and the content phase rewrites source as it
@@ -198,7 +223,7 @@ internal sealed class FileSplitter
     /// written, <c>Program</c> prints the rows to standard output instead, so the record
     /// survives that too.
     /// </remarks>
-    private IReadOnlyList<FileResult> RunContent()
+    private (IReadOnlyList<FileResult> Rows, CollisionNaming Naming) RunContent()
     {
         if (!File.Exists(_options.ManifestPath))
         {
@@ -212,6 +237,7 @@ internal sealed class FileSplitter
         //
         // Read already collapses the CSV to one row per path, so nothing re-groups here.
         var manifestPlan = ManifestWriter.Read(_options.ManifestPath, requireContentHash: true);
+        var collisionNaming = CollisionNamingFlag.Resolve(_options.CollisionNaming, ManifestCollisionNaming.Read(_options.ManifestPath), _options.ManifestPath);
         var plannedFiles = SplitPlanner.IndexByInputPath(manifestPlan.Where(r => r.Status == "split"));
 
         // Every row, under the same paths the split index uses, so an input handed over by
@@ -237,7 +263,7 @@ internal sealed class FileSplitter
             // row already applied in this run is not applied twice.
             if (applied.Add(planned.OriginalPath))
             {
-                results.Add(Process(planned.OriginalPath, Phase.Content, planned));
+                results.Add(Process(planned.OriginalPath, Phase.Content, planned, collisionNaming));
             }
         }
 
@@ -251,7 +277,7 @@ internal sealed class FileSplitter
                 p.KeptPath,
                 "planned as split but not supplied to the content phase input") with { ContentHash = p.ContentHash });
 
-        return results.Concat(unapplied).ToArray();
+        return (results.Concat(unapplied).ToArray(), collisionNaming);
     }
 
     /// <summary>
@@ -263,6 +289,7 @@ internal sealed class FileSplitter
     /// <param name="path">Absolute or relative input path.</param>
     /// <param name="phase">The phase currently running.</param>
     /// <param name="planned">The manifest row for this input, or null in the plan and renames phases.</param>
+    /// <param name="collisionNaming">The run's resolved collision naming. Read only by the content phase's manifest path check.</param>
     /// <returns>A result describing the outcome for this input.</returns>
     /// <remarks>
     /// The catch is unfiltered on purpose, and for the same reason the one in
@@ -273,11 +300,11 @@ internal sealed class FileSplitter
     /// manifest, and the file system. One bad input costs a failed row; one escaped exception
     /// costs the record of the whole run.
     /// </remarks>
-    private FileResult Process(string path, Phase phase, FileResult? planned)
+    private FileResult Process(string path, Phase phase, FileResult? planned, CollisionNaming collisionNaming)
     {
         try
         {
-            return PlanBinding.CarryPlannedFacts(ProcessCore(path, phase, planned), planned);
+            return PlanBinding.CarryPlannedFacts(ProcessCore(path, phase, planned, collisionNaming), planned);
         }
         catch (Exception ex)
         {
@@ -305,8 +332,9 @@ internal sealed class FileSplitter
     /// <param name="path">Absolute or relative input path.</param>
     /// <param name="phase">The phase currently running.</param>
     /// <param name="planned">The manifest row for this input, or null in the plan and renames phases.</param>
+    /// <param name="collisionNaming">The run's resolved collision naming. Read only by the content phase's manifest path check.</param>
     /// <returns>A result describing the outcome for this input.</returns>
-    private FileResult ProcessCore(string path, Phase phase, FileResult? planned)
+    private FileResult ProcessCore(string path, Phase phase, FileResult? planned, CollisionNaming collisionNaming)
     {
         var originalPath = Path.GetFullPath(path);
         var excluded = MatchExclude(originalPath);
@@ -318,7 +346,7 @@ internal sealed class FileSplitter
         var readPath = SplitPlanner.GetReadPath(originalPath, phase, planned);
         try
         {
-            return ProcessResolved(originalPath, readPath, phase, planned);
+            return ProcessResolved(originalPath, readPath, phase, planned, collisionNaming);
         }
         catch (Exception ex)
         {
@@ -335,7 +363,7 @@ internal sealed class FileSplitter
     /// known. Split out so one catch covers every throw below it, not just the ones that
     /// carry their own filter.
     /// </summary>
-    private FileResult ProcessResolved(string originalPath, string readPath, Phase phase, FileResult? planned)
+    private FileResult ProcessResolved(string originalPath, string readPath, Phase phase, FileResult? planned, CollisionNaming collisionNaming)
     {
         if (!File.Exists(readPath))
         {
@@ -383,7 +411,7 @@ internal sealed class FileSplitter
 
         try
         {
-            return ProcessBytes(originalPath, readPath, originalBytes, phase, planned) with { ContentHash = contentHash };
+            return ProcessBytes(originalPath, readPath, originalBytes, phase, planned, collisionNaming) with { ContentHash = contentHash };
         }
         catch (Exception ex)
         {
@@ -424,7 +452,7 @@ internal sealed class FileSplitter
     /// hand. Split out so the caller can stamp one content hash on every row this returns,
     /// whichever of its exits produced it.
     /// </summary>
-    private FileResult ProcessBytes(string originalPath, string readPath, byte[] originalBytes, Phase phase, FileResult? planned)
+    private FileResult ProcessBytes(string originalPath, string readPath, byte[] originalBytes, Phase phase, FileResult? planned, CollisionNaming collisionNaming)
     {
         EncodedSource source;
         try
@@ -469,7 +497,7 @@ internal sealed class FileSplitter
             return FileResult.Skip(originalPath, readPath, directiveSafety.Reason ?? "contains unsafe directive; manual split required");
         }
 
-        var plan = SplitPlanner.BuildPlan(originalPath, readPath, types, planned, directiveNote: directiveSafety.Note, collisionNaming: _options.CollisionNaming, convention: _options.FileNaming);
+        var plan = SplitPlanner.BuildPlan(originalPath, readPath, types, planned, directiveNote: directiveSafety.Note, collisionNaming: collisionNaming, convention: _options.FileNaming);
         if (plan.SkipReason is not null)
         {
             var skipped = FileResult.Skip(originalPath, plan.KeptPath, plan.SkipReason);

@@ -81,7 +81,7 @@ try
         ReportFile.Prepare(reportPath, options.ManifestPath);
     }
 
-    var rows = new FileSplitter(options).Run();
+    var rows = new FileSplitter(options).Run(out var collisionNaming);
 
     // A report that cannot be written is not allowed to take the record of the run with
     // it. The path was usable a moment ago, so a failure here is a disk filling, a
@@ -90,14 +90,16 @@ try
     string? reportFailure = null;
     if (reportPath is null)
     {
-        ManifestWriter.Write(rows, options.ManifestPath);
+        ManifestWriter.Write(rows, options.ManifestPath, collisionNaming);
     }
     else
     {
-        reportFailure = ReportFile.Write(rows, reportPath, options.ManifestPath);
+        reportFailure = ReportFile.Write(rows, reportPath, options.ManifestPath, collisionNaming);
     }
 
-    var report = RunReport.Create(rows, options.Phase, options.ManifestPath, reportFailure is null ? reportPath : null);
+    // A run whose report could not be written did not complete, so it suggests nothing.
+    var nextArgs = reportFailure is null ? NextStep.For(options, rows, planOnDisk: File.Exists(options.ManifestPath)) : null;
+    var report = RunReport.Create(rows, options.Phase, options.ManifestPath, reportFailure is null ? reportPath : null, collisionNaming, nextArgs);
 
     if (options.Json)
     {
@@ -105,7 +107,7 @@ try
     }
     else if (options.Phase == Phase.Plan || reportFailure is not null)
     {
-        Console.WriteLine(ManifestWriter.ToCsv(rows));
+        Console.WriteLine(ManifestWriter.ToCsv(rows, collisionNaming));
     }
 
     // Standard output carries a parseable document or nothing at all, so a caller can pipe
@@ -118,6 +120,11 @@ try
     }
 
     Console.Error.WriteLine(report.ToSummaryLine());
+    if (nextArgs is not null)
+    {
+        Console.Error.WriteLine(NextStep.Describe(nextArgs, options.Phase));
+    }
+
     if (reportFailure is not null)
     {
         Console.Error.WriteLine($"error: report not written to {reportPath}: {reportFailure}");
@@ -166,21 +173,28 @@ static void PrintUsage(TextWriter w)
     w.WriteLine("  --report <path>                  Where renames and content record what they did. Defaults to the manifest path");
     w.WriteLine("                                   with .report.csv as its extension. Not accepted with the plan phase.");
     w.WriteLine("                                   Replaces a file in the report format. Refuses any other existing file.");
-    w.WriteLine("  --phase plan|renames|content     Which phase to run. Defaults to content.");
-    w.WriteLine("  --dry-run                        Shorthand for --phase plan. Cannot be combined with --phase.");
+    w.WriteLine("  --phase plan|renames|content     Which phase to run. Defaults to plan, which changes no source file.");
+    w.WriteLine("  --dry-run                        Same as --phase plan. Kept for older scripts. Cannot be combined with --phase.");
     w.WriteLine("  --json                           Print one JSON report to stdout instead of CSV.");
     w.WriteLine("  --require-header <text>          Require and prepend this file header. Off by default.");
     w.WriteLine("  --exclude <path-substring>       Skip inputs whose path contains this substring. Repeatable.");
     w.WriteLine("  --collision-naming file-first|type-first");
     w.WriteLine("                                   Name for two inputs that emit the same file name. file-first, the default,");
     w.WriteLine("                                   gives A.Shared.cs. type-first gives Shared.A.cs, which passes SA1649.");
-    w.WriteLine("                                   Pass the same value to every phase.");
+    w.WriteLine("                                   The plan records the value; renames and content reuse it when the flag is absent.");
     w.WriteLine("  --file-naming stylecop|metadata  SA1649 convention for generic file names. Defaults to stylecop: Foo.cs,");
     w.WriteLine("                                   or Foo{T}.cs when a same-name type shares the file. metadata names");
     w.WriteLine("                                   them Foo`1.cs. Pass the same value to every phase.");
     w.WriteLine("  --help, -h                       Show help.");
     w.WriteLine();
+    w.WriteLine("Typical workflow. Use one list file and one manifest outside the repository for every step:");
+    w.WriteLine("  1. split-types --input <list> --manifest <csv> --json                    plan; changes no source file");
+    w.WriteLine("  2. split-types --input <list> --manifest <csv> --json --phase renames    git mv only; commit it");
+    w.WriteLine("  3. split-types --input <list> --manifest <csv> --json --phase content    rewrites files; build and test");
+    w.WriteLine("  With --json, nextArgs in the report holds the exact arguments for the next step.");
+    w.WriteLine();
     w.WriteLine("Exit codes: 0 no failures, 1 a file failed, 2 bad command line, 3 the run could not complete.");
-    w.WriteLine("Standard output carries the data (CSV or JSON); a one-line summary goes to standard error.");
+    w.WriteLine("Exit 0 can still mean nothing happened. Read summary.split, or the summary line.");
+    w.WriteLine("Standard output carries the data (CSV or JSON); the summary and a Next: line go to standard error.");
     w.WriteLine("If the report file cannot be written, its rows go to standard output and the run exits 3.");
 }

@@ -25,6 +25,11 @@
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     <None Include="..\..\package\AGENTS.md" Pack="true" PackagePath="\" />
+    <!-- Agent Skills land at skills/<name>/SKILL.md, the layout NuGet skill tools look for.
+         NuGet appends the wildcard's folder itself. "skills\%(RecursiveDir)" nested the file one
+         level too deep, and "skills\" wrote the zip entry as skills//split-types/SKILL.md.
+         CI checks the exact entry name. -->
+    <None Include="..\..\package\skills\**\*" Pack="true" PackagePath="skills" />
     <None Include="..\..\assets\icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 

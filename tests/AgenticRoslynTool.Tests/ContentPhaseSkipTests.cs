@@ -56,7 +56,7 @@ public sealed class ContentPhaseSkipTests
         var manifestPath = Path.Combine(ws.Root, "m.csv");
 
         var planOptions = new Options(ws.WriteInputList(splittable, solo), manifestPath, ws.Root, Phase.Plan, null);
-        ManifestWriter.Write(new FileSplitter(planOptions).Run(), manifestPath);
+        ManifestWriter.Write(new FileSplitter(planOptions).Run(), manifestPath, CollisionNaming.FileFirst);
         var plannedSolo = Assert.Single(ManifestWriter.Read(manifestPath), r => IsSolo(r.OriginalPath));
         Assert.Equal("skipped", plannedSolo.Status);
 

@@ -8,8 +8,9 @@ namespace AgenticRoslynTool;
 internal enum Phase
 {
     /// <summary>
-    /// Compute the split and emit a CSV manifest without touching any source file.
-    /// Selected by <c>--phase plan</c> or the <c>--dry-run</c> alias.
+    /// Default phase. Compute the split and emit a CSV manifest without touching any
+    /// source file. Selected by omitting <c>--phase</c>, by <c>--phase plan</c>, or by the
+    /// <c>--dry-run</c> alias.
     /// </summary>
     Plan,
 
@@ -21,8 +22,8 @@ internal enum Phase
     Renames,
 
     /// <summary>
-    /// Default phase. Reads the plan manifest and writes the split output files, acting
-    /// only on manifest rows whose status is <c>split</c>.
+    /// Reads the plan manifest and writes the split output files, acting only on manifest
+    /// rows whose status is <c>split</c>. Runs only when <c>--phase content</c> is given.
     /// </summary>
     Content,
 }

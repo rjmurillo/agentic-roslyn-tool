@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Xunit;
 
 namespace AgenticRoslynTool.Tests;
@@ -34,40 +33,15 @@ public abstract class ContentHashTestBase : IDisposable
     // phases need the manifest on disk to be the one a real run would leave.
     private protected IReadOnlyList<FileResult> RunPhase(Phase phase, params string[] inputs)
     {
-        var rows = new FileSplitter(new Options(Workspace.WriteInputList(inputs), ManifestPath, Workspace.Root, phase, null)).Run();
+        var rows = new FileSplitter(new Options(Workspace.WriteInputList(inputs), ManifestPath, Workspace.Root, phase, null)).Run(out var collisionNaming);
         if (phase == Phase.Plan)
         {
-            ManifestWriter.Write(rows, ManifestPath);
+            ManifestWriter.Write(rows, ManifestPath, collisionNaming);
         }
 
         return rows;
     }
 
-    // The renames phase runs git mv, which needs a repository and a tracked file. Nothing is
-    // committed, so no author identity is required on the machine running the test.
-    private protected void InitRepository(string trackedFile)
-    {
-        Git("init", "--quiet");
-        Git("add", "--", trackedFile);
-    }
-
-    private void Git(params string[] arguments)
-    {
-        var start = new ProcessStartInfo("git")
-        {
-            WorkingDirectory = Workspace.Root,
-            RedirectStandardError = true,
-            RedirectStandardOutput = true,
-            UseShellExecute = false,
-        };
-        foreach (var argument in arguments)
-        {
-            start.ArgumentList.Add(argument);
-        }
-
-        using var process = Process.Start(start) ?? throw new InvalidOperationException("failed to start git");
-        var error = process.StandardError.ReadToEnd();
-        process.WaitForExit();
-        Assert.True(process.ExitCode == 0, $"git {string.Join(' ', arguments)} failed: {error}");
-    }
+    // See GitFixture: a repository and a tracked file are enough for git mv.
+    private protected void InitRepository(string trackedFile) => GitFixture.InitAndTrack(Workspace.Root, trackedFile);
 }

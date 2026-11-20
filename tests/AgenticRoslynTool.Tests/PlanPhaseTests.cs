@@ -36,7 +36,7 @@ public sealed class PlanPhaseTests
         Assert.False(File.Exists(Path.Combine(ws.Root, "Baz.cs")));
 
         // Program writes the manifest, not FileSplitter, so exercise the writer explicitly.
-        ManifestWriter.Write(results, manifest);
+        ManifestWriter.Write(results, manifest, CollisionNaming.FileFirst);
         Assert.True(File.Exists(manifest));
         var manifestText = File.ReadAllText(manifest);
         Assert.StartsWith("originalPath,keptPath,gitMove,status,reason,note,newFilePath,type", manifestText);

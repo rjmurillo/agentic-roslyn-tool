@@ -99,7 +99,7 @@ public sealed class FileNamingAgreementTests
         var elsewhere = Path.Combine(ws.Root, "Elsewhere.cs");
         ManifestWriter.Write(
             planRows.Select(r => r with { NewFiles = r.NewFiles.Select(f => f with { Path = elsewhere }).ToArray() }).ToArray(),
-            manifestPath);
+            manifestPath, CollisionNaming.FileFirst);
 
         var result = Assert.Single(FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Content, FileNamingConvention.StyleCop));
 

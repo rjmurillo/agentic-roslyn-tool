@@ -62,7 +62,7 @@ public sealed class ContentPhaseRunIntegrityTests
                 ? r
                 : r with { NewFiles = r.NewFiles.Concat(r.NewFiles).ToArray() })
             .ToArray();
-        ManifestWriter.Write(tampered, manifestPath);
+        ManifestWriter.Write(tampered, manifestPath, CollisionNaming.FileFirst);
 
         var contentOptions = new Options(listPath, manifestPath, workspace.Root, Phase.Content, null);
         var results = new FileSplitter(contentOptions).Run();
@@ -114,7 +114,7 @@ public sealed class ContentPhaseRunIntegrityTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
-        ManifestWriter.Write(plan, manifestPath);
+        ManifestWriter.Write(plan, manifestPath, CollisionNaming.FileFirst);
         Assert.True(Assert.Single(plan).GitMove);
 
         // Stand in for the renames phase, which needs a real repository to run git mv.
@@ -142,7 +142,7 @@ public sealed class ContentPhaseRunIntegrityTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
-        ManifestWriter.Write(plan, manifestPath);
+        ManifestWriter.Write(plan, manifestPath, CollisionNaming.FileFirst);
 
         var keptPath = Path.Combine(workspace.Root, "Gamma.cs");
         File.Move(input, keptPath);
@@ -170,7 +170,7 @@ public sealed class ContentPhaseRunIntegrityTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
-        ManifestWriter.Write(plan, manifestPath);
+        ManifestWriter.Write(plan, manifestPath, CollisionNaming.FileFirst);
 
         var content = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Content, null)).Run();
         var row = Assert.Single(content);
@@ -195,7 +195,7 @@ public sealed class ContentPhaseRunIntegrityTests
         var tampered = plan
             .Select(r => r with { NewFiles = r.NewFiles.Concat(r.NewFiles).ToArray() })
             .ToArray();
-        ManifestWriter.Write(tampered, manifestPath);
+        ManifestWriter.Write(tampered, manifestPath, CollisionNaming.FileFirst);
 
         // Stand in for the renames phase, which needs a real repository to run git mv.
         var keptPath = Path.Combine(workspace.Root, "Gamma.cs");
@@ -219,7 +219,7 @@ public sealed class ContentPhaseRunIntegrityTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var plan = new FileSplitter(new Options(listPath, manifestPath, workspace.Root, Phase.Plan, null)).Run();
-        ManifestWriter.Write(plan, manifestPath);
+        ManifestWriter.Write(plan, manifestPath, CollisionNaming.FileFirst);
 
         // Stand in for the renames phase, which needs a real repository to run git mv.
         var keptPath = Path.Combine(workspace.Root, "Gamma.cs");

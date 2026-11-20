@@ -511,6 +511,10 @@ possibly compromised version merge itself within minutes.
 
 ### Decision 21. Collision naming is a flag, and the default keeps the SA1649 violation
 
+**Superseded in part by decision 26.** The plan now records the value in the manifest.
+The rejection of a column below, and the consequences of a forgotten flag, describe the
+behavior before that change. The note dependency and the per-row content check still hold.
+
 **Context.** Two inputs in one folder can each emit `Shared.cs`. The collision pass
 qualifies both as `<OriginalFileName>.<TypeName>.cs`, such as `A.Shared.cs`. SA1649 reads
 a file name up to its first dot, so it reads `A` and reports the file. The naming guide
@@ -851,6 +855,9 @@ planned paths, or a report of a renames run that left out a planned rename becau
 differed. The guides already tell a `metadata` repository to pass the flag to every phase,
 so that advice is not the trigger.
 
+Since then, decision 26 added a `collisionNaming` column, so `--file-naming` is the only
+naming flag the manifest does not record.
+
 **Consequences.** The content phase gained a check. It writes the paths the manifest
 holds, so a plan made under the other convention was applied as it stood. It differs only
 in a moved file's name, and the path set comparison runs after those paths are substituted
@@ -936,6 +943,213 @@ names. Remove `KeptRenameCollisions` and two inputs with one rename target plan 
 fails. Remove `HoldToPlannedRename` and the renames phase can move a file the content
 phase will then not find. The flag name and its two values are command line contract: rename or
 remove one and every caller that passes it exits 2.
+
+### Decision 25. A run with no phase plans
+
+**Context.** `--phase` defaulted to `content`, the one phase that rewrites source. No entry
+in this log recorded why. Every doc had to warn the reader to pass `--dry-run`, and the
+package `AGENTS.md` repeated it. A caller that skips the docs runs
+`split-types --input .` first, and that first call rewrote the repository. Agents make that
+call. The NuGet team's skill evaluation found that weaker models follow written guidance
+less reliably than frontier models. That finding is about following guidance, so applying
+it to a bare first call is an inference, not a measurement. A safe default protects every
+tier either way, and costs a frontier model nothing.
+
+**Decision.** With no `--phase` and no `--dry-run`, the tool runs `plan`. Only
+`--phase content` rewrites source. `--dry-run` stays as an alias for `--phase plan`, and
+combining it with `--phase` is still exit 2.
+
+**Rejected.** Requiring `--phase` on every run. It is safer than any default, but the
+first call then fails with exit 2 and teaches the caller nothing it could not learn from a
+plan. A plan teaches the caller what would happen. Removing `--dry-run` was rejected too:
+it breaks every script and doc that uses it, for no gain.
+
+**Consequences.** Breaking. A script that relied on the old default now plans, exits 0,
+and changes nothing. Three signs show it: the summary line on standard error starts with
+`plan:`, standard output carries the manifest CSV, and a `Next:` line names the phase to
+run (decision 27). Exit 0 with no source change is accepted here, where decision 26 rejects
+it. Here the run did exactly what it was asked, and says what to do next. There, a run
+asked to apply a plan skipped rows without saying why on the exit code. Docs now tell
+readers to pass `--dry-run` or `--phase` explicitly, so a command means the same on
+version 0.1.1 and on later versions. A published version is immutable, so restoring the
+old default would itself be a breaking change in a later version. `--report` is refused in
+the plan phase (decision 23),
+so `--report` with no `--phase` is now exit 2.
+
+**Reversal warning.** Restore `content` as the default and the first bare call from an
+agent rewrites source before anyone has reviewed a plan.
+
+### Decision 26. The plan records `--collision-naming` in the manifest
+
+**Context.** Decision 21 made the value a flag that every phase had to repeat, and it
+rejected a manifest column because the column "changes the manifest CSV for every caller,
+to serve one flag." Two facts changed. Decision 22 then added `contentHash`, so the CSV
+already changed for every caller, and no released version writes that column. And the
+forgotten flag was the trap decision 21 predicted. A content run that forgot it skipped the
+collided rows and exited 0. Before decision 23, it also overwrote their reviewed plan, and a
+renames run that forgot it replaced the reviewed names in the manifest. Decision 23 ended
+both overwrites, because only the plan writes the manifest now. The skip remains: exit 0
+reads as "nothing to do", and a caller that does not read every row's reason stops there.
+A renames run under the other value still computes paths the plan never held. The
+maintainer chose to make the break.
+
+**Decision.** Every manifest row carries `collisionNaming`, `file-first` or `type-first`,
+appended after `contentHash`. The JSON report carries the same value once, as a top level
+field. The rules, all in `CollisionNamingFlag.Resolve` and `ManifestCollisionNaming.Read`:
+
+- The plan phase uses the flag, or `file-first` when it is absent, and records that.
+  It never reads an existing manifest's value.
+- Renames, when a manifest exists, and content use the recorded value when the flag is
+  absent. A flag that matches is accepted.
+- A flag that contradicts the recorded value ends the run with exit code 3, before any
+  source file is read or moved. The error names both values and says what to do.
+- A missing column, or a blank, unknown, or mixed value, ends the run with exit code 3.
+  Each of those means the file was edited or written by an older build. Both are cases
+  decision 22 settled: no silent fallback.
+- `ManifestWriter.Write`, `ToCsv`, and `ReportFile.Write` take the value as a required
+  parameter. An optional one could be forgotten by the next caller, and the column would
+  then carry a default nobody chose. The run report carries the column too, because it is
+  the same CSV format, so a report shows which naming the run applied.
+- `FileSplitter.Run(out CollisionNaming)` hands the resolved value to `Program`. The
+  plain `Run()` remains for tests that do not need it.
+- `Options.CollisionNaming` is nullable. Null means "absent", which is not `file-first`
+  once a manifest exists.
+
+**Rejected.** Inferring the value from the paths and notes the plan wrote. A manifest with
+no collision carries no evidence either way, and the inference would depend on note text,
+which decision 21 already calls a cost. A sidecar file beside the manifest was rejected:
+two files that must travel together will be separated. Keeping the per-row skip for a
+contradicting flag was rejected for the exit 0 reason above.
+
+**Consequences.** Breaking, for the manifest and the JSON. A manifest written before this
+change cannot drive renames or content: it lacks the column, and the run says to re-run
+the plan. The `contentHash` check runs first, so a 0.1.1 manifest reports that error,
+which gives the same advice. A reader that rejects unknown columns or JSON fields needs an
+update. The per-row check from decision 21 stays. It is now reachable only when someone
+edits the column and leaves the paths and notes alone, and
+`CollisionNamingContentTests` pins it through exactly that edit. `CollisionNamingRecordedTests`
+runs plan, renames, and content through the real executable with the flag only on the plan,
+and checks that a contradicting flag leaves the manifest, the sources, and the report path
+untouched. `ReportFile.Prepare` runs before the check and probes the report directory, but
+it never creates the report file. `MetadataCollisionGuardTests` pins both guards on a backtick
+name from decision 24.
+
+Decision 21 said to revisit a manifest column "if a second flag ever changes planned
+paths". `--file-naming` (decision 24) is that second flag, and it landed on main while this
+change was in review. It is not recorded here. `nextArgs` repeats `--file-naming metadata`
+for the next phase (decision 27), so a caller who follows it cannot drop the flag.
+
+Decision 24 called a column for one naming flag and not the other "half a design". This
+change adds that half anyway, for two reasons. The collision flag's failure was observed:
+a forgotten flag skipped rows at exit 0, and before decision 23 it also rewrote reviewed
+names. And the column, the strict read, and `CollisionNamingFlag.Resolve` are the pattern a
+`fileNaming` column would reuse. Recording `--file-naming` the same way is the named
+follow-up, and whether to do it is an open decision for the maintainer.
+
+**Reversal warning.** Drop the column and every phase must be told the value again, with
+the exit 0 trap back in place. Let `Write` default the value and a future caller records
+`file-first` for a type-first plan. Resolve a contradiction by preferring the flag and a
+renames run computes paths the plan never held. Accept a blank value as "not recorded" and an edited
+manifest silently falls back to the flag.
+
+### Decision 27. The report says what to run next
+
+**Context.** The workflow is three runs with the same options, and the commonest mistake is
+a dropped option between them: a missing `--manifest`, a missing `--exclude`, or before
+decision 26 a missing `--collision-naming`. A frontier model reads the docs and carries the
+options forward. An economical model is expected to follow one literal command more
+reliably than a paragraph of advice. The NuGet team measured lower skill compliance in
+weaker models, which points the same way, but no evaluation of this tool has measured it.
+
+**Decision.** The JSON report carries `nextArgs`, the argument list for the next phase,
+and standard error carries a `Next:` line with the same suggestion. `NextStep.For` decides.
+After `plan` it points at `renames` only when a row needs a `git mv`, and at `content`
+otherwise. It is `null` after `content`, after a failed row, when nothing splits, for
+standard input, after a renames run with no plan on disk, and when the report file could
+not be written. It carries `--report` only
+when the caller chose a path, because the parser fills in the default otherwise. It carries
+`--file-naming metadata`, because the manifest does not record that flag (decision 24), and
+a content run under the other convention skips the affected rows.
+`--help` now prints the three step workflow and says that exit 0 can mean nothing happened.
+
+The `Next:` line prints an argument bare when it holds only letters, digits, and
+`_ . / : + -`, and in single quotes when it also holds a space or a backslash. Bash, zsh,
+and PowerShell all read single quotes literally. Any other character, such as `$`, a
+backtick, `&`, a quote, `=`, `@`, `,`, `%`, or a line break, turns the line into a sentence that
+points at `nextArgs`. Review found that the first version used double quotes, where `$`
+still expands, and later that zsh expands a leading `=` and PowerShell splats a leading
+`@`.
+
+`nextArgs` being `null` does not mean the split is done. A repeated renames run can end
+with `null`, for example when every split row was a rename and now says `input file does
+not exist`. The packaged skill therefore defines
+done positively: the last report's `phase` is `content`, `summary.failed` is 0, and every
+skipped row's reason is `not present as split in plan manifest` or starts with `already
+applied`. Those are the only content skips that leave no planned work behind. Three review
+rounds each found one more skip reason that an exclusion list missed: `stale plan:`, then
+`content phase plan does not match manifest`, then `planned as split but not supplied to
+the content phase input`. An allow list of the two harmless reasons ends that pattern.
+`FileSplitter.NotPlannedReason` and `AlreadyAppliedReason` are `internal` so that
+`PackagedAgentDocsTests` can fail when the skill stops quoting them. The skill's fallback
+repeats every option the plan had, `--file-naming` included.
+
+**Rejected.** A full command line string. The command name differs by install method, and
+quoting differs by shell, so a string would be wrong for some caller. An argument array
+starting at the verb is right for all of them. Pointing at `renames` after every plan was
+rejected because a renames run with nothing to move is a wasted turn. Replaying `--input -`
+was rejected because the second process reads an empty stream and reports success.
+Suggesting a phase after a failed row was rejected, because a failure needs a decision.
+
+**Consequences.** Additive for the JSON: a reader that rejects unknown fields needs an
+update. Standard error gains one line on success. Standard output is unchanged, so a pipe
+into a parser still works. A frontier model can ignore the field at no cost.
+
+**Reversal warning.** Add `--collision-naming` to `nextArgs` and it repeats a value the
+manifest already records; after a fresh plan under another value, the copied flag would
+end the next run at exit 3. Return a suggestion for standard input and the next run plans
+nothing and exits 0. Suggest content after a renames run with no plan on disk and the
+next run exits 3. Add `=`, `@`, `,`, or `%` back to the bare set and a pasted `Next:`
+line breaks in zsh, PowerShell, or cmd.exe. Move the field after `files` and a truncated read loses it.
+
+### Decision 28. The package ships an Agent Skill as well as `AGENTS.md`
+
+**Context.** The .NET team now delivers Agent Skills inside NuGet packages, at
+`skills/<name>/SKILL.md`. Restore puts the file on disk, and `dotnet-inspect` lists it.
+This package already shipped `AGENTS.md` at its root for NuGet MCP. Whether the skill
+convention works for a tool package was tested rather than assumed. The results are in
+[agent-skills-in-nuget.md](agent-skills-in-nuget.md).
+
+**Decision.** Ship `package/skills/split-types/SKILL.md` at `skills/split-types/SKILL.md`.
+Keep the full workflow in `package/AGENTS.md` too, and have it name the skill.
+`PackagedAgentDocsTests` checks both files: every documented command parses under the
+current `Options`, and the skill meets the format rules. CI and the release workflow run
+`.github/scripts/verify-package-contents.sh`, which matches exact entry names.
+
+**Rejected.** Shrinking `AGENTS.md` to a pointer at the skill. NuGet MCP returns
+`AGENTS.md` and does not read skills yet, so its users would get a pointer and nothing to
+follow. Several skills, one per phase, were rejected: `nextArgs` already walks a caller
+through the phases, and every extra skill is more text every model has to read. A
+`scripts/` folder was rejected because the tool is the script.
+
+**Consequences.** Two files describe one workflow, and they can disagree in prose. The test
+only proves their commands still parse. Project-graph tools never see the skill: a tool
+package cannot be a `PackageReference`, and restore says so with `NU1212`. Agents find it
+through `dotnet-inspect package`, through the install path, or through a copy committed
+to a repository. No evaluation has shown the skill helps any model. Run the evaluation in
+[agent-skills-in-nuget.md](agent-skills-in-nuget.md) before the first release that ships
+the skill is a month old, or sooner if a user reports higher cost; dropping the skill
+after that is a next-version change. The NuGet team reports
+small gains for frontier models, and warns that a skill can raise cost.
+
+A release run checks out the tag it ships. A tag made before this change has no
+`verify-package-contents.sh`, so re-running the release workflow for it stops at that step
+before anything is published. `v0.1.1`, the only such tag, is already on NuGet.
+
+**Reversal warning.** Move the `PackagePath` and the entry name changes. Two plausible
+values were wrong, and only the exact match in `verify-package-contents.sh` caught them.
+Drop the workflow from `AGENTS.md` and NuGet MCP users lose it. Delete
+`PackagedAgentDocsTests` and the next renamed flag leaves both documents giving commands
+that exit 2.
 
 ## Credit
 

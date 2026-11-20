@@ -65,7 +65,7 @@ public sealed class HeaderBehaviorTests
         var manifest = Path.Combine(ws.Root, "m.csv");
 
         var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run();
-        ManifestWriter.Write(planResults, manifest);
+        ManifestWriter.Write(planResults, manifest, CollisionNaming.FileFirst);
         var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run();
 
         // If line conservation were still un-seeded with the header, this would be
@@ -100,7 +100,7 @@ public sealed class HeaderBehaviorTests
         var manifest = Path.Combine(ws.Root, "m.csv");
 
         var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run();
-        ManifestWriter.Write(planResults, manifest);
+        ManifestWriter.Write(planResults, manifest, CollisionNaming.FileFirst);
         var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run();
         Assert.Equal("split", Assert.Single(contentResults).Status);
 
@@ -131,7 +131,7 @@ public sealed class HeaderBehaviorTests
         var manifest = Path.Combine(ws.Root, "m.csv");
 
         var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run();
-        ManifestWriter.Write(planResults, manifest);
+        ManifestWriter.Write(planResults, manifest, CollisionNaming.FileFirst);
         var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run();
         Assert.Equal("split", Assert.Single(contentResults).Status);
 
@@ -159,7 +159,7 @@ public sealed class HeaderBehaviorTests
         var manifest = Path.Combine(ws.Root, "m.csv");
 
         var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run();
-        ManifestWriter.Write(planResults, manifest);
+        ManifestWriter.Write(planResults, manifest, CollisionNaming.FileFirst);
         var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run();
         Assert.Equal("split", Assert.Single(contentResults).Status);
 
@@ -193,7 +193,7 @@ public sealed class HeaderBehaviorTests
         var manifest = Path.Combine(ws.Root, "m.csv");
 
         var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run();
-        ManifestWriter.Write(planResults, manifest);
+        ManifestWriter.Write(planResults, manifest, CollisionNaming.FileFirst);
         var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run();
         Assert.Equal("split", Assert.Single(contentResults).Status);
 
@@ -227,7 +227,7 @@ public sealed class HeaderBehaviorTests
         var manifest = Path.Combine(ws.Root, "m.csv");
 
         var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run();
-        ManifestWriter.Write(planResults, manifest);
+        ManifestWriter.Write(planResults, manifest, CollisionNaming.FileFirst);
         var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run();
         var result = Assert.Single(contentResults);
         Assert.Equal("split", result.Status);
@@ -261,7 +261,7 @@ public sealed class HeaderBehaviorTests
         var manifest = Path.Combine(ws.Root, "m.csv");
 
         var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, required)).Run();
-        ManifestWriter.Write(planResults, manifest);
+        ManifestWriter.Write(planResults, manifest, CollisionNaming.FileFirst);
         var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, required)).Run();
         Assert.Equal("split", Assert.Single(contentResults).Status);
 
@@ -285,7 +285,7 @@ public sealed class HeaderBehaviorTests
         var manifest = Path.Combine(ws.Root, "m.csv");
 
         var planResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Plan, supplied)).Run();
-        ManifestWriter.Write(planResults, manifest);
+        ManifestWriter.Write(planResults, manifest, CollisionNaming.FileFirst);
         var contentResults = new FileSplitter(new Options(listPath, manifest, ws.Root, Phase.Content, supplied)).Run();
         Assert.Equal("split", Assert.Single(contentResults).Status);
 

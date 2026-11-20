@@ -83,14 +83,11 @@ public sealed class MetadataCollisionTests
     [Theory]
     [InlineData("file-first", "stylecop", "file-first", "A.Shared`1.cs", "--file-naming metadata name and this run used stylecop")]
     [InlineData("type-first", "stylecop", "type-first", "Shared`1.A.cs", "--file-naming metadata name and this run used stylecop")]
-    [InlineData("type-first", "metadata", "file-first", "Shared`1.A.cs", "--collision-naming type-first form and this run used file-first")]
-    public void MetadataQualifiedName_ContentUnderOtherFlags_IsRefusedAndWritesNothing(string planCollision, string contentNaming, string contentCollision, string plannedName, string expectedNote)
+    public void MetadataQualifiedName_ContentUnderOtherFileNaming_IsRefusedAndWritesNothing(string planCollision, string contentNaming, string contentCollision, string plannedName, string expectedNote)
     {
         // A metadata plan holds the arity name inside either qualified form. File-first is
         // the default, so A.Shared`1.cs is what a caller who only passes --file-naming gets.
-        // Dropping --file-naming in the content run is caught on both forms. The last row
-        // keeps the convention and changes the collision flag, and the collision naming
-        // refusal from decision 21 still fires on a backtick name.
+        // Dropping --file-naming in the content run is caught on both forms.
         var plan = Options.Parse(["--input", "list.txt", "--file-naming", "metadata", "--collision-naming", planCollision]);
         var content = Options.Parse(["--input", "list.txt", "--file-naming", contentNaming, "--collision-naming", contentCollision]);
         using var ws = new TempWorkspace();
@@ -108,7 +105,7 @@ public sealed class MetadataCollisionTests
         Assert.Equal(new[] { "A.cs", "B.cs" }, FileNamingRuns.CsFiles(ws));
     }
 
-    private static (string A, string B, string ListPath, string ManifestPath) WriteSharedGenericPair(TempWorkspace ws)
+    internal static (string A, string B, string ListPath, string ManifestPath) WriteSharedGenericPair(TempWorkspace ws)
     {
         var a = ws.WriteFile("A.cs", "namespace One;\n\npublic class A\n{\n}\n\npublic class Shared<T>\n{\n}\n");
         var b = ws.WriteFile("B.cs", "namespace Two;\n\npublic class B\n{\n}\n\npublic class Shared<T>\n{\n}\n");

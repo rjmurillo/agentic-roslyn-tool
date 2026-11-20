@@ -70,7 +70,7 @@ public sealed class PlanMismatchReasonTests
         var manifestPath = Path.Combine(ws.Root, "m.csv");
         var planRows = FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Plan, FileNamingConvention.StyleCop);
         Assert.Equal("split", Assert.Single(planRows).Status);
-        ManifestWriter.Write(planRows.Select(edit).ToArray(), manifestPath);
+        ManifestWriter.Write(planRows.Select(edit).ToArray(), manifestPath, CollisionNaming.FileFirst);
 
         var result = Assert.Single(FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Content, FileNamingConvention.StyleCop));
         Assert.Equal("skipped", result.Status);

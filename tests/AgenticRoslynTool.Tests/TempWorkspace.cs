@@ -38,7 +38,7 @@ internal sealed class TempWorkspace : IDisposable
     {
         var planOptions = new Options(listPath, manifestPath, Root, Phase.Plan, null);
         var planResults = new FileSplitter(planOptions).Run();
-        ManifestWriter.Write(planResults, manifestPath);
+        ManifestWriter.Write(planResults, manifestPath, CollisionNaming.FileFirst);
 
         var contentOptions = new Options(listPath, manifestPath, Root, Phase.Content, null);
         return new FileSplitter(contentOptions).Run();

@@ -22,7 +22,7 @@ public sealed class DirectoryInputContentPhaseTests
         var manifestPath = Path.Combine(workspace.Root, "manifest.csv");
 
         var plan = new FileSplitter(new Options(source, manifestPath, workspace.Root, Phase.Plan, null)).Run();
-        ManifestWriter.Write(plan, manifestPath);
+        ManifestWriter.Write(plan, manifestPath, CollisionNaming.FileFirst);
 
         // Stand in for the renames phase, which needs a real repository to run git mv.
         var keptPath = Path.Combine(source, "Order2.cs");
@@ -52,7 +52,7 @@ public sealed class DirectoryInputContentPhaseTests
         var keptPath = Path.Combine(workspace.Root, "Order2.cs");
 
         var plan = new FileSplitter(new Options(workspace.WriteInputList(stuff), manifestPath, workspace.Root, Phase.Plan, null)).Run();
-        ManifestWriter.Write(plan, manifestPath);
+        ManifestWriter.Write(plan, manifestPath, CollisionNaming.FileFirst);
         File.Move(stuff, keptPath);
 
         var listPath = workspace.WriteInputList(keptPath, stuff);

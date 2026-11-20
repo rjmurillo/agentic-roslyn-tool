@@ -83,8 +83,9 @@ internal static class ReportFile
     /// <param name="rows">The rows describing what the run did.</param>
     /// <param name="reportPath">Absolute path of the report.</param>
     /// <param name="manifestPath">Absolute path of the plan manifest.</param>
+    /// <param name="collisionNaming">The naming the run used, recorded in the report's <c>collisionNaming</c> column.</param>
     /// <returns>Null when the report was written. Otherwise the reason it was not, and nothing at the report path has changed.</returns>
-    public static string? Write(IReadOnlyList<FileResult> rows, string reportPath, string manifestPath)
+    public static string? Write(IReadOnlyList<FileResult> rows, string reportPath, string manifestPath, CollisionNaming collisionNaming)
     {
         var staged = SiblingPath(reportPath);
         try
@@ -94,7 +95,7 @@ internal static class ReportFile
             var refusal = Refusal(reportPath, manifestPath);
             if (refusal is null)
             {
-                ManifestWriter.Write(rows, staged);
+                ManifestWriter.Write(rows, staged, collisionNaming);
                 refusal = ReachesManifest(reportPath, staged, manifestPath) ? ManifestRefusal(reportPath) : null;
             }
 

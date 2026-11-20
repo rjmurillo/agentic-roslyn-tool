@@ -84,8 +84,13 @@ A directory scan that cannot read a subdirectory ends the run with exit code 3 r
 returning a partial list. A partial scan would exit 0 and look exactly like a scan that
 found nothing to do. Pass a list file when you need to scan around an unreadable directory.
 
+A run with no `--phase` and no `--dry-run` is the `plan` phase. It writes the manifest and
+changes no source file. Only `--phase content` rewrites source, and only `--phase renames`
+runs `git mv`. Version 0.1.1 and earlier defaulted to `content`. See decision 25.
+
 `--dry-run` and `--phase` both set the phase, so supplying both is rejected with exit code
 2 rather than letting argument order decide between writing a manifest and rewriting source.
+`--dry-run` is now the same as the default and is kept so older scripts still parse.
 
 A `split` row the content phase's input never supplied appears in the run report as
 `skipped` with the reason `planned as split but not supplied to the content phase input`.
@@ -113,7 +118,9 @@ its status vocabulary match the CSV manifest, so the two formats are one contrac
   "phase": "plan",
   "manifest": "C:\\repo\\sa1402-split-manifest.csv",
   "report": null,
+  "collisionNaming": "file-first",
   "summary": { "total": 2, "split": 1, "skipped": 1, "failed": 0, "newFiles": 1 },
+  "nextArgs": ["split-types", "--phase", "content", "--input", "C:\\repo\\src", "--manifest", "C:\\repo\\sa1402-split-manifest.csv", "--repo-root", "C:\\repo", "--json"],
   "files": [
     {
       "originalPath": "C:\\repo\\src\\Foo.cs",
@@ -194,7 +201,7 @@ Two CSV files with one format and two jobs.
   and new files the content phase has yet to create.
 - Verified by `SeparateRunReportTests`, which runs the real executable.
 
-`contentHash` is the last CSV column and the last field of each JSON file entry. It is
+`contentHash` is the ninth CSV column and the last field of each JSON file entry. It is
 `sha256:` followed by 64 lowercase hexadecimal digits, computed over the raw bytes of the
 input as the plan read them. It is empty in the CSV and `null` in the JSON when the plan
 never read the file: an excluded path, a missing file, an unreadable one. Every other row
@@ -202,6 +209,52 @@ carries it, whatever its status. A run that starts a plan records the hash. The 
 and content phases copy it from the manifest row for that file and never report their own,
 so a `stale plan:` row still shows the planned hash and names the hash it found in its
 reason. New columns are appended, never inserted.
+
+`collisionNaming` is the CSV column after `contentHash`, and a top level JSON field. It is
+`file-first` or `type-first`: the value this run used, after resolving the flag against
+the manifest. It is one value for the whole run. CSV has no place for a file level value,
+so the CSV repeats it on every row, and every row must agree. JSON carries it once, at the
+top, because a per-file copy would invite a reader to expect per-file differences. The
+two formats differ in shape in three places: this one, the nesting of `newFiles`, and
+`nextArgs`, which only JSON carries. See decision 26.
+
+`nextArgs` is JSON only. It is the argument list for the phase that should run next, from
+the verb onward, without the command name, because only the caller knows whether it ran
+`agentic-roslyn-tool`, `dotnet agentic-roslyn-tool`, or `dnx AgenticRoslynTool --`. Each
+element is one argument, so no shell quoting is involved. It sits before `files` so a
+reader that truncates the document still sees it. The rules live in `NextStep.For`:
+
+- After `plan`, it points at `renames` when any `split` row has `gitMove` true, and at
+  `content` otherwise. A renames run with nothing to move would spend a turn.
+- After `renames`, it points at `content`. Commit the renames first; the `Next:` line on
+  standard error says so.
+- It is `null` after `content`, when any row is `failed`, when no row is `split`, when
+  `--input` was `-`, after a renames run with no plan manifest on disk, and when the report
+  file could not be written. Standard input cannot be read again by a second process, so
+  replaying `--input -` would plan nothing and exit 0. Save the paths to a list file
+  instead. A renames run with no manifest plans afresh, but content exits 3 without one,
+  so suggesting content there is sure to fail.
+- `null` does not mean the split is done. The packaged skill says the split is done only
+  when the last report's `phase` is `content`, `summary.failed` is 0, and every skipped
+  row's reason is `not present as split in plan manifest` or starts with `already
+  applied`. Those are the only content skips that leave no planned work behind. A repeated
+  renames run can end with `null` `nextArgs`, for example when every split row was a
+  rename and now says `input file does not exist`, while content has not run. A content run without the plan's `--file-naming`
+  ends with `null` and a plan mismatch row, while the file is still unsplit.
+- It repeats `--input`, `--manifest`, `--repo-root`, `--require-header`, every
+  `--exclude`, and `--json` when this run had it. It repeats `--report` only when the
+  caller chose a path, and `--file-naming` only when it is `metadata`, because the
+  manifest does not record that one. It never repeats `--collision-naming`, because the
+  manifest records it. See decision 26.
+
+Standard error carries the same suggestion as one `Next:` line. An argument made only of
+letters, digits, and `_ . / : + -` is printed bare. One that also holds a space or a
+backslash is put in single quotes, which bash, zsh, and PowerShell read literally. Any
+other character, such as `$`, a backtick, `&`, a quote, `=`, `@`, `,`, `%`, or a line break,
+turns the line into a sentence that points at `nextArgs`, because no quoting is right for
+every shell.
+`NextStepWorkflowTests.FollowingNextArgs_RunsTheWholeWorkflow` runs `nextArgs` exactly as printed,
+through a real `git mv`, and checks the split is done. See decision 27.
 
 ## Phase contracts
 
@@ -229,6 +282,10 @@ Promises:
   `KeptRenameCollisionTests` pins all of it.
 - Every row for a file the run read carries that file's `contentHash`. Verified by
   `ContentHashPlanTests`.
+- Every row carries the run's `collisionNaming`: the flag's value, or `file-first` when
+  the flag is absent. A plan never reads the value from an existing manifest, because a
+  plan starts afresh. Verified by `CollisionNamingFlagTests` and `CollisionNamingRecordedTests`.
+- Runs when `--phase` is absent. See decision 25.
 
 You can run `plan` as many times as you like. It is the review step, and it is the reason
 a human or an agent can inspect the whole change before a single byte moves.
@@ -280,10 +337,21 @@ Promises:
   rename instead of a delete plus an add, and the file history survives.
 
 Recomputes the plan. It reads the manifest on disk to hold each file to its recorded hash
-and status, and to one path: the kept-file rename. It does not compare the
-`--collision-naming` or `--file-naming` value with the plan run, or any new file path. It
-does not write the manifest either, so the reviewed names stay as planned, and the content
-check still compares against them.
+and status, to one path, the kept-file rename, and to the plan's `collisionNaming` value.
+It never compares a new file path or the `--file-naming` value with the plan, and it never
+writes the manifest: its rows go to the report. The collision pass it reruns names
+collisions the way the plan did:
+
+- With `--collision-naming` absent, it uses the value the manifest records.
+- With a value that matches the manifest, it runs as usual.
+- With a value that contradicts the manifest, it ends the run with exit code 3 before any
+  rename. The error names both values and says to omit the flag or re-run the plan.
+- A manifest with no `collisionNaming` column, or with a blank, unknown, or mixed value,
+  also ends the run with exit code 3. See decision 26.
+- With no manifest on disk, an absent flag means `file-first`.
+
+Before the column existed, a renames run with a different value computed the other form's
+paths. Before decision 23 it also wrote them over the reviewed manifest.
 
 A rename runs only when the manifest row plans that same rename, to that same target. Any
 other recomputed rename is dropped and the file stays where the plan left it. That covers a
@@ -294,8 +362,9 @@ collision for <path>; kept original file name`. Any other dropped rename gets `r
 leave out a rename the plan asked for. The content phase then fails that row and says to
 run the renames phase, and a renames run with the plan's value lands it. A file the plan
 skipped under one value that renames would split under the other gets a `stale plan:`
-reason, because the manifest does not mark it `split`. Pass the same values here as in the
-plan run, so the report shows the same paths and every planned rename lands.
+reason, because the manifest does not mark it `split`. Pass the same `--file-naming`
+value here as in the plan run, so the report shows the same paths and every planned rename
+lands. `--collision-naming` needs no repeat, because the manifest records it.
 
 Requires a real git repository to rename. Most of the test suite avoids this phase by
 keeping every fixture file name equal to its primary type name. `ContentHashRenamesTests`
@@ -308,7 +377,7 @@ a backtick.
 
 ### content
 
-The default. Reads the plan manifest and performs the split.
+Runs only when `--phase content` is given. Reads the plan manifest and performs the split.
 
 Promises:
 
@@ -326,6 +395,11 @@ Promises:
   wrote it. The message says to re-run the plan phase. This also ends the whole run, with
   exit code 3, before any source file is read. There is no fallback to the structural check
   alone.
+- **Takes `--collision-naming` from the manifest.** The rules are the ones renames follows,
+  listed above: an absent flag uses the recorded value, and a contradicting flag, a missing
+  column, or a blank, unknown, or mixed value ends the run with exit code 3 before any
+  source file is read. The `contentHash` check runs first, so a manifest from version 0.1.1
+  reports the `contentHash` error, which gives the same advice.
 - **Refuses a file whose bytes differ from the planned `contentHash`.** The comparison
   runs straight after the file is read, ahead of parsing and every guard that follows it. The row is `skipped`,
   the reason starts with `stale plan:` and names both hashes, and nothing is written for
@@ -349,16 +423,18 @@ Promises:
   comparison is structural: it covers the kept path, the git move flag, and the set of
   output paths. With the hash in front of it, this check now guards the other side: the
   source is proven unchanged, so a disagreement here means the manifest was edited.
-- Refuses a row the plan phase resolved under the `--collision-naming` value this run
-  was not given. Two things must hold: the output path has the other value's qualified
+- Refuses a row the plan phase resolved under the other `--collision-naming` value from
+  the one this run resolved. Since decision 26 the run takes its value from the manifest,
+  so this fires only when someone edited the `collisionNaming` column and left the paths
+  and notes alone. Two things must hold: the output path has the other value's qualified
   form, and the row's note records that the collision pass chose that path. The reason is
   the same `content phase plan does not match manifest`, and the skipped row's note names
   the path and both values. The content phase never reruns the collision pass, so this
-  check is the only thing that keeps the flag in step with the plan. A path typed into the
-  manifest by hand has no such note and is accepted as before. An edit that rewrites the
-  note to name the new path as well is refused, because it then reads as the plan's own. The skipped row goes to the report
-  and the plan keeps its `split` row, so recovery is to run the content phase again with
-  the value the plan was given.
+  check is the last guard between an edited column and names nobody reviewed. A path
+  typed into the manifest by hand has no such note and is accepted as before. An edit that
+  rewrites the note to name the new path as well is refused, because it then reads as the
+  plan's own. The skipped row goes to the report
+  and the plan keeps its `split` row. The column was edited, so re-run the plan phase.
 - Refuses a row planned under the `--file-naming` value this run was not given. A moved
   type's manifest path is refused when it is the name the other value gives that type,
   alone or in either cross-file qualified form, and that name differs from this run's.

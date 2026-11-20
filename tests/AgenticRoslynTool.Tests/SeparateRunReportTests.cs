@@ -143,11 +143,12 @@ public sealed class SeparateRunReportTests
     }
 
     [Fact]
-    public void ForgottenCollisionNamingFlag_IsFixedByRunningContentAgainWithIt()
+    public void ForgottenCollisionNamingFlag_UsesThePlansValue_AndLeavesThePlanAlone()
     {
-        // Two inputs both emit Shared.cs, planned type-first. Content without the flag skips
-        // both rows. The plan keeps them as split, so the same command with the flag
-        // applies them. No plan run in between.
+        // Two inputs both emit Shared.cs, planned type-first. Before decision 26, content
+        // without the flag skipped both rows and exited 0. The plan now records the value,
+        // so the same command applies the type-first names on the first try. The manifest
+        // is never written by content, so the plan stays as reviewed.
         using var workspace = new TempWorkspace();
         var (_, _, listPath) = CollisionNamingFixture.WriteSharedPair(workspace, sharedTypes: "public class Shared { }\n");
         var manifestPath = Path.Combine(workspace.Root, "plan.csv");
@@ -159,18 +160,8 @@ public sealed class SeparateRunReportTests
 
         Assert.Equal(0, forgotten.ExitCode);
         Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
-        Assert.All(ManifestWriter.Read(reportPath), r =>
-        {
-            Assert.Equal("skipped", r.Status);
-            Assert.Equal("content phase plan does not match manifest", r.Reason);
-        });
-        Assert.Equal(["A.cs", "B.cs"], CollisionNamingFixture.CsFiles(workspace));
-
-        var retry = Phase("content", workspace, listPath, manifestPath, "--collision-naming", "type-first");
-
-        Assert.Equal(0, retry.ExitCode);
-        Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
         Assert.All(ManifestWriter.Read(reportPath), r => Assert.Equal("split", r.Status));
+        Assert.Equal(CollisionNaming.TypeFirst, ManifestCollisionNaming.Read(reportPath));
         Assert.Equal(["A.cs", "B.cs", "Shared.A.cs", "Shared.B.cs"], CollisionNamingFixture.CsFiles(workspace));
     }
 
@@ -688,7 +679,7 @@ public sealed class SeparateRunReportTests
         Directory.CreateDirectory(plans);
         var manifestPath = Path.Combine(plans, "plan.csv");
         var planned = new[] { FileResult.Skip(manifestPath, manifestPath, "the plan") };
-        ManifestWriter.Write(planned, manifestPath);
+        ManifestWriter.Write(planned, manifestPath, CollisionNaming.FileFirst);
         var planBytes = File.ReadAllBytes(manifestPath);
         var alias = Path.Combine(workspace.Root, "alias");
         try
@@ -703,7 +694,7 @@ public sealed class SeparateRunReportTests
         var rows = new[] { FileResult.Skip(manifestPath, manifestPath, "the report") };
         foreach (var name in new[] { "plan.csv", "PLAN.CSV" })
         {
-            var reason = ReportFile.Write(rows, Path.Combine(alias, name), manifestPath);
+            var reason = ReportFile.Write(rows, Path.Combine(alias, name), manifestPath, CollisionNaming.FileFirst);
 
             Assert.Contains("is the plan manifest under another name", reason, StringComparison.Ordinal);
         }
@@ -750,7 +741,7 @@ public sealed class SeparateRunReportTests
     [Fact]
     public void RelativeReportPath_ResolvesAgainstTheWorkingDirectory()
     {
-        var options = Options.Parse(["--input", "list.txt", "--manifest", "plan.csv", "--report", Path.Combine("out", "run.csv")]);
+        var options = Options.Parse(["--input", "list.txt", "--manifest", "plan.csv", "--phase", "content", "--report", Path.Combine("out", "run.csv")]);
 
         Assert.Equal(Path.GetFullPath(Path.Combine("out", "run.csv")), options.ReportPath);
     }
@@ -778,7 +769,7 @@ public sealed class SeparateRunReportTests
 
             Directory.CreateDirectory(deep);
             manifestPath = Path.Combine(deep, "p.csv");
-            ManifestWriter.Write([FileResult.Split(input, input, false, null, [new NewFileResult(Path.Combine(workspace.Root, "Beta.cs"), "Beta")])], manifestPath);
+            ManifestWriter.Write([FileResult.Split(input, input, false, null, [new NewFileResult(Path.Combine(workspace.Root, "Beta.cs"), "Beta")])], manifestPath, CollisionNaming.FileFirst);
             Directory.CreateSymbolicLink(alias, deep);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -849,7 +840,7 @@ public sealed class SeparateRunReportTests
         // The same refusal one level down, for a caller that builds the paths itself.
         var rows = new[] { FileResult.Failed(misnamed, misnamed, "a failed rename") };
         Assert.Contains("is a directory", Assert.Throws<InvalidOperationException>(() => ReportFile.Prepare(manifestPath, withSeparator)).Message, StringComparison.Ordinal);
-        Assert.Contains("is a directory", ReportFile.Write(rows, manifestPath, withSeparator), StringComparison.Ordinal);
+        Assert.Contains("is a directory", ReportFile.Write(rows, manifestPath, withSeparator, CollisionNaming.FileFirst), StringComparison.Ordinal);
         Assert.Equal(planBytes, File.ReadAllBytes(manifestPath));
         Assert.Equal(["Zed.cs", "inputs.txt", "plan.csv"], Directory.GetFiles(workspace.Root).Select(Path.GetFileName).Order(StringComparer.Ordinal));
     }
@@ -878,7 +869,7 @@ public sealed class SeparateRunReportTests
         var manifestPath = Path.Combine(workspace.Root, "plan.csv");
         var reportPath = Path.Combine(workspace.Root, "run.csv");
 
-        var reason = ReportFile.Write(null!, reportPath, manifestPath);
+        var reason = ReportFile.Write(null!, reportPath, manifestPath, CollisionNaming.FileFirst);
 
         Assert.False(string.IsNullOrWhiteSpace(reason));
         Assert.Empty(Directory.GetFileSystemEntries(workspace.Root));
@@ -898,8 +889,8 @@ public sealed class SeparateRunReportTests
         Assert.Contains("Cannot examine the manifest path", badManifest.Message, StringComparison.Ordinal);
         var badReport = Assert.Throws<InvalidOperationException>(() => ReportFile.Prepare(unreadable, manifestPath));
         Assert.Contains("Cannot examine the report path", badReport.Message, StringComparison.Ordinal);
-        Assert.Contains("Cannot examine the report path", ReportFile.Write(rows, unreadable, manifestPath), StringComparison.Ordinal);
-        Assert.Contains("Cannot examine the manifest path", ReportFile.Write(rows, reportPath, unreadable), StringComparison.Ordinal);
+        Assert.Contains("Cannot examine the report path", ReportFile.Write(rows, unreadable, manifestPath, CollisionNaming.FileFirst), StringComparison.Ordinal);
+        Assert.Contains("Cannot examine the manifest path", ReportFile.Write(rows, reportPath, unreadable, CollisionNaming.FileFirst), StringComparison.Ordinal);
         Assert.Empty(Directory.GetFileSystemEntries(workspace.Root));
     }
 
@@ -972,7 +963,7 @@ public sealed class SeparateRunReportTests
         var manifestPath = Path.Combine(workspace.Root, "plan.csv");
         var rows = new[] { FileResult.Skip(blocker, blocker, "any row") };
 
-        var reason = ReportFile.Write(rows, Path.Combine(blocker, "run.csv"), manifestPath);
+        var reason = ReportFile.Write(rows, Path.Combine(blocker, "run.csv"), manifestPath, CollisionNaming.FileFirst);
 
         Assert.False(string.IsNullOrWhiteSpace(reason));
         Assert.Equal(["blocker"], Directory.GetFileSystemEntries(workspace.Root).Select(Path.GetFileName));
