@@ -23,6 +23,8 @@ public sealed class ByteOrderMarkRoundTripTests : ContentHashTestBase
         var source = EncodedSource.FromBytes(bytes);
         WorkspaceWriter.WriteEncoded(path, source.Text, source);
 
+        // The write reads the flag and the preamble apart. They must agree on every branch.
+        Assert.Equal(source.EmitPreamble, source.Encoding.GetPreamble().Length > 0);
         Assert.Equal(bytes, File.ReadAllBytes(path));
     }
 
@@ -59,8 +61,7 @@ public sealed class ByteOrderMarkRoundTripTests : ContentHashTestBase
         foreach (var name in new[] { "Foo.cs", "Bar.cs" })
         {
             var written = File.ReadAllBytes(Path.Combine(Workspace.Root, name));
-            Assert.NotEqual(0xEF, written[0]);
-            Assert.Equal((byte)'n', written[0]);
+            Assert.False(written.AsSpan().StartsWith((byte[])[0xEF, 0xBB, 0xBF]), $"{name} gained a byte order mark");
         }
     }
 

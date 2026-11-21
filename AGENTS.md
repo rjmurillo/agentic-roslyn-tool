@@ -326,8 +326,9 @@ agent does not pay again.
 - **`new UTF8Encoding(false)` has an empty preamble.** `WriteEncoded` takes the byte
   order mark from `GetPreamble`, so a UTF-8 source read with that encoding lost its mark
   on every output. The UTF-8 mark branch in `EncodedSource` must pass `true`. The no mark
-  branch must stay `false`. The round trip rows in `ByteOrderMarkRoundTripTests` pin
-  both, byte for byte.
+  branch must stay `false`. `WriteEncoded` reads `EmitPreamble` and `GetPreamble` apart,
+  so the two must agree. The round trip rows in `ByteOrderMarkRoundTripTests` check that
+  they agree on every branch, and compare every written byte.
 - **A backtick in a path is escaped in `--json` output.** ``Foo`1.cs`` is written as
   `Foo\u00601.cs`. Parse the JSON before you search it for a file name. The CSV manifest
   holds the character itself.
