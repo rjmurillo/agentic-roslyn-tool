@@ -3,8 +3,8 @@
 To verify a mechanical C# refactor, check four things. Every non-whitespace line survives
 (line conservation). Each type's doc comment and attributes land exactly once (trivia
 ownership). Every output still parses. A Roslyn scan of top-level types is identical before
-and after. `split-types` runs the first three, plus a per-file type set check, for each
-file before it writes anything. The repository-wide scan is a step you run yourself.
+and after. `split-types` runs the first three, plus a per-file type set check and a `file` type
+check, for each file before it writes anything. The repository-wide scan is a step you run yourself.
 
 This page is for the reviewer who has to approve a diff that touches hundreds of files. It
 explains what each check proves and what it does not. For the exact contract of each guard,
@@ -57,10 +57,12 @@ The tool gives each top-level type an owned span:
 
 The check takes the text of each input type's owned span and counts how often it appears
 across all outputs. The count must be exactly 1. Zero means the type was dropped. Two or
-more means it was duplicated. Either fails the file:
+more means it was duplicated. An input that declares a `file` type is the one exception:
+there one declaration's text can sit inside another's in the kept file, so each text is
+expected as often as the input itself holds it. A wrong count fails the file:
 
 ```text
-<input path>: declaration and owned trivia for <type> appears <count> times across outputs
+<input path>: declaration and owned trivia for <type> appears <count> times across outputs, expected <expected>
 ```
 
 An ordinary `//` comment above a type that has no doc comment is outside the owned span.
@@ -147,9 +149,29 @@ A key is the type name, plus its type parameter names for a generic type, for ex
 `Repository<T>`. The check compares keys only. It does not compare namespaces, modifiers,
 base types, or constraints. The repository scan below covers those.
 
+## Check 5: a `file` type stays in its file
+
+This check runs only for an input that declares a type with the `file` modifier. Such a
+type is visible only in its own file, and the compiler builds its metadata name from that
+file's name. So one output must be written to the path the input was read from, or the
+file fails with `<input path>: a file that declares a file-local type would be renamed`.
+Every other output must declare no `file` type and name none. A failure reads
+`<output path>: a file-local type would leave <input path>`, or `<output path> names
+file-local type <name>, which stays in <input path>`. Every output, the kept file
+included, must also hold the same `#line`, `#nullable`, `#pragma`, `#define`, and `#undef`
+directives as the input, in order. A failure reads `<output path> would not hold the same
+#line, #nullable, #pragma, #define, and #undef directives as <input path>`. The check
+compares the directives themselves. It does not see a lost `#if` around one that stayed.
+
+The plan refuses these inputs before this check can see them, and records a skip with its
+own reason. The check asks again about the text that would reach disk, so a mistake in
+planning fails the file here and nothing is written. It is still a check on syntax. It
+cannot prove a moved type compiles, which is why the plan refuses whenever a name matches.
+See [decision-log.md, decision 30](decision-log.md#decision-30-a-file-that-holds-a-file-type-is-split-around-it).
+
 ## Before the checks: the input must be the one that was planned
 
-The four checks above prove a split is faithful to the file the tool read. They cannot
+The five checks above prove a split is faithful to the file the tool read. They cannot
 prove that file is the one you reviewed. The plan manifest closes that gap. Each row
 records `contentHash`, the SHA-256 of the input's raw bytes. The renames phase hashes each
 file it reads again before it renames anything. The content phase hashes each file the

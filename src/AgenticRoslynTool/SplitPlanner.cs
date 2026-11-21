@@ -228,6 +228,12 @@ internal static class SplitPlanner
     /// <c>--collision-naming</c> value, so a content run cannot apply names the caller did
     /// not ask this run for. The same holds for a manifest planned under the other
     /// <c>--file-naming</c> value.
+    /// <para>
+    /// An input that declares a <c>file</c> type is planned over its ordinary types only.
+    /// The <c>file</c> types stay in the input file, which is never renamed, and a moved
+    /// type that names one refuses the input. <see cref="FileLocalTypes"/> makes each of
+    /// those decisions.
+    /// </para>
     /// </remarks>
     /// <param name="originalPath">The input path the plan row is keyed by.</param>
     /// <param name="readPath">The path the source is read from, which is the kept path once a rename has landed.</param>
@@ -245,12 +251,46 @@ internal static class SplitPlanner
     {
         var directory = Path.GetDirectoryName(readPath) ?? ".";
         var baseName = Path.GetFileNameWithoutExtension(originalPath);
-        var (keep, keepOwnsFileName) = ChooseKept(types, baseName, convention);
+        // A file-local type is never kept by choice and never moved. It stays in the input
+        // file whatever the plan decides, so the plan is made over the ordinary types.
+        var fileLocal = types.Where(t => t.HasFileModifier).ToArray();
+        var candidates = fileLocal.Length == 0 ? types : types.Where(t => !t.HasFileModifier).ToArray();
+        if (FileLocalTypes.DescribeRefusal(types) is { } fileLocalRefusal)
+        {
+            // FileSplitter asks this first, so a real run never reaches here. Asked again
+            // so this method is safe to call alone: every refusal for a file-local type
+            // holds here too, and a kept type is never picked from an empty list.
+            return new SplitPlan(types[0], originalPath, false, null, fileLocalRefusal.Reason, Array.Empty<PlannedFile>(), SkipNote: fileLocalRefusal.Note);
+        }
+
+        var (keep, keepOwnsFileName) = ChooseKept(candidates, baseName, convention);
         var gitMove = false;
         string? note = null;
         var keptPath = originalPath;
 
-        if (!keepOwnsFileName)
+        if (fileLocal.Length != 0)
+        {
+            // No rename, in any phase: the compiler builds a file-local type's metadata
+            // name from the file's name, so a rename is a behavior change. The kept path
+            // stays the input path and gitMove stays false.
+            // The file is named for the kept type when the keep rule matched it by name,
+            // or when the file already has the name the tool gives that type, such as
+            // Foo{T}.cs for Foo<T>. Only a kept type the rule took as a plain first choice
+            // may be replaced.
+            var fileName = Path.GetFileName(originalPath);
+            bool HasItsName(TopLevelType type) => StringComparer.OrdinalIgnoreCase.Equals(OutputBuilder.GetFileName(type, types, convention), fileName);
+            var byRule = keep;
+            var namedForFile = keepOwnsFileName || StringComparer.OrdinalIgnoreCase.Equals(keep.Name, baseName) || HasItsName(keep);
+            (keep, var dependency) = FileLocalTypes.PlanAround(byRule, namedForFile, candidates, fileLocal);
+            if (dependency is not null)
+            {
+                return new SplitPlan(keep, keptPath, gitMove, null, FileLocalTypes.MovedTypeReason, Array.Empty<PlannedFile>(), SkipNote: dependency);
+            }
+
+            var keptByName = (ReferenceEquals(keep, byRule) && keepOwnsFileName) || HasItsName(keep);
+            note = FileLocalTypes.DescribeStay(keep, fileLocal, renameWithheld: !keptByName);
+        }
+        else if (!keepOwnsFileName)
         {
             var target = Path.Combine(directory, OutputBuilder.GetFileName(keep, types, convention));
             if (StringComparer.OrdinalIgnoreCase.Equals(target, readPath))
@@ -271,7 +311,7 @@ internal static class SplitPlanner
 
         var paths = new Dictionary<string, TopLevelType>(StringComparer.OrdinalIgnoreCase);
         paths[keptPath] = keep;
-        foreach (var type in types.Where(t => !ReferenceEquals(t, keep)))
+        foreach (var type in candidates.Where(t => !ReferenceEquals(t, keep)))
         {
             // A part with the kept type's name and type parameters belongs in the kept file.
             // GetFileName alone misses this when the kept file keeps its original name: the

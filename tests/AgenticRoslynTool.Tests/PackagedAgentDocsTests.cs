@@ -104,6 +104,20 @@ public sealed partial class PackagedAgentDocsTests
         Assert.Contains("`summary.failed` is", text, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("AGENTS.md")]
+    [InlineData("skills/split-types/SKILL.md")]
+    public void TheFileLocalRule_QuotesTheNotePrefixTheToolWrites(string relativePath)
+    {
+        // Both documents tell an agent to match on how the note starts. Reword the note in
+        // the code and they stop matching, which this fails on. FileLocalSplitTests pins
+        // that a real row's note starts with the same constant.
+        var text = string.Join(' ', File.ReadAllText(Path.Combine(PackageDir, relativePath)).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+        Assert.Contains("`note` starts with `" + FileLocalTypes.StayNotePrefix + "`", text, StringComparison.Ordinal);
+        Assert.Contains("`reason` and `note`", text, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void AgentsMd_PointsAtTheSkillItShipsWith()
     {

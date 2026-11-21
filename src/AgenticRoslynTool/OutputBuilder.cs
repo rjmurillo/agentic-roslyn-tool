@@ -59,7 +59,7 @@ internal static class OutputBuilder
 
     /// <summary>
     /// Materializes the in-memory output text for every planned file. For each planned
-    /// output, all other top-level types are removed with
+    /// output, every top-level type it does not hold (see <see cref="PlannedFile.Holds"/>) is removed with
     /// <c>SyntaxRemoveOptions.KeepUnbalancedDirectives</c> to prevent orphaned
     /// preprocessor tokens, assembly-level attributes are cleared on non-kept outputs
     /// (attributes stay only in the kept file), and the tree is run through
@@ -73,7 +73,7 @@ internal static class OutputBuilder
         var outputs = new List<OutputFile>();
         foreach (var file in plan.Files)
         {
-            var remove = types.Where(t => !ReferenceEquals(t, file.Type)).Select(t => t.Node).ToArray();
+            var remove = types.Where(t => !file.Holds(t)).Select(t => t.Node).ToArray();
             var newRoot = root.RemoveNodes(remove, SyntaxRemoveOptions.KeepUnbalancedDirectives) ?? root;
             if (!file.IsKept)
             {
