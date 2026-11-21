@@ -6,19 +6,22 @@ namespace AgenticRoslynTool.Tests;
 /// <summary>
 /// A <c>#nullable</c> directive under <c>#if</c> sets a context only in some builds. The tool
 /// parses with no symbols, so it refuses a split that would drop one rather than restate it.
-/// An <c>#if</c> group outside a type body was already refused as crossing type boundaries,
-/// so a group inside a body is the shape this guard meets.
+/// Two older guards refuse most <c>#if</c> groups outside a type body. A group that wraps no
+/// type crosses type boundaries, and one that wraps a whole type leaves an empty shell. Two
+/// shapes reach this guard: a group inside a type body, and a group on an active branch
+/// that straddles the start of a type, around its attributes.
 /// </summary>
 public sealed class NullableConditionalTests
 {
     [Theory]
-    [InlineData("#if NULLABLE_ON\n#nullable enable\n#endif\n")]
-    [InlineData("#if NULLABLE_OFF\n#nullable disable\n#else\n#nullable enable\n#endif\n")]
-    [InlineData("#if NULLABLE_ON\n#if NESTED\n#nullable enable\n#endif\n#endif\n")]
-    public void ConditionalDirectiveInARemovedBody_RefusesThePlan(string conditional)
+    [InlineData("public class Alpha\n{\n#if NULLABLE_ON\n#nullable enable\n#endif\n}\n")]
+    [InlineData("public class Alpha\n{\n#if NULLABLE_OFF\n#nullable disable\n#else\n#nullable enable\n#endif\n}\n")]
+    [InlineData("public class Alpha\n{\n#if NULLABLE_ON\n#if NESTED\n#nullable enable\n#endif\n#endif\n}\n")]
+    [InlineData("#if !LEGACY\n#nullable enable\n[System.Serializable]\n#endif\npublic class Alpha { }\n")]
+    public void ConditionalDirectiveBeforeAMovedType_RefusesThePlan(string alpha)
     {
         using var ws = new TempWorkspace();
-        var source = Namespace + "public class Alpha\n{\n" + conditional + "}\n\npublic class Beta { }\n";
+        var source = Namespace + alpha + "\npublic class Beta { }\n";
         var alphaPath = ws.WriteFile("Alpha.cs", source);
 
         var row = Assert.Single(new FileSplitter(new Options(ws.WriteInputList(alphaPath), Path.Combine(ws.Root, "m.csv"), ws.Root, Phase.Plan, null)).Run());

@@ -556,8 +556,9 @@ A directive wholly contained inside a single type is allowed and travels with th
 that would leave a directive group with no code inside it.
 
 `ConditionalNullable.IsDropped` is a third. It refuses a split that would drop
-a `#nullable` under `#if` that comes before a type. See "Nullable context" below. All
-three carve the tree through `OutputBuilder.Carve`, the same call that builds each output.
+a `#nullable` under `#if` that comes before a type. See "Nullable context" below. The
+second and third carve the tree through `OutputBuilder.Carve`, the same call that builds
+each output. `AnalyzeDirectiveSafety` reads the source trivia and does not carve.
 
 ### BuildPlan
 
@@ -606,8 +607,8 @@ when any of these hold:
 - An output does not parse.
 - A type's declaration plus its owned trivia appears in more than one output, or in none.
 - The set of top level types across all outputs does not equal the input set.
-- An output's own type reads a different nullable context in the output text than in the
-  source. The output is parsed again from the text that would reach disk.
+- An output's own type reads a different nullable context in the output body than in the
+  source. The body is parsed again, before any `--require-header` banner.
 
 ### Nullable context
 

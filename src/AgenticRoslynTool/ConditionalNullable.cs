@@ -11,10 +11,11 @@ namespace AgenticRoslynTool;
 /// <see cref="NullableDirectives.StateAt"/> folds the parse with no symbols defined. A
 /// <c>#nullable</c> under <c>#if</c> can set a different context in a build that defines a
 /// symbol, so restating it as one unconditional line would be wrong for some build. A split
-/// that drops one is refused instead. Two earlier guards refuse an <c>#if</c> group outside a
-/// type body: <see cref="DirectiveAnalyzer.AnalyzeDirectiveSafety"/> one that wraps no type,
+/// that drops one is refused instead. Two earlier guards refuse most <c>#if</c> groups outside
+/// a type body: <see cref="DirectiveAnalyzer.AnalyzeDirectiveSafety"/> one that wraps no type,
 /// and <see cref="DirectiveAnalyzer.ProducesEmptyDirectiveShell"/> one that wraps a whole
-/// type. So the group this guard meets sits inside a type body. See decision 30.
+/// type. Two shapes reach this guard: a group inside a type body, and a group on an active
+/// branch that straddles the start of a type, around its attributes. See decision 30.
 /// </remarks>
 internal static class ConditionalNullable
 {
@@ -24,6 +25,13 @@ internal static class ConditionalNullable
     /// </summary>
     internal static bool IsDropped(CompilationUnitSyntax root, IReadOnlyList<TopLevelType> types, SplitPlan plan)
     {
+        // A carve only removes directives. With none of these in the source, no output can
+        // lose one, so the per-output carve is skipped for almost every file.
+        if (CountBefore(root, root.FullSpan.End) == 0)
+        {
+            return false;
+        }
+
         foreach (var file in plan.Files)
         {
             var carved = OutputBuilder.Carve(root, types, file.Type);
@@ -47,7 +55,7 @@ internal static class ConditionalNullable
     {
         var depth = 0;
         var count = 0;
-        foreach (var directive in NullableDirectives.DirectivesBefore(root, position))
+        foreach (var directive in SourceDirectives.Before(root, position))
         {
             switch (directive.Kind())
             {

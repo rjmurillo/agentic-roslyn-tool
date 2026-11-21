@@ -27,15 +27,15 @@ internal static class NullableDirectives
     /// <paramref name="position"/>, in order, from the project default.
     /// </summary>
     /// <remarks>
-    /// Reads the tree through <see cref="DirectivesBefore"/>, which skips every subtree that
-    /// holds no directive, so a large file with few directives costs little to fold.
+    /// Reads the tree through <see cref="SourceDirectives.Before"/>, which lists a tree's
+    /// directives once, however many types ask about it.
     /// </remarks>
     /// <returns>The annotations and warnings settings in force at the position. Null means the project default.</returns>
     internal static (bool? Annotations, bool? Warnings) StateAt(CSharpSyntaxNode root, int position)
     {
         bool? annotations = null;
         bool? warnings = null;
-        foreach (var found in DirectivesBefore(root, position))
+        foreach (var found in SourceDirectives.Before(root, position))
         {
             if (found is not NullableDirectiveTriviaSyntax { IsActive: true } directive)
             {
@@ -92,18 +92,6 @@ internal static class NullableDirectives
         }
 
         return lines;
-    }
-
-    /// <summary>
-    /// Every directive that starts before <paramref name="position"/>, active or not, in
-    /// order. Walks directive to directive, so it skips code that holds none.
-    /// </summary>
-    internal static IEnumerable<DirectiveTriviaSyntax> DirectivesBefore(CSharpSyntaxNode root, int position)
-    {
-        for (var directive = root.GetFirstDirective(); directive is not null && directive.SpanStart < position; directive = directive.GetNextDirective())
-        {
-            yield return directive;
-        }
     }
 
     /// <summary>The nullable context a type had in its source file, at its first token.</summary>

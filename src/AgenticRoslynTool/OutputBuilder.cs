@@ -95,8 +95,10 @@ internal static class OutputBuilder
 
     /// <summary>
     /// Removes every type but <paramref name="kept"/> from the source tree, keeping any
-    /// directive left unbalanced. <see cref="BuildOutputs"/> and each directive guard carve
-    /// through here, so a guard judges the same tree the output is built from.
+    /// directive left unbalanced. <see cref="BuildOutputs"/>,
+    /// <see cref="DirectiveAnalyzer.ProducesEmptyDirectiveShell"/>, and
+    /// <see cref="ConditionalNullable.IsDropped"/> carve through here, so those guards judge
+    /// the same tree the output is built from.
     /// </summary>
     internal static CompilationUnitSyntax Carve(CompilationUnitSyntax root, IReadOnlyList<TopLevelType> types, TopLevelType kept)
     {
