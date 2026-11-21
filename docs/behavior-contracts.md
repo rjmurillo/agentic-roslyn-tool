@@ -554,6 +554,9 @@ A directive wholly contained inside a single type is allowed and travels with th
 `FileSplitter.ProducesEmptyDirectiveShell` is a second, later check. It refuses a split
 that would leave a directive group with no code inside it.
 
+`ConditionalNullable.IsDropped` is a third. It refuses a split that would drop
+a `#nullable` under `#if` that comes before a type. See "Nullable context" above.
+
 ### BuildPlan
 
 Two refusals here are what make the plan then apply workflow trustworthy:
@@ -606,7 +609,9 @@ when any of these hold:
 
 ### Nullable context
 
-Every type keeps the nullable context it had in the source file. A `#nullable` directive
+Every type keeps the nullable context that `#nullable` directives give it in the source
+file. Contexts set some other way, by a generated-code file name or comment, are not
+carried; `AGENTS.md` lists them as known issues. A `#nullable` directive
 travels with the type whose trivia or body holds it, so a type that followed it in the
 source can land in a file that never sets it. After the other types are removed,
 `NullableDirectives.Restore` folds the active `#nullable` directives up to each kept type,
@@ -619,8 +624,14 @@ in the source and in the output, and adds the fewest lines that close the gap:
   with one above the namespace, splits byte for byte as before.
 - The lines go above the type's first comment, doc comment, or attribute, at the start of
   a line, ending in the source file's newline.
-- The tool parses with no preprocessor symbols. A directive in an `#if` branch that is off
-  counts for nothing. `#pragma` directives are not restated.
+- The tool parses with no preprocessor symbols, so it cannot restate a `#nullable` under
+  `#if`. When an output would lose one that comes before its type in the source, whether
+  active or in a branch that is off, the file is skipped with
+  `a #nullable directive under #if sets a type's context and the split would drop it; manual split required`.
+  `ConditionalNullable.IsDropped` decides this before any output is built.
+- `#pragma` directives are not restated.
+- `VerifyOutputs` checks each output with the same fold, so it catches a misplaced line,
+  not a wrong fold. `NullableContextTests` checks the fold against the compiler.
 
 ### VerifyLineConservation
 
@@ -640,8 +651,8 @@ mask a dropped source line, which defeats the guard.
 
 **It subtracts `OutputFile.AddedLines` from each output first.** Those are the `#nullable`
 lines the tool restated. Each is removed once, before either check, so an added line can
-neither hide a dropped one nor read as a duplicate. An added line the output does not hold
-throws.
+neither hide a dropped one nor read as a duplicate. An added line that is not a single
+`#nullable` directive throws, and so does one the output does not hold.
 
 ### WriteOutputs
 

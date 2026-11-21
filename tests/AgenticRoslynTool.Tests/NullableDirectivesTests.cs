@@ -1,5 +1,3 @@
-using System;
-using System.Linq;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
 
@@ -50,7 +48,30 @@ public sealed class NullableDirectivesTests
         var outputs = Outputs(types, "class C { }\n", Array.Empty<string>());
 
         var ex = Assert.Throws<InvalidOperationException>(() => OutputVerifier.VerifyNullableContext("in.cs", outputs, Parse));
-        Assert.Contains("nullable context for C", ex.Message);
+        Assert.Contains("nullable context for C is annotations restore, warnings restore in C.cs, but annotations enable, warnings enable in the source", ex.Message);
+    }
+
+    [Fact]
+    public void LineConservation_RefusesAnAddedLineThatIsNotANullableDirective()
+    {
+        var types = Types(Source);
+        var outputs = Outputs(types, "class A { }\n#nullable enable\nclass C { }\n", new[] { "class A { }" });
+
+        var ex = Assert.Throws<InvalidOperationException>(() => OutputVerifier.VerifyLineConservation("in.cs", types, outputs));
+        Assert.Contains("added line is not a #nullable directive: class A { }", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("#nullable enable\n", 0)]
+    [InlineData("#if X\n#nullable enable\n#endif\n", 1)]
+    [InlineData("#if X\n#nullable disable\n#else\n#nullable enable\n#endif\n", 2)]
+    [InlineData("#if X\n  #nullable enable\n#nullable disable\n#endif\n", 2)]
+    public void CountBefore_CountsNullableDirectivesUnderIf(string directives, int expected)
+    {
+        var root = CSharpSyntaxTree.ParseText(directives + "class A { }\n", Parse).GetCompilationUnitRoot();
+        var type = TopLevelType.Find(root).Single();
+
+        Assert.Equal(expected, ConditionalNullable.CountBefore(root, type.Node.SpanStart));
     }
 
     [Theory]

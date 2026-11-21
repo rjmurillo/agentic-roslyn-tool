@@ -74,19 +74,23 @@ internal static class OutputVerifier
     /// which is what reaches disk, so a misplaced or dropped <c>#nullable</c> line fails the
     /// file before it is written.
     /// </summary>
-    /// <exception cref="InvalidOperationException">Thrown when an output type's annotations or warnings setting differs from the source.</exception>
+    /// <remarks>
+    /// This check uses the same fold as <see cref="NullableDirectives.Restore"/>, so it catches
+    /// a misplaced line, not a wrong fold. Tests prove the fold against the compiler.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">Thrown when an output lacks its own type, or when that type's annotations or warnings setting differs from the source.</exception>
     internal static void VerifyNullableContext(string originalPath, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions)
     {
         foreach (var output in outputs)
         {
-            var source = output.Type.Node;
-            var expected = NullableDirectives.StateAt(source.SyntaxTree.GetRoot(), source.SpanStart);
+            var expected = NullableDirectives.SourceStateOf(output.Type);
             var root = CSharpSyntaxTree.ParseText(output.Text, parseOptions, path: output.Path).GetCompilationUnitRoot();
-            var written = TopLevelType.Find(root).First(t => StringComparer.Ordinal.Equals(t.Key, output.Type.Key)).Node;
-            var actual = NullableDirectives.StateAt(root, written.SpanStart);
+            var written = TopLevelType.Find(root).FirstOrDefault(t => StringComparer.Ordinal.Equals(t.Key, output.Type.Key))
+                ?? throw new InvalidOperationException($"{originalPath}: {output.Path} does not declare {output.Type.Key}");
+            var actual = NullableDirectives.StateAt(root, written.Node.SpanStart);
             if (actual != expected)
             {
-                throw new InvalidOperationException($"{originalPath}: nullable context for {output.Type.Key} is {actual} in {output.Path}, but {expected} in the source");
+                throw new InvalidOperationException($"{originalPath}: nullable context for {output.Type.Key} is {NullableDirectives.Describe(actual)} in {output.Path}, but {NullableDirectives.Describe(expected)} in the source");
             }
         }
     }
@@ -130,9 +134,10 @@ internal static class OutputVerifier
     /// This method counts <see cref="OutputFile.BodyText"/>, which is the output text
     /// before any <c>--require-header</c> injection. That is deliberate: counting
     /// <see cref="OutputFile.Text"/> instead would let an injected header line mask a
-    /// dropped source line.
+    /// dropped source line. Each output's <see cref="OutputFile.AddedLines"/> are subtracted
+    /// first, one for one, through <see cref="CountOutputLines"/>.
     /// </remarks>
-    /// <exception cref="InvalidOperationException">Thrown when a non-whitespace input line is not preserved across the outputs, or when an output line that was not in the prologue appears more times in the outputs than in the input.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when a non-whitespace input line is not preserved across the outputs, when an output line that was not in the prologue appears more times in the outputs than in the input, or when an added line is not a <c>#nullable</c> directive the output holds.</exception>
     internal static void VerifyLineConservation(string originalPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs)
     {
         var sourceText = inputTypes[0].Node.SyntaxTree.GetText().ToString();
@@ -188,6 +193,15 @@ internal static class OutputVerifier
         return result;
     }
 
+    /// <summary>
+    /// Counts the non-whitespace lines of every output's <see cref="OutputFile.BodyText"/>,
+    /// less one copy of each line in its <see cref="OutputFile.AddedLines"/>.
+    /// </summary>
+    /// <remarks>
+    /// It refuses an added line that is not a single <c>#nullable</c> directive, so the
+    /// subtraction can never hide a duplicated source line of any other kind.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">Thrown when an added line is not a <c>#nullable</c> directive, or is missing from its output.</exception>
     internal static Dictionary<string, int> CountOutputLines(IReadOnlyList<OutputFile> outputs)
     {
         var result = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -196,6 +210,11 @@ internal static class OutputVerifier
             var lines = CountNonWhitespaceLines(output.BodyText);
             foreach (var added in output.AddedLines)
             {
+                if (!NullableDirectives.IsDirectiveLine(added))
+                {
+                    throw new InvalidOperationException($"{output.Path}: added line is not a #nullable directive: {added}");
+                }
+
                 if (!lines.TryGetValue(added, out var present) || present == 0)
                 {
                     throw new InvalidOperationException($"{output.Path}: added line is missing from the output: {added}");

@@ -56,6 +56,12 @@ internal sealed class FileSplitter
     /// </summary>
     internal const string AlreadyAppliedReason = "already applied: every planned output exists and this file no longer declares the planned types";
 
+    /// <summary>
+    /// Reason recorded when a split would drop a <c>#nullable</c> directive under <c>#if</c>
+    /// that sets a type's context. See decision 30.
+    /// </summary>
+    internal const string ConditionalNullableReason = "a #nullable directive under #if sets a type's context and the split would drop it; manual split required";
+
     /// <summary>Constructs a splitter bound to a set of parsed options.</summary>
     /// <param name="options">The options that select the input list, manifest path, repository root, phase, and optional required header.</param>
     public FileSplitter(Options options)
@@ -509,6 +515,11 @@ internal sealed class FileSplitter
         if (DirectiveAnalyzer.ProducesEmptyDirectiveShell(root, types, plan))
         {
             return FileResult.Skip(originalPath, readPath, "splitting would leave an empty directive shell; manual split required");
+        }
+
+        if (ConditionalNullable.IsDropped(root, types, plan))
+        {
+            return FileResult.Skip(originalPath, readPath, ConditionalNullableReason);
         }
 
         // No caller passes Phase.Renames. The renames phase plans through here with

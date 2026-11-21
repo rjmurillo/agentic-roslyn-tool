@@ -95,37 +95,38 @@ internal static class NullableDirectives
         return lines;
     }
 
+    /// <summary>The nullable context a type had in its source file, at its first token.</summary>
+    internal static (bool? Annotations, bool? Warnings) SourceStateOf(TopLevelType type)
+    {
+        return StateAt(type.Node.SyntaxTree.GetRoot(), type.Node.SpanStart);
+    }
+
+    /// <summary>Words a context for a message, such as <c>annotations enable, warnings restore</c>.</summary>
+    internal static string Describe((bool? Annotations, bool? Warnings) state)
+    {
+        return $"annotations {Setting(state.Annotations)}, warnings {Setting(state.Warnings)}";
+    }
+
+    /// <summary>Reports whether one line is a single <c>#nullable</c> directive and nothing else.</summary>
+    internal static bool IsDirectiveLine(string line)
+    {
+        var trivia = SyntaxFactory.ParseLeadingTrivia(line);
+        return trivia.Count == 1 && trivia[0].IsKind(SyntaxKind.NullableDirectiveTrivia);
+    }
+
     /// <summary>
-    /// Gives each type left in a carved output the nullable context it had in the source.
+    /// Gives the type a carved output keeps the nullable context it had in the source.
     /// </summary>
     /// <param name="carved">The output tree after the other types were removed.</param>
-    /// <param name="kept">The source types the output keeps, in source order.</param>
+    /// <param name="kept">The source type the output keeps.</param>
     /// <param name="newLine">The source file's newline, used to end each added line.</param>
     /// <returns>The output tree, and every line added to it, so the verifier can tell an added line from a duplicated source line.</returns>
-    internal static (CompilationUnitSyntax Root, IReadOnlyList<string> AddedLines) Restore(CompilationUnitSyntax carved, IReadOnlyList<TopLevelType> kept, string newLine)
+    internal static (CompilationUnitSyntax Root, IReadOnlyList<string> AddedLines) Restore(CompilationUnitSyntax carved, TopLevelType kept, string newLine)
     {
-        var added = new List<string>();
-        for (var i = 0; i < kept.Count; i++)
-        {
-            var remaining = TopLevelType.Find(carved).ToArray();
-            if (remaining.Length != kept.Count)
-            {
-                throw new InvalidOperationException($"output keeps {remaining.Length} top-level types, expected {kept.Count}");
-            }
-
-            var node = remaining[i].Node;
-            var want = StateAt(kept[i].Node.SyntaxTree.GetRoot(), kept[i].Node.SpanStart);
-            var lines = DirectivesBetween(StateAt(carved, node.SpanStart), want);
-            if (lines.Count == 0)
-            {
-                continue;
-            }
-
-            carved = InsertAbove(carved, node, lines, newLine);
-            added.AddRange(lines);
-        }
-
-        return (carved, added);
+        var node = TopLevelType.Find(carved).FirstOrDefault(t => StringComparer.Ordinal.Equals(t.Key, kept.Key))?.Node
+            ?? throw new InvalidOperationException($"output does not declare {kept.Key}");
+        var lines = DirectivesBetween(StateAt(carved, node.SpanStart), SourceStateOf(kept));
+        return lines.Count == 0 ? (carved, lines) : (InsertAbove(carved, node, lines, newLine), lines);
     }
 
     /// <summary>
