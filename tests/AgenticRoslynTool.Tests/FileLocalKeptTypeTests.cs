@@ -25,6 +25,7 @@ public sealed class FileLocalKeptTypeTests : FileLocalTestBase
         Assert.All(rows, phase => Assert.Equal(("split", widgets, false), (phase[0].Status, phase[0].KeptPath, phase[0].GitMove)));
         Assert.All(rows, phase => Assert.Equal(("split", PathOf("Dial.cs"), true), (phase[1].Status, phase[1].KeptPath, phase[1].GitMove)));
         Assert.Equal(["Dial.cs", "Knob.cs", "Plain.cs", "Widgets.cs"], CsFiles());
+        Assert.EndsWith("the file keeps its name because a rename changes a file-local type's metadata name", rows[0][0].Note, StringComparison.Ordinal);
         Assert.Empty(FileLocalCompiler.Diagnostics(Compile()));
         Assert.StartsWith("<Widgets>F", before, StringComparison.Ordinal);
         Assert.Equal(before, FileLocalCompiler.MetadataName(Compile(), "WidgetHelper"));

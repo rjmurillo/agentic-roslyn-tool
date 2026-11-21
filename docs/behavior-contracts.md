@@ -514,14 +514,19 @@ Reason text shown in italics is a template; the run substitutes real values.
 | One type or fewer | skipped | `nothing to split: input has <n> top-level type declaration(s)` |
 | A `file` type and at most one other type | skipped | `nothing to split: file-local types stay in their file and at most one other type is declared` |
 | A `file` type, and text an `#if` excludes anywhere in the file | skipped | `file-local type shares the file with conditionally excluded text; manual split required` |
+| A `file` type, and a `global using` directive | skipped | `file-local type shares the file with a global using directive; manual split required` |
+| A `file` type, and a `#line`, `#nullable`, or `#pragma` directive on or inside a type | skipped | `file-local type shares the file with a #line, #nullable, or #pragma directive that only one output would keep; manual split required` |
 | A `file` type declares an extension method or an extension block | skipped | `file-local type declares extension members; manual split required` |
 | Any identifier in a using directive equals a `file` type's name | skipped | `using directive names a file-local type; manual split required` |
 | An ordinary type, or a type nested in one, names a `file` type in its base list | skipped | `type lists a file-local type among its base types; manual split required` |
 | Anything else that throws while handling one input | failed | the exception message |
 
-The five `file` rows apply in the order shown, and the first that holds decides the reason.
+The seven `file` rows apply in the order shown, and the first that holds decides the reason.
 The last three put the type's name in the row's `note`, for example `Numbers declares
-extension members`. A sixth `file` reason comes from `BuildPlan`, described under
+extension members`. The directive row puts the directive and its line there, for example
+`#line directive at line 7`. A directive above the namespace belongs to no type, so every
+output repeats it and this refusal does not apply. An eighth `file` reason comes from
+`BuildPlan`, described under
 [File-local types](#file-local-types).
 
 The `stale plan:` rows are the exception to "before parsing" in one phase. The content
@@ -609,8 +614,11 @@ from the file's name. The ordinary types beside it may move out. Decision 30 rec
 measurements behind each rule here.
 
 - **No rename, in any phase.** The kept path is the input path and `gitMove` is false. A
-  manifest row edited to plan a rename is refused in the content phase with `content phase
-  plan does not match manifest`, even when the file was renamed by hand to match.
+  manifest row edited to plan a rename is never applied. When the file was also renamed
+  by hand, the content phase skips the row with `content phase plan does not match
+  manifest`. When it was not, the row is `failed` with `Content phase expected renamed
+  file at <path>`. Ignore that message's advice to run the renames phase: it performs no
+  rename for such an input. Re-run the plan.
 - **The plan is made over the ordinary types.** The keep rule picks the kept type among
   them. Every other ordinary type moves. The `file` types stay in the kept file.
 - **One exception to the keep rule.** When no ordinary type is named for the file, the keep

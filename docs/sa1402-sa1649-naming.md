@@ -334,9 +334,10 @@ measured with StyleCop.Analyzers `1.2.0-beta.556`.
   reported SA1649 at line 3. The tool does not reorder types. Move the `file` type below
   the ordinary one by hand: with `Alpha` first, the same build raised no SA1649.
 * **No type is named for the file.** `Widgets.cs` held `file class WidgetHelper` and
-  `internal class Gadget`, and the build reported SA1649. Without a `file` type the tool
-  would rename this file for its kept type. Here it keeps `Widgets.cs`, and the row's
-  `note` ends with `the file keeps its name because a rename changes a file-local type's
+  `internal class Gadget`, and the build reported SA1649. The tool skips that file, since
+  one ordinary type leaves nothing to move. With a second ordinary type it splits. Without
+  a `file` type it would also rename the file for its kept type. Here it keeps
+  `Widgets.cs`, and the split row's `note` ends with `the file keeps its name because a rename changes a file-local type's
   metadata name`. The same holds under `--file-naming metadata`: `Foo<T>` beside a `file`
   type stays in `Foo.cs`, where the convention expects ``Foo`1.cs``.
 

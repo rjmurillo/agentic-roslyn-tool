@@ -253,7 +253,8 @@ the intended division of labor.
 > cheaper.
 
 Decision 30 amends this one for `file` scoped types. The ordinary types beside one can now
-move, under a proof that decision records. The rule above did not change.
+move, under the refusal rules that decision records. It calls its own argument an
+enumeration, not a proof. The rule above did not change.
 
 ## 14. Exclusions come from the command line, not from the source
 
@@ -1208,11 +1209,11 @@ The split is on by default and has no flag.
 - A `file` type never leaves its file, and that file is never renamed. `gitMove` is false
   for these inputs in every phase.
 - The kept type stays with the `file` types, and every other ordinary type moves. If one
-  type that would move fails the proof, the whole input is skipped.
+  type that would move fails the check, the whole input is skipped.
 - The keep rule picks the kept type among the ordinary types. When no ordinary type is
   named for the file, that rule only takes the first one. Then the one ordinary type that
   names a `file` type is kept instead. This is safe because such a type can never move:
-  keeping it turns a refusal into a split whose moved types all pass the same proof. With
+  keeping it turns a refusal into a split whose moved types all pass the same check. With
   two such types one would have to move, so the input is skipped.
 - A moved type is refused when any identifier in it equals a `file` type's name. The scan
   compares the identifier's value, so `@Name` and a Unicode escape match. It reads
@@ -1233,6 +1234,15 @@ The split is on by default and has no flag.
     takes the interface. See the next section.
   - The input holds text a preprocessor directive excludes. The tool parses with no
     symbols defined, so a scan cannot read that text.
+  - The input holds a `global using` directive. Every output repeats every using
+    directive, and a global alias declared in two files fails the build with CS1537.
+  - A `#line`, `#nullable`, or `#pragma` directive sits on or inside a type. It applies
+    to every line below it, but it is attached to one type and leaves with that type. The
+    kept file then changes meaning with no rename and no edit to the `file` type. With
+    `#line 100 "Mapped.cs"` above a moved type, a `CallerFilePath` value in the `file`
+    type below it changed from `Mapped.cs` to `Alpha.cs`, with no diagnostic. A directive
+    above the namespace belongs to no type, and every output repeats it, so that case
+    still splits.
   - The input declares at most one ordinary type. Nothing can move.
 - The split row's `note` says which `file` types stayed and whether SA1402 still flags
   the file. The brief asked for a note that says SA1402 still flags it. Finding 1 narrowed
@@ -1246,9 +1256,12 @@ The split is on by default and has no flag.
 - A `file` type may sit at any namespace depth. Decision 29 made every such type a type
   the tool places and scans, so no rule here depends on depth.
 
-The maintainer's brief named the first two refusals in that list. The other three go
-beyond the brief: a base list, excluded text, and nothing to split. So do three more
-things. The note
+The maintainer's brief named the first two refusals in that list. The other five go
+beyond the brief: a base list, excluded text, a global using directive, a state
+directive, and nothing to split. A reviewer on the pull request showed the breaks behind
+the global using and state directive refusals. Both breaks also hit an input with no
+`file` type, where they are older than this change and are listed in `AGENTS.md` as known
+issues. Three more things go beyond the brief. The note
 scopes its SA1402 claim, as above. The SA1402 guide said a `file` type is exempt from
 SA1402, and finding 1 says it is not, so the guide now says so. And `OutputVerifier`
 expected each declaration's text once across the outputs. A `file` type shares the kept
@@ -1291,17 +1304,17 @@ fails a test.
 
 **Rejected.** Moving the `file` type with the types that use it: the new file has a new
 name, so the metadata name changes. An opt in flag: a first run would still skip every
-such file, and the proof is the same either way. A semantic model: decision 1. Reading the
+such file, and the checks are the same either way. A semantic model: decision 1. Reading the
 excluded text of an `#if`: it means parsing once for each symbol set, and the tool does
 not know the sets.
 
 **Consequences.** This is a breaking change to default results. A file that was `skipped`
 with `contains file-local type; manual split required` is now `split`, or `skipped` with
-one of six new reasons, or with any reason that applies to an ordinary input, such as a
-`#region` over two types. It can also end `failed`, as any ordinary input can. One known
+one of eight new reasons, or with any reason that applies to an ordinary input, such as a
+`#region` over two types. That old reason is gone. Such a file can also end `failed`, as any ordinary input can. One known
 case: the ownership check counts text, so a type with three blank lines in a row in its
 body fails that check at plan time, and nothing is written. That defect is older than
-this change and `AGENTS.md` lists it. That old reason is gone. When the kept type is a class or record,
+this change and `AGENTS.md` lists it. When the kept type is a class or record,
 one SA1402 warning stays for each `file` class or record, and a person must suppress it. The scan is conservative,
 so some safe inputs are skipped: a moved type that merely has a member named like the
 `file` type, and any input with an `#if` branch the parse excludes. How many inputs each
@@ -1311,7 +1324,7 @@ One hole is known and is not closed here. A `file` modifier inside an excluded `
 branch is never seen, so that type is planned as an ordinary one. `AGENTS.md` lists it
 under known issues.
 
-**Reversal warning.** The first seven items were each tested by removing the rule and
+**Reversal warning.** The first nine items were each tested by removing the rule and
 compiling what the split would then write. Tests pin the last three without a compile.
 
 - Let the keep rule rename the file, and the `file` type's metadata name changes with no
@@ -1329,6 +1342,11 @@ compiling what the split would then write. Tests pin the last three without a co
 - Drop the base list refusal, and a moved type infers a `file` type from the type that
   stays. A call on it then binds to another method with no diagnostic.
   `FileLocalPremiseTests` shows the binding change.
+- Drop the global using refusal, and the split writes a global alias into two files. The
+  build fails with CS1537.
+- Drop the state directive refusal, and a `#line`, `#nullable`, or `#pragma` directive
+  leaves the kept file with a moved type. The `file` type below it gets another caller
+  path, or a warning it did not have.
 - Let the kept type exception apply when the file is named for a type, and that type
   moves out to a file of its own name, which is the file being read.
 - Drop the check in `OutputVerifier`, and a planning mistake reaches disk. The planner is

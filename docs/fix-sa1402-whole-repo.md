@@ -255,6 +255,8 @@ are most likely to see:
 | A `file` type declares extension members | skipped | `file-local type declares extension members; manual split required` |
 | A using directive names a `file` type | skipped | `using directive names a file-local type; manual split required` |
 | A type lists a `file` type among its base types | skipped | `type lists a file-local type among its base types; manual split required` |
+| A `file` type shares the file with a `global using` directive | skipped | `file-local type shares the file with a global using directive; manual split required` |
+| A `file` type shares the file with a `#line`, `#nullable`, or `#pragma` directive on or inside a type | skipped | `file-local type shares the file with a #line, #nullable, or #pragma directive that only one output would keep; manual split required` |
 | A `file` type shares the file with an excluded `#if` branch | skipped | `file-local type shares the file with conditionally excluded text; manual split required` |
 | An `#if` or `#region` spans two types | skipped | `<kind> group at line <n> crosses top-level type boundaries` |
 | Two types in one file share a name and type parameter list | skipped | `target path collision within split: <path>` |
@@ -307,7 +309,8 @@ originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash,co
 
 `Sibling` moves to `Sibling.cs`. `Alpha` and `AlphaHelper` stay in `Alpha.cs`.
 
-**One SA1402 warning stays, and the tool cannot remove it.** That build reported SA1402
+**One SA1402 warning stays, and the tool cannot remove it.** A build with
+StyleCop.Analyzers `1.2.0-beta.556` reported SA1402
 twice before the split, at `AlphaHelper` and at `Sibling`. After the split it reported
 once, at `Alpha.cs(8,12)`, the `file` class. When the kept type is a class or record too,
 expect one warning for each `file` class or `file` record. A `file` struct, interface, enum, or delegate beside one class raised
@@ -358,6 +361,11 @@ The tool skips the file when it cannot prove the split is safe. It never guesses
   call without writing the name, and a call on it can bind to another method with no
   error. So the tool refuses the file even though `Alpha` would stay.
 * **The file has an `#if` branch that is excluded.** The tool cannot read excluded text.
+* **The file has a `global using` directive.** Every new file repeats it, and a global
+  alias declared in two files does not compile.
+* **A `#line`, `#nullable`, or `#pragma` directive sits on or inside a type.** It applies
+  to everything below it, but only one new file would keep it. Move it above the
+  namespace, where every file gets a copy, and plan again.
 * **The file has only one other type.** There is nothing to move. The SA1402 warning on
   such a file was there before, and you suppress it the same way.
 

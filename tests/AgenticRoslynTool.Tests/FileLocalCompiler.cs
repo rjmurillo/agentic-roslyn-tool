@@ -88,6 +88,28 @@ internal static class FileLocalCompiler
         return compilation.GetSemanticModel(use.SyntaxTree).GetSymbolInfo(use).Symbol!.ContainingType.ToDisplayString();
     }
 
+    // The static type of one local variable, with its namespace. The variable is looked
+    // up inside the declaration of the type named inType.
+    public static string LocalType(CSharpCompilation compilation, string inType, string local)
+    {
+        var declarator = compilation.SyntaxTrees
+            .SelectMany(tree => tree.GetRoot().DescendantNodes().OfType<BaseTypeDeclarationSyntax>())
+            .Where(declaration => declaration.Identifier.ValueText == inType)
+            .SelectMany(declaration => declaration.DescendantNodes().OfType<VariableDeclaratorSyntax>())
+            .First(variable => variable.Identifier.ValueText == local);
+        return ((ILocalSymbol)compilation.GetSemanticModel(declarator.SyntaxTree).GetDeclaredSymbol(declarator)!).Type.ToDisplayString();
+    }
+
+    // The file name a #line directive maps one type's declaration to, or the tree's own
+    // file name when no directive applies. Caller information reads the same mapping.
+    public static string MappedFile(CSharpCompilation compilation, string typeName)
+    {
+        var declaration = compilation.SyntaxTrees
+            .SelectMany(tree => tree.GetRoot().DescendantNodes().OfType<BaseTypeDeclarationSyntax>())
+            .First(type => type.Identifier.ValueText == typeName);
+        return Path.GetFileName(declaration.Identifier.GetLocation().GetMappedLineSpan().Path);
+    }
+
     // What a split would write if nothing refused it. The type named for the file stays
     // with the file-local types, and every other ordinary type moves to its own file. A
     // test compiles this to show what a refusal prevents. Nothing is written to disk.

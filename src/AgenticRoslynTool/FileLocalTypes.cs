@@ -16,15 +16,16 @@ namespace AgenticRoslynTool;
 /// moved type can depend on a <c>file</c> type.
 /// </para>
 /// <para>
-/// The proof is syntactic, because the tool builds no semantic model. Leaving the file
-/// changes two lookups for a moved type: lookup of a simple name, and lookup of extension
-/// members. The name scan in <see cref="FileLocalNames"/> covers the first. Nothing
-/// syntactic covers the second, so an input whose <c>file</c> type declares extension
-/// members is refused outright. A using directive that names a <c>file</c> type is
-/// refused too, because every output repeats every using directive. Text a preprocessor
-/// directive excludes is refused, because a scan cannot read it. A base list that names a
-/// <c>file</c> type is refused, because a moved type can then infer that type without
-/// naming it. See decision 30.
+/// The check is syntactic, because the tool builds no semantic model. A moved type was
+/// found to depend on a <c>file</c> type in three ways: by its name, by an extension
+/// member, and by inference from a base list. The name scan in
+/// <see cref="FileLocalNames"/> covers the first. Nothing syntactic covers the second,
+/// so an input whose <c>file</c> type declares extension members is refused outright. A
+/// base list that names a <c>file</c> type is refused for the third. A using directive
+/// that names a <c>file</c> type is refused too, because every output repeats every using
+/// directive. Text a preprocessor directive excludes is refused, because a scan cannot
+/// read it. <see cref="FileLocalDirectives"/> adds two refusals that guard the kept file
+/// itself. See decision 30.
 /// </para>
 /// <para>
 /// Call <see cref="DescribeRefusal"/> first and <see cref="PlanAround"/> second. The
@@ -87,6 +88,11 @@ internal static class FileLocalTypes
         if (root.DescendantTrivia(descendIntoTrivia: true).Any(trivia => trivia.IsKind(SyntaxKind.DisabledTextTrivia)))
         {
             return (ExcludedTextReason, null);
+        }
+
+        if (FileLocalDirectives.DescribeRefusal(root, types) is { } directive)
+        {
+            return directive;
         }
 
         var extending = fileLocal.FirstOrDefault(DeclaresExtensionMembers);

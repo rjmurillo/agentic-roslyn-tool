@@ -10,7 +10,7 @@ namespace AgenticRoslynTool;
 /// Core engine of the <c>split-types</c> command. Given a list of C# files that
 /// declare more than one top-level type, it computes a per-file split plan, verifies
 /// it against a set of correctness invariants, and (in the content phase) writes one
-/// output file per top-level type. All parsing and rewriting go through the Roslyn
+/// output file per ordinary top-level type. A <c>file</c> type stays in the kept file. All parsing and rewriting go through the Roslyn
 /// Syntax API; no semantic model is used.
 /// </summary>
 /// <remarks>
