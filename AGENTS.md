@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 42 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 393 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 395 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -91,7 +91,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 393 passed, 0 failed
+dotnet test  -c Release      # must be 395 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -419,10 +419,15 @@ agent does not pay again.
   source said `#nullable restore`. The verifier's own context check shares the tool's
   fold, so it cannot catch a wrong fold.
 - **A `#nullable` under `#if` outside a type body never reaches the nullable code.**
-  `DirectiveSafety` already refuses an `#if` group that owns no type, as crossing type
-  boundaries. So the conditional refusal in `ConditionalNullable.IsDropped`
-  only meets a group inside a type body. A test that puts the group above a type gets the
-  older reason.
+  `DirectiveSafety` refuses an `#if` group that wraps no type, as crossing type
+  boundaries. `ProducesEmptyDirectiveShell` refuses one that wraps a whole type, because
+  the other outputs keep an empty `#if` shell. So the conditional refusal in
+  `ConditionalNullable.IsDropped` only meets a group inside a type body. A test that puts
+  the group outside a body gets one of the older reasons.
+- **Roslyn parses a directive in a branch that is off as an inactive directive.** It is
+  never disabled text, whatever its spacing, so `# nullable enable` under `#if X` is a
+  `NullableDirectiveTriviaSyntax` with `IsActive` false. Walk directives, not text, to
+  find one.
 
 ## Known issues, not yet fixed
 

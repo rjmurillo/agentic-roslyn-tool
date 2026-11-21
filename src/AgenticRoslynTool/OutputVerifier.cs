@@ -69,14 +69,16 @@ internal static class OutputVerifier
     }
 
     /// <summary>
-    /// Checks that each output's own type reads the same nullable context in the output text
-    /// as it did in the source. The output is parsed again from <see cref="OutputFile.Text"/>,
-    /// which is what reaches disk, so a misplaced or dropped <c>#nullable</c> line fails the
-    /// file before it is written.
+    /// Checks that each output's own type reads the same nullable context in the output body
+    /// as it did in the source. The body is parsed again from <see cref="OutputFile.BodyText"/>,
+    /// so a misplaced or dropped <c>#nullable</c> line fails the file before it is written.
     /// </summary>
     /// <remarks>
-    /// This check uses the same fold as <see cref="NullableDirectives.Restore"/>, so it catches
-    /// a misplaced line, not a wrong fold. Tests prove the fold against the compiler.
+    /// It reads the body, not <see cref="OutputFile.Text"/>, for the reason line conservation
+    /// does. A <c>--require-header</c> that holds a <c>#nullable</c> line changes the context
+    /// on purpose, because the caller asked for that header. This check uses the same fold as
+    /// <see cref="NullableDirectives.Restore"/>, so it catches a misplaced line, not a wrong
+    /// fold. Tests prove the fold against the compiler.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Thrown when an output lacks its own type, or when that type's annotations or warnings setting differs from the source.</exception>
     internal static void VerifyNullableContext(string originalPath, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions)
@@ -84,9 +86,8 @@ internal static class OutputVerifier
         foreach (var output in outputs)
         {
             var expected = NullableDirectives.SourceStateOf(output.Type);
-            var root = CSharpSyntaxTree.ParseText(output.Text, parseOptions, path: output.Path).GetCompilationUnitRoot();
-            var written = TopLevelType.Find(root).FirstOrDefault(t => StringComparer.Ordinal.Equals(t.Key, output.Type.Key))
-                ?? throw new InvalidOperationException($"{originalPath}: {output.Path} does not declare {output.Type.Key}");
+            var root = CSharpSyntaxTree.ParseText(output.BodyText, parseOptions, path: output.Path).GetCompilationUnitRoot();
+            var written = TopLevelType.FindByKey(root, output.Type.Key);
             var actual = NullableDirectives.StateAt(root, written.Node.SpanStart);
             if (actual != expected)
             {

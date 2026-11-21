@@ -288,7 +288,8 @@ Promises:
   plan starts afresh. Verified by `CollisionNamingFlagTests` and `CollisionNamingRecordedTests`.
 - A `skipped` or `failed` row names the file's original path as `keptPath`, with
   `gitMove` false. A refusal never renames. That holds for a `BuildPlan` refusal, an
-  empty directive shell, a verification failure, and a collision refusal, even when the
+  empty directive shell, a dropped conditional `#nullable`, a verification failure, and a
+  collision refusal, even when the
   plan first chose a rename target. Only a `split` row names a planned rename target.
   `RefusedRenameLocationTests` pins it.
 - Runs when `--phase` is absent. See decision 25.
@@ -551,11 +552,12 @@ stranded in another.
 
 A directive wholly contained inside a single type is allowed and travels with that type.
 
-`FileSplitter.ProducesEmptyDirectiveShell` is a second, later check. It refuses a split
+`DirectiveAnalyzer.ProducesEmptyDirectiveShell` is a second, later check. It refuses a split
 that would leave a directive group with no code inside it.
 
 `ConditionalNullable.IsDropped` is a third. It refuses a split that would drop
-a `#nullable` under `#if` that comes before a type. See "Nullable context" above.
+a `#nullable` under `#if` that comes before a type. See "Nullable context" below. All
+three carve the tree through `OutputBuilder.Carve`, the same call that builds each output.
 
 ### BuildPlan
 
@@ -631,7 +633,9 @@ in the source and in the output, and adds the fewest lines that close the gap:
   `ConditionalNullable.IsDropped` decides this before any output is built.
 - `#pragma` directives are not restated.
 - `VerifyOutputs` checks each output with the same fold, so it catches a misplaced line,
-  not a wrong fold. `NullableContextTests` checks the fold against the compiler.
+  not a wrong fold. `NullableContextTests` checks the fold against the compiler. It reads
+  the body, before any `--require-header` banner. A banner that holds a `#nullable` line
+  changes every new file's context, because the caller asked for that banner.
 
 ### VerifyLineConservation
 

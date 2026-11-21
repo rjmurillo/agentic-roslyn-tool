@@ -75,8 +75,7 @@ internal static class OutputBuilder
         var outputs = new List<OutputFile>();
         foreach (var file in plan.Files)
         {
-            var remove = types.Where(t => !ReferenceEquals(t, file.Type)).Select(t => t.Node).ToArray();
-            var newRoot = root.RemoveNodes(remove, SyntaxRemoveOptions.KeepUnbalancedDirectives) ?? root;
+            var newRoot = Carve(root, types, file.Type);
             if (!file.IsKept)
             {
                 newRoot = newRoot.WithAttributeLists(default);
@@ -92,6 +91,17 @@ internal static class OutputBuilder
         }
 
         return outputs.ToArray();
+    }
+
+    /// <summary>
+    /// Removes every type but <paramref name="kept"/> from the source tree, keeping any
+    /// directive left unbalanced. <see cref="BuildOutputs"/> and each directive guard carve
+    /// through here, so a guard judges the same tree the output is built from.
+    /// </summary>
+    internal static CompilationUnitSyntax Carve(CompilationUnitSyntax root, IReadOnlyList<TopLevelType> types, TopLevelType kept)
+    {
+        var remove = types.Where(t => !ReferenceEquals(t, kept)).Select(t => t.Node).ToArray();
+        return root.RemoveNodes(remove, SyntaxRemoveOptions.KeepUnbalancedDirectives) ?? root;
     }
 
     /// <summary>

@@ -1,4 +1,3 @@
-using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -12,9 +11,10 @@ namespace AgenticRoslynTool;
 /// <see cref="NullableDirectives.StateAt"/> folds the parse with no symbols defined. A
 /// <c>#nullable</c> under <c>#if</c> can set a different context in a build that defines a
 /// symbol, so restating it as one unconditional line would be wrong for some build. A split
-/// that drops one is refused instead. An <c>#if</c> group outside a type body is already
-/// refused by <see cref="DirectiveAnalyzer.AnalyzeDirectiveSafety"/>, so the group this
-/// meets sits inside a type body. See decision 30.
+/// that drops one is refused instead. Two earlier guards refuse an <c>#if</c> group outside a
+/// type body: <see cref="DirectiveAnalyzer.AnalyzeDirectiveSafety"/> one that wraps no type,
+/// and <see cref="DirectiveAnalyzer.ProducesEmptyDirectiveShell"/> one that wraps a whole
+/// type. So the group this guard meets sits inside a type body. See decision 30.
 /// </remarks>
 internal static class ConditionalNullable
 {
@@ -26,10 +26,9 @@ internal static class ConditionalNullable
     {
         foreach (var file in plan.Files)
         {
-            var remove = types.Where(t => !ReferenceEquals(t, file.Type)).Select(t => t.Node).ToArray();
-            var newRoot = root.RemoveNodes(remove, SyntaxRemoveOptions.KeepUnbalancedDirectives) ?? root;
-            var carved = TopLevelType.Find(newRoot).First(t => StringComparer.Ordinal.Equals(t.Key, file.Type.Key)).Node;
-            if (CountBefore(newRoot, carved.SpanStart) != CountBefore(root, file.Type.Node.SpanStart))
+            var carved = OutputBuilder.Carve(root, types, file.Type);
+            var kept = TopLevelType.FindByKey(carved, file.Type.Key).Node;
+            if (CountBefore(carved, kept.SpanStart) != CountBefore(root, file.Type.Node.SpanStart))
             {
                 return true;
             }
@@ -39,22 +38,18 @@ internal static class ConditionalNullable
     }
 
     /// <summary>
-    /// Counts the <c>#nullable</c> directives before <paramref name="position"/> whose effect
-    /// depends on preprocessor symbols: an active one inside an <c>#if</c> group, and a
-    /// <c>#nullable</c> line in the text of a branch that is off.
+    /// Counts the <c>#nullable</c> directives before <paramref name="position"/> that sit
+    /// inside an <c>#if</c> group, in any branch. Roslyn parses a directive in a branch that
+    /// is off as an inactive directive, not as disabled text, so one walk over the
+    /// directives sees both kinds.
     /// </summary>
-    internal static int CountBefore(SyntaxNode root, int position)
+    internal static int CountBefore(CSharpSyntaxNode root, int position)
     {
         var depth = 0;
         var count = 0;
-        foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
+        foreach (var directive in NullableDirectives.DirectivesBefore(root, position))
         {
-            if (trivia.SpanStart >= position)
-            {
-                break;
-            }
-
-            switch (trivia.Kind())
+            switch (directive.Kind())
             {
                 case SyntaxKind.IfDirectiveTrivia:
                     depth++;
@@ -64,9 +59,6 @@ internal static class ConditionalNullable
                     break;
                 case SyntaxKind.NullableDirectiveTrivia when depth > 0:
                     count++;
-                    break;
-                case SyntaxKind.DisabledTextTrivia:
-                    count += trivia.ToString().Split('\n').Count(line => line.TrimStart().StartsWith("#nullable", StringComparison.Ordinal));
                     break;
             }
         }

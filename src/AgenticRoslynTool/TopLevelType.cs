@@ -66,6 +66,17 @@ internal sealed class TopLevelType
         }
     }
 
+    /// <summary>
+    /// Finds the type whose <see cref="Key"/> is <paramref name="key"/> in a tree, such as an
+    /// output after the other types were removed.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when no type in the tree has that key.</exception>
+    public static TopLevelType FindByKey(CompilationUnitSyntax root, string key)
+    {
+        return Find(root).FirstOrDefault(t => StringComparer.Ordinal.Equals(t.Key, key))
+            ?? throw new InvalidOperationException($"output does not declare {key}");
+    }
+
     private static IEnumerable<TopLevelType> FromMember(MemberDeclarationSyntax member)
     {
         if (Create(member) is { } type)

@@ -95,6 +95,18 @@ public sealed class NullableContextTests
     }
 
     [Fact]
+    public void RequiredHeaderWithANullableLine_StillSplits()
+    {
+        using var ws = new TempWorkspace();
+        var source = Namespace + Alpha + "public class Beta { }\n";
+
+        var row = Run(ws, source, "// Banner\n#nullable enable");
+
+        Assert.Equal("split", row.Status);
+        Assert.StartsWith("// Banner\n#nullable enable\n\n" + Namespace, Read(ws, "Beta.cs"));
+    }
+
+    [Fact]
     public void DirectiveAboveTheNamespace_IsNotAddedAgain()
     {
         using var ws = new TempWorkspace();

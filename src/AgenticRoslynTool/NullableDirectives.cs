@@ -26,19 +26,18 @@ internal static class NullableDirectives
     /// Folds every active <c>#nullable</c> directive that starts before
     /// <paramref name="position"/>, in order, from the project default.
     /// </summary>
+    /// <remarks>
+    /// Reads the tree through <see cref="DirectivesBefore"/>, which skips every subtree that
+    /// holds no directive, so a large file with few directives costs little to fold.
+    /// </remarks>
     /// <returns>The annotations and warnings settings in force at the position. Null means the project default.</returns>
-    internal static (bool? Annotations, bool? Warnings) StateAt(SyntaxNode root, int position)
+    internal static (bool? Annotations, bool? Warnings) StateAt(CSharpSyntaxNode root, int position)
     {
         bool? annotations = null;
         bool? warnings = null;
-        foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
+        foreach (var found in DirectivesBefore(root, position))
         {
-            if (trivia.SpanStart >= position)
-            {
-                break;
-            }
-
-            if (trivia.GetStructure() is not NullableDirectiveTriviaSyntax { IsActive: true } directive)
+            if (found is not NullableDirectiveTriviaSyntax { IsActive: true } directive)
             {
                 continue;
             }
@@ -95,10 +94,22 @@ internal static class NullableDirectives
         return lines;
     }
 
+    /// <summary>
+    /// Every directive that starts before <paramref name="position"/>, active or not, in
+    /// order. Walks directive to directive, so it skips code that holds none.
+    /// </summary>
+    internal static IEnumerable<DirectiveTriviaSyntax> DirectivesBefore(CSharpSyntaxNode root, int position)
+    {
+        for (var directive = root.GetFirstDirective(); directive is not null && directive.SpanStart < position; directive = directive.GetNextDirective())
+        {
+            yield return directive;
+        }
+    }
+
     /// <summary>The nullable context a type had in its source file, at its first token.</summary>
     internal static (bool? Annotations, bool? Warnings) SourceStateOf(TopLevelType type)
     {
-        return StateAt(type.Node.SyntaxTree.GetRoot(), type.Node.SpanStart);
+        return StateAt(type.Node.SyntaxTree.GetCompilationUnitRoot(), type.Node.SpanStart);
     }
 
     /// <summary>Words a context for a message, such as <c>annotations enable, warnings restore</c>.</summary>
@@ -123,8 +134,7 @@ internal static class NullableDirectives
     /// <returns>The output tree, and every line added to it, so the verifier can tell an added line from a duplicated source line.</returns>
     internal static (CompilationUnitSyntax Root, IReadOnlyList<string> AddedLines) Restore(CompilationUnitSyntax carved, TopLevelType kept, string newLine)
     {
-        var node = TopLevelType.Find(carved).FirstOrDefault(t => StringComparer.Ordinal.Equals(t.Key, kept.Key))?.Node
-            ?? throw new InvalidOperationException($"output does not declare {kept.Key}");
+        var node = TopLevelType.FindByKey(carved, kept.Key).Node;
         var lines = DirectivesBetween(StateAt(carved, node.SpanStart), SourceStateOf(kept));
         return lines.Count == 0 ? (carved, lines) : (InsertAbove(carved, node, lines, newLine), lines);
     }
