@@ -673,8 +673,8 @@ when any of these hold:
   That would be a rename.
 - The input declares a `file` type, and an output does not hold the same `#line`,
   `#nullable`, `#pragma`, `#define`, and `#undef` directives as the input, in order. This
-  does not see a lost `#if` around a `#define` or `#undef` that stayed. `BuildPlan` is the
-  only guard for that.
+  does not see a lost `#if` around a `#define` or `#undef` that stayed. The refusal in
+  `FileLocalDirectives.DescribeRefusal` is the only guard for that.
 - The input declares a `file` type, and an output for another path declares one or names
   one. `BuildPlan` refuses these inputs first, so this fails a row only after a planning
   mistake.

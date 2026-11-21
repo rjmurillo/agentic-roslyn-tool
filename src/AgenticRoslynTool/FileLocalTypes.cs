@@ -24,8 +24,8 @@ namespace AgenticRoslynTool;
 /// base list that names a <c>file</c> type is refused for the third. A using directive
 /// that names a <c>file</c> type is refused too, because every output repeats every using
 /// directive. Text a preprocessor directive excludes is refused, because a scan cannot
-/// read it. <see cref="FileLocalDirectives"/> adds two refusals that guard the kept file
-/// itself. See decision 30.
+/// read it. <see cref="FileLocalDirectives"/> adds two refusals for a directive that
+/// would make the split change what a file means, or break the build. See decision 30.
 /// </para>
 /// <para>
 /// Call <see cref="DescribeRefusal"/> first and <see cref="PlanAround"/> second. The
@@ -163,8 +163,9 @@ internal static class FileLocalTypes
     /// state for the lines below it.
     /// </summary>
     /// <remarks>
-    /// <see cref="PlanAround"/> already refuses these inputs. This asks again about the
-    /// text that would reach disk, so a planning mistake fails the row before any write.
+    /// <see cref="DescribeRefusal"/>, <see cref="PlanAround"/>, and the planner already
+    /// refuse these inputs. This asks again about the text that would reach disk, so a
+    /// planning mistake fails the row before any write.
     /// </remarks>
     /// <param name="readPath">The path the input was read from.</param>
     /// <param name="inputTypes">Every top-level type in the input.</param>

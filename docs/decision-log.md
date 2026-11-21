@@ -1242,9 +1242,10 @@ The split is on by default and has no flag.
     kept file, the assembly attributes. A directive attached to an assembly attribute
     leaves with it. So does a `#line`, `#nullable`, or `#pragma` attached to a type.
     Removing a type keeps a `#define` or `#undef` in every output, but drops an `#if`
-    around it. With `#if !X`, `#define EXTRA`, `#endif` on a moved type, the kept file
-    defined `EXTRA` always, and a member under `#if EXTRA` appeared in a build that
-    defines `X`, with no diagnostic. The tool does not tell a guarded one from a plain
+    around it. With `#if !X`, `#define EXTRA`, `[System.Serializable]`, `#endif` on a
+    moved type, the kept file defined `EXTRA` always, and a member under `#if EXTRA`
+    appeared in a build that defines `X`, with no diagnostic. The attribute puts part of
+    the type inside the group. Without it the older `#if` check skips the file. The tool does not tell a guarded one from a plain
     one, so it refuses both. With `#line
     100 "Mapped.cs"` above a moved type, a `CallerFilePath` value in the `file` type below
     it changed from `Mapped.cs` to `Alpha.cs`, with no diagnostic. With `#nullable enable`
