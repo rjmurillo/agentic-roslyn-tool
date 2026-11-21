@@ -40,7 +40,7 @@ Every source file, so you do not have to open one to find out whether it matters
 
 | File | Responsibility |
 |---|---|
-| `FileSplitter.cs` | The orchestrator. Runs a phase over the inputs and turns one input into one result row. Delegates the actual work to the six types below it, and the plan binding to `PlanBinding.cs`. Read this first. |
+| `FileSplitter.cs` | The orchestrator. Runs a phase over the inputs and turns one input into one result row. Delegates the actual work to `InputSource`, `SplitPlanner`, `DirectiveAnalyzer`, `ConditionalNullable`, `OutputBuilder`, `OutputVerifier`, and `WorkspaceWriter`, and the plan binding to `PlanBinding.cs`. Read this first. |
 | `InputSource.cs` | Turns whatever the caller supplied, a directory, a list file, a manifest, standard input, into an ordered list of absolute paths. |
 | `SplitPlanner.cs` | Decides what a split would do: which type stays, where each moved type lands, which inputs collide, which path a phase reads. Does not act. |
 | `DirectiveAnalyzer.cs` | Decides whether preprocessor directives make a split unsafe. Returns a verdict, never acts on one. |
@@ -422,13 +422,9 @@ agent does not pay again.
 - **Do not list the `#if` shapes that reach `ConditionalNullable`. Describe the rule.**
   Review found shapes that a written list had missed, in more than one round: a group
   around a type's attributes, after them, around a modifier, before a base list. The rule
-  is this. Two older guards run first. `DirectiveAnalyzer.AnalyzeDirectiveSafety` refuses
-  an `#if` group unless exactly one type overlaps it or exactly one type sits wholly inside
-  it. `DirectiveAnalyzer.ProducesEmptyDirectiveShell` refuses a split that leaves an `#if`
-  or `#region` group with only blank lines and directives in it. Every group either guard lets
-  through reaches `ConditionalNullable.IsDropped`, which refuses the file when any output
-  would lose a `#nullable` under `#if` from before its type. A test about one of these
-  shapes should assert which reason it gets, not that it reaches one guard.
+  lives in one place, the remarks on `ConditionalNullable`: two older guards run first,
+  and every group they let through reaches `ConditionalNullable.IsDropped`. A test about
+  one of these shapes should assert which reason it gets, not that it reaches one guard.
 - **Roslyn parses a directive in a branch that is off as an inactive directive.** It is
   never disabled text, whatever its spacing, so `# nullable enable` under `#if X` is a
   `NullableDirectiveTriviaSyntax` with `IsActive` false. Walk directives, not text, to

@@ -11,11 +11,15 @@ namespace AgenticRoslynTool;
 /// <see cref="NullableDirectives.StateAt"/> folds the parse with no symbols defined. A
 /// <c>#nullable</c> under <c>#if</c> can set a different context in a build that defines a
 /// symbol, so restating it as one unconditional line would be wrong for some build. A split
-/// that drops one is refused instead. Two earlier guards run first:
-/// <see cref="DirectiveAnalyzer.AnalyzeDirectiveSafety"/> refuses a group that no single type
-/// owns, and <see cref="DirectiveAnalyzer.ProducesEmptyDirectiveShell"/> refuses a split that
-/// leaves an empty group. Every group they let through reaches this
-/// guard, wherever it sits in or around a type. See decision 30.
+/// that drops one is refused instead. Two earlier guards run first.
+/// <see cref="DirectiveAnalyzer.AnalyzeDirectiveSafety"/> refuses an <c>#if</c> group unless
+/// exactly one type overlaps it or exactly one type sits wholly inside it.
+/// <see cref="DirectiveAnalyzer.ProducesEmptyDirectiveShell"/> refuses a split that leaves an
+/// <c>#if</c> or <c>#region</c> group holding only blank lines and lines of that directive
+/// family. A <c>#nullable</c> line counts as content there, so it does not empty a group.
+/// Every group the two let through reaches this guard, wherever it sits in or around a
+/// type. Do not describe that set as a list of shapes; review found lists incomplete twice.
+/// See decision 30.
 /// </remarks>
 internal static class ConditionalNullable
 {
