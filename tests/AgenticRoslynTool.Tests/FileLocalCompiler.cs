@@ -110,6 +110,13 @@ internal static class FileLocalCompiler
         return Path.GetFileName(declaration.Identifier.GetLocation().GetMappedLineSpan().Path);
     }
 
+    // How many members of one name a type declares. A member inside a false #if is not
+    // declared at all, so this shows a condition that changed.
+    public static int CountMembers(CSharpCompilation compilation, string typeName, string memberName)
+    {
+        return compilation.GetSymbolsWithName(typeName, SymbolFilter.Type).OfType<INamedTypeSymbol>().Single().GetMembers(memberName).Length;
+    }
+
     // What a split would write if nothing refused it. The type named for the file stays
     // with the file-local types, and every other ordinary type moves to its own file. A
     // test compiles this to show what a refusal prevents. Nothing is written to disk.

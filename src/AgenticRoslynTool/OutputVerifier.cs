@@ -26,8 +26,9 @@ internal static class OutputVerifier
     /// (4) non-whitespace lines are conserved across the split
     /// (see <see cref="VerifyLineConservation"/>);
     /// (5) the set of top-level types in the outputs matches the input set exactly; and
-    /// (6) a <c>file</c> type stays in the file it was read from, and no output that
-    /// leaves that file names one (see <see cref="FileLocalTypes.DescribeViolation"/>).
+    /// (6) a <c>file</c> type stays in the file it was read from, no output that
+    /// leaves that file names one, and every output keeps the input's state directives
+    /// (see <see cref="FileLocalTypes.DescribeViolation"/>).
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown as soon as any invariant fails, so the failure is surfaced without partial output being written.</exception>
     internal static void VerifyOutputs(string readPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions, string? requiredHeader)
@@ -75,9 +76,10 @@ internal static class OutputVerifier
             throw new InvalidOperationException($"{readPath}: output top-level type set does not match input");
         }
 
-        // A file-local type stays in the file it was read from, and no output that leaves
-        // that file may name one. The planner refuses such an input first. This asks again
-        // about the text that would reach disk.
+        // A file-local type stays in the file it was read from, no output that leaves that
+        // file may name one, and every output keeps the input's state directives. The
+        // planner refuses such an input first. This asks again about the text that would
+        // reach disk.
         if (FileLocalTypes.DescribeViolation(readPath, inputTypes, outputs, parseOptions) is { } violation)
         {
             throw new InvalidOperationException(violation);

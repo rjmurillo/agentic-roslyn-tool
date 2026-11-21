@@ -136,6 +136,31 @@ public sealed class FileLocalPhaseTests : FileLocalTestBase
         Assert.Equal(["Alpha.cs", "Sibling.cs"], CsFiles());
     }
 
+    [Fact]
+    public void RequiredHeaderThatIsADirective_IsNotMistakenForALostOne()
+    {
+        // The verifier compares each output's directives with the input's. A header the
+        // caller asked for is added to every output, so it must not count as a difference.
+        var alpha = Write("Alpha.cs", AlphaWithHelper);
+        FileResult[] RunWithHeader(Phase phase)
+        {
+            var options = new Options(Workspace.WriteInputList(alpha), ManifestPath, Workspace.Root, phase, RequiredHeader: "#pragma warning disable CS1591", FileNaming: Naming);
+            var rows = new FileSplitter(options).Run(out var naming);
+            if (phase == Phase.Plan)
+            {
+                ManifestWriter.Write(rows, ManifestPath, naming);
+            }
+
+            return rows.ToArray();
+        }
+
+        RunWithHeader(Phase.Plan);
+        var row = Assert.Single(RunWithHeader(Phase.Content));
+
+        Assert.Equal(("split", null), (row.Status, row.Reason));
+        Assert.StartsWith("#pragma warning disable CS1591", File.ReadAllText(PathOf("Sibling.cs")), StringComparison.Ordinal);
+    }
+
     // A.cs and B.cs each hold a file-local type and a Shared type, so both plan Shared.cs.
     private (string ListPath, string APath) WriteCollidingPair()
     {

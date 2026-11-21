@@ -103,20 +103,23 @@ public sealed class FileLocalKeptFileRefusalTests : FileLocalTestBase
     [Theory]
     [InlineData("#define EXTRA", "#if EXTRA")]
     [InlineData("#undef EXTRA", "#if !EXTRA")]
-    public void DefineOrUndefAboveAType_StaysInEveryOutput_SoTheInputSplits(string directive, string condition)
+    public void GuardedDefineOrUndefOnAType_WouldLoseItsGuard_SoTheInputIsRefused(string directive, string condition)
     {
-        // Removing a type keeps these two directives where they are, in every output. So
-        // nothing is lost, and refusing the input would skip a safe split.
-        var alpha = Write("Alpha.cs", directive + "\ninternal class Alpha\n{\n    public int Read() => new Sibling().Value;\n}\n\n"
-            + "internal class Sibling\n{\n" + condition + "\n    public int Value => 1;\n#endif\n}\n\nfile class AlphaHelper\n{\n}\n");
-        Assert.Empty(FileLocalCompiler.Diagnostics(Compile("EXTRA")));
+        // Removing a type keeps a #define or #undef in every output, but drops the #if
+        // around it. So the kept file would set the symbol always, not only without X,
+        // and a member under that symbol would appear with no diagnostic.
+        var source = "#if !X\n" + directive + "\n[System.Serializable]\n#endif\ninternal class Sibling\n{\n}\n\n"
+            + "internal class Alpha\n{\n" + condition + "\n    public int Value() => 1;\n#endif\n}\n\nfile class AlphaHelper\n{\n}\n";
+        var alpha = Write("Alpha.cs", source);
+        var symbols = directive.StartsWith("#undef", StringComparison.Ordinal) ? new[] { "X", "EXTRA" } : ["X"];
 
-        Run(Phase.Plan, alpha);
-        var row = Assert.Single(Run(Phase.Content, alpha));
+        AssertRefused(alpha, FileLocalDirectives.DirectiveStateReason, directive.Split(' ')[0] + " directive at line 2");
 
-        Assert.Equal("Sibling", Assert.Single(row.NewFiles).Type);
-        Assert.Contains(directive, File.ReadAllText(PathOf("Sibling.cs")), StringComparison.Ordinal);
-        Assert.Empty(FileLocalCompiler.Diagnostics(Compile("EXTRA")));
+        var before = Compile(symbols);
+        var split = FileLocalCompiler.Compile(FileLocalCompiler.SplitUnchecked(alpha, source), symbols);
+        Assert.Empty(FileLocalCompiler.Diagnostics(before));
+        Assert.Empty(FileLocalCompiler.Diagnostics(split));
+        Assert.NotEqual(FileLocalCompiler.CountMembers(before, "Alpha", "Value"), FileLocalCompiler.CountMembers(split, "Alpha", "Value"));
     }
 
     [Fact]

@@ -187,7 +187,10 @@ internal static class FileLocalTypes
         foreach (var output in outputs)
         {
             var root = CSharpSyntaxTree.ParseText(output.Text, parseOptions, path: output.Path).GetCompilationUnitRoot();
-            if (!FileLocalDirectives.KeepsEveryDirective(input, root))
+            // The body is the output before any required header. A header the caller asked
+            // for is theirs to add, even when it is itself a directive.
+            var body = CSharpSyntaxTree.ParseText(output.BodyText, parseOptions, path: output.Path).GetCompilationUnitRoot();
+            if (!FileLocalDirectives.KeepsEveryDirective(input, body))
             {
                 return $"{output.Path} would not hold the same #line, #nullable, #pragma, #define, and #undef directives as {readPath}";
             }

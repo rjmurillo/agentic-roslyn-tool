@@ -256,7 +256,7 @@ are most likely to see:
 | A using directive names a `file` type | skipped | `using directive names a file-local type; manual split required` |
 | A type lists a `file` type among its base types | skipped | `type lists a file-local type among its base types; manual split required` |
 | A `file` type shares the file with a `global using` directive | skipped | `file-local type shares the file with a global using directive; manual split required` |
-| A `file` type shares the file with a `#line`, `#nullable`, or `#pragma` directive on or inside a type, or with one of those or a `#define` or `#undef` on an assembly attribute | skipped | `file-local type shares the file with a #line, #nullable, #pragma, #define, or #undef directive that only one output would keep; manual split required` |
+| A `file` type shares the file with a `#line`, `#nullable`, `#pragma`, `#define`, or `#undef` directive on or inside a type, or on an assembly attribute | skipped | `file-local type shares the file with a #line, #nullable, #pragma, #define, or #undef directive on or inside a type or on an assembly attribute; manual split required` |
 | A `file` type shares the file with an excluded `#if` branch | skipped | `file-local type shares the file with conditionally excluded text; manual split required` |
 | An `#if` or `#region` spans two types | skipped | `<kind> group at line <n> crosses top-level type boundaries` |
 | Two types in one file share a name and type parameter list | skipped | `target path collision within split: <path>` |
@@ -363,10 +363,15 @@ The tool skips the file when it cannot prove the split is safe. It never guesses
 * **The file has an `#if` branch that is excluded.** The tool cannot read excluded text.
 * **The file has a `global using` directive.** Every new file repeats it, and a global
   alias declared in two files does not compile.
-* **A `#line`, `#nullable`, or `#pragma` directive sits on or inside a type, or one of
-  those or a `#define` or `#undef` sits on an assembly attribute.** It applies to
-  everything below it, but not every new file would keep it. Move it directly above a `using` line or the `namespace` line,
-  where every file gets a copy, and plan again. A file with neither has no such place.
+* **A `#line`, `#nullable`, `#pragma`, `#define`, or `#undef` directive sits on or inside
+  a type, or on an assembly attribute.** It applies to everything below it, and a split
+  would not carry it to every new file unchanged. Move a `#line`, `#nullable`, or
+  `#pragma` directly above a `using` line or the `namespace` line, where every file gets a
+  copy, and plan again. A `#define` or `#undef` must stay first in the file, so put a
+  `using` line directly below it. A file with no `using` line and no `namespace` line has
+  no such place. Neither does a `#define` or `#undef` inside an `#if`. Moved above a
+  `using` line, that group gets the file skipped with `#if group at line 1 crosses
+  top-level type boundaries`.
 * **The file has only one other type.** There is nothing to move. The SA1402 warning on
   such a file was there before, and you suppress it the same way.
 

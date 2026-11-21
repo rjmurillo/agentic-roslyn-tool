@@ -59,8 +59,10 @@ public sealed class FileLocalVerifierTests
         // text that would reach disk: the kept file, a moved file, and a directive too many.
         const string Source = "#nullable enable\n" + Kept;
         var input = TopLevelType.Find(CSharpSyntaxTree.ParseText(Source, ParseOptions, path: ReadPath).GetCompilationUnitRoot()).ToArray();
-        var kept = new OutputFile(ReadPath, input[0], keptPrefix + Kept, string.Empty);
-        var moved = new OutputFile("/work/Caller.cs", input[0], movedPrefix + Prologue + "internal class Caller\n{\n}\n", string.Empty);
+        var keptText = keptPrefix + Kept;
+        var movedText = movedPrefix + Prologue + "internal class Caller\n{\n}\n";
+        var kept = new OutputFile(ReadPath, input[0], keptText, keptText);
+        var moved = new OutputFile("/work/Caller.cs", input[0], movedText, movedText);
 
         var violation = FileLocalTypes.DescribeViolation(ReadPath, input, [kept, moved], ParseOptions);
 

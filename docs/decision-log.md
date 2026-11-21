@@ -1236,19 +1236,23 @@ The split is on by default and has no flag.
     symbols defined, so a scan cannot read that text.
   - The input holds a `global using` directive. Every output repeats every using
     directive, and a global alias declared in two files fails the build with CS1537.
-  - A `#line`, `#nullable`, `#pragma`, `#define`, or `#undef` directive sits where only
-    some outputs keep it. It applies to every line below it. A split removes two things
-    from an output: the types it does not hold, and, from every output but the kept file,
-    the assembly attributes. A directive attached to an assembly attribute leaves with it.
-    So does one attached to a type, with one measured exception: removing a type keeps a
-    `#define` or `#undef` in every output, so those two are refused on an assembly
-    attribute only. With `#line
+  - A `#line`, `#nullable`, `#pragma`, `#define`, or `#undef` directive sits on or inside
+    a type, or on an assembly attribute. It applies to every line below it. A split removes
+    two things from an output: the types it does not hold, and, from every output but the
+    kept file, the assembly attributes. A directive attached to an assembly attribute
+    leaves with it. So does a `#line`, `#nullable`, or `#pragma` attached to a type.
+    Removing a type keeps a `#define` or `#undef` in every output, but drops an `#if`
+    around it. With `#if !X`, `#define EXTRA`, `#endif` on a moved type, the kept file
+    defined `EXTRA` always, and a member under `#if EXTRA` appeared in a build that
+    defines `X`, with no diagnostic. The tool does not tell a guarded one from a plain
+    one, so it refuses both. With `#line
     100 "Mapped.cs"` above a moved type, a `CallerFilePath` value in the `file` type below
     it changed from `Mapped.cs` to `Alpha.cs`, with no diagnostic. With `#nullable enable`
     above an assembly attribute, the moved file lost it and raised CS8632. A directive
     attached to a using directive or to the namespace keyword stays in every output, so
     that case still splits. `OutputVerifier` also checks that every output holds the same
-    such directives as the input.
+    such directives as the input. That check sees a dropped directive. It does not see a
+    lost `#if` guard, so the refusal is the only guard for that case.
   - The input declares at most one ordinary type. Nothing can move.
 - The split row's `note` says which `file` types stayed and whether SA1402 still flags
   the file. The brief asked for a note that says SA1402 still flags it. Finding 1 narrowed
@@ -1314,8 +1318,8 @@ such file, and the checks are the same either way. A semantic model: decision 1.
 excluded text of an `#if`: it means parsing once for each symbol set, and the tool does
 not know the sets. Refusing a global using alias only: a plain one was not shown to break,
 but it too is repeated project wide, and the narrower rule saves little. Copying a state
-directive into each output in place of refusing: that writes a line the user did not put
-there, and today the tool only removes types and blank lines.
+directive into each output in place of refusing: that writes source the caller did not
+ask for. Today the tool adds only the header a caller passes with `--require-header`.
 
 **Consequences.** This is a breaking change to default results. A file that was `skipped`
 with `contains file-local type; manual split required` is now `split`, or `skipped` with
@@ -1357,9 +1361,11 @@ compiling what the split would then write. Tests pin the last three without a co
 - Drop the global using refusal, and the split writes a global alias into two files. The
   build fails with CS1537.
 - Drop the state directive refusal, and a `#line`, `#nullable`, `#pragma`, `#define`, or
-  `#undef` directive leaves a file with the assembly attribute it is attached to. All but
-  the last two also leave with a type. Code below it gets another caller path, a warning it did not have, or loses a
-  member inside `#if`.
+  `#undef` directive leaves a file with the assembly attribute it is attached to. The
+  first three also leave with a type. `OutputVerifier` then fails that row, so nothing is
+  written, but the row ends `failed` in place of `skipped`. A `#define` or `#undef` on a
+  type stays and loses its `#if` guard. The verifier does not see that, so the split is
+  written, and a member under `#if` appears or vanishes with no diagnostic.
 - Let the kept type exception apply when the file is named for a type, and that type
   moves out to a file of its own name, which is the file being read.
 - Drop the check in `OutputVerifier`, and a planning mistake reaches disk. The planner is

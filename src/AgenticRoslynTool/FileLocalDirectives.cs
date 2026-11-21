@@ -23,11 +23,12 @@ internal static class FileLocalDirectives
     internal const string GlobalUsingReason = "file-local type shares the file with a global using directive; manual split required";
 
     /// <summary>
-    /// A directive that sets state for the lines below it sits where only some outputs keep
-    /// it: on an assembly attribute, or, for all but <c>#define</c> and <c>#undef</c>, on
-    /// or inside a type.
+    /// A directive that sets state for the lines below it sits where a split would not
+    /// carry it to every output unchanged: on or inside a type, or on an assembly attribute.
+    /// The reason names the place, not the loss, because a <c>#define</c> or <c>#undef</c>
+    /// on a type is kept and only loses the <c>#if</c> around it.
     /// </summary>
-    internal const string DirectiveStateReason = "file-local type shares the file with a #line, #nullable, #pragma, #define, or #undef directive that only one output would keep; manual split required";
+    internal const string DirectiveStateReason = "file-local type shares the file with a #line, #nullable, #pragma, #define, or #undef directive on or inside a type or on an assembly attribute; manual split required";
 
     /// <summary>
     /// The skip reason for a directive the split cannot carry safely, with a note that
@@ -35,12 +36,12 @@ internal static class FileLocalDirectives
     /// </summary>
     /// <remarks>
     /// A split removes two things from an output: the types it does not hold, and, from
-    /// every output but the kept file, the assembly attributes. A directive attached to an
-    /// assembly attribute leaves with it. So does one attached to a type, with one
-    /// exception that was measured: removing a type keeps a <c>#define</c> or
-    /// <c>#undef</c> in every output, so those two are refused on an assembly attribute
-    /// only. A directive attached to a using directive or to the namespace keyword stays in
-    /// every output, and is not refused.
+    /// every output but the kept file, the assembly attributes. A directive attached to
+    /// either is refused. Most leave with what they are attached to. A <c>#define</c> or
+    /// <c>#undef</c> attached to a type is the odd one: removing the type keeps it in every
+    /// output, but drops an <c>#if</c> around it, which makes it unconditional. The tool
+    /// does not tell those cases apart, and refuses both. A directive attached to a using
+    /// directive or to the namespace keyword stays in every output, and is not refused.
     /// </remarks>
     /// <param name="root">The parsed input.</param>
     /// <param name="types">Every top-level type in the input.</param>
@@ -51,18 +52,10 @@ internal static class FileLocalDirectives
             return (GlobalUsingReason, null);
         }
 
-        var onTypes = types.Select(type => type.Node.FullSpan).ToArray();
-        var onAttributes = root.AttributeLists.Select(list => list.FullSpan).ToArray();
+        var removable = types.Select(type => type.Node.FullSpan).Concat(root.AttributeLists.Select(list => list.FullSpan)).ToArray();
         foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
         {
-            if (DescribeKind(trivia) is not { } kind)
-            {
-                continue;
-            }
-
-            var survivesTypeRemoval = trivia.IsKind(SyntaxKind.DefineDirectiveTrivia) || trivia.IsKind(SyntaxKind.UndefDirectiveTrivia);
-            if (onAttributes.Any(span => span.Contains(trivia.SpanStart))
-                || (!survivesTypeRemoval && onTypes.Any(span => span.Contains(trivia.SpanStart))))
+            if (DescribeKind(trivia) is { } kind && removable.Any(span => span.Contains(trivia.SpanStart)))
             {
                 var line = trivia.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
                 return (DirectiveStateReason, $"{kind} directive at line {line}");
@@ -74,8 +67,9 @@ internal static class FileLocalDirectives
 
     /// <summary>
     /// Says whether a rendered output kept every state directive of the input, in order.
-    /// The verifier asks this about each output, so a directive the refusal above missed
-    /// fails the row before anything is written.
+    /// The verifier asks this about each output, so a directive the refusal above let a
+    /// split drop fails the row before anything is written. It does not see a lost
+    /// <c>#if</c> around a directive that stayed. Only the refusal guards that case.
     /// </summary>
     /// <param name="input">The parsed input.</param>
     /// <param name="output">One parsed output.</param>
