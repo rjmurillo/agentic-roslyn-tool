@@ -248,7 +248,7 @@ are most likely to see:
 | File has top-level statements | skipped | `contains top-level statements; manual split required` |
 | File declares a `file` type | skipped | `contains file-local type; manual split required` |
 | An `#if` or `#region` spans two types | skipped | `<kind> group at line <n> crosses top-level type boundaries` |
-| A `#nullable` under `#if` sits in a type body or around a type's attributes, and a type below it lands in another file | skipped | `a #nullable directive under #if sets a type's context and the split would drop it; manual split required` |
+| A `#nullable` under `#if` comes before a type that lands in another file | skipped | `a #nullable directive under #if sets a type's context and the split would drop it; manual split required` |
 | Two types in one file share a name and type parameter list | skipped | `target path collision within split: <path>` |
 | File already has one type | skipped | `nothing to split: input has 1 top-level type declaration(s)` |
 | Path matches `--exclude` | skipped | `excluded by pattern: <pattern>` |

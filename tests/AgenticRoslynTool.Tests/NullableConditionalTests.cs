@@ -6,10 +6,9 @@ namespace AgenticRoslynTool.Tests;
 /// <summary>
 /// A <c>#nullable</c> directive under <c>#if</c> sets a context only in some builds. The tool
 /// parses with no symbols, so it refuses a split that would drop one rather than restate it.
-/// Two older guards refuse most <c>#if</c> groups outside a type body. A group that wraps no
-/// type crosses type boundaries, and one that wraps a whole type leaves an empty shell. Two
-/// shapes reach this guard: a group inside a type body, and a group on an active branch
-/// that straddles the start of a type, around its attributes.
+/// Two older guards run first: a group no single type owns crosses type boundaries, and a
+/// split that leaves an empty group is refused. Every group they let
+/// through reaches this guard. The rows sample places such a group can sit.
 /// </summary>
 public sealed class NullableConditionalTests
 {
@@ -18,6 +17,9 @@ public sealed class NullableConditionalTests
     [InlineData("public class Alpha\n{\n#if NULLABLE_OFF\n#nullable disable\n#else\n#nullable enable\n#endif\n}\n")]
     [InlineData("public class Alpha\n{\n#if NULLABLE_ON\n#if NESTED\n#nullable enable\n#endif\n#endif\n}\n")]
     [InlineData("#if !LEGACY\n#nullable enable\n[System.Serializable]\n#endif\npublic class Alpha { }\n")]
+    [InlineData("[System.Serializable]\n#if X\n#nullable enable\n#endif\npublic class Alpha { }\n")]
+    [InlineData("public\n#if X\n#nullable enable\n#endif\nclass Alpha { }\n")]
+    [InlineData("public class Alpha\n{\n#if false\n#nullable enable\n#endif\n}\n")]
     public void ConditionalDirectiveBeforeAMovedType_RefusesThePlan(string alpha)
     {
         using var ws = new TempWorkspace();
