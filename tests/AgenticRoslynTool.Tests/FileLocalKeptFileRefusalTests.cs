@@ -85,6 +85,41 @@ public sealed class FileLocalKeptFileRefusalTests : FileLocalTestBase
     }
 
     [Fact]
+    public void UndefOnAnAssemblyAttribute_WouldLeaveEveryMovedFile_SoTheInputIsRefused()
+    {
+        // The build defines EXTRA and this file takes it away. A moved file would have it
+        // back, so the member inside the condition would vanish from the moved type.
+        const string Source = "#undef EXTRA\n[assembly: System.CLSCompliant(false)]\n\nnamespace Sample;\n\ninternal class Alpha\n{\n    public int Read() => new Sibling().Value;\n}\n\n"
+            + "internal class Sibling\n{\n#if !EXTRA\n    public int Value => 1;\n#endif\n}\n\nfile class AlphaHelper\n{\n}\n";
+        var alpha = Write("Alpha.cs", Source);
+
+        AssertRefused(alpha, FileLocalDirectives.DirectiveStateReason, "#undef directive at line 1");
+
+        Assert.Empty(FileLocalCompiler.Diagnostics(Compile("EXTRA")));
+        var split = FileLocalCompiler.Compile(FileLocalCompiler.SplitUnchecked(alpha, Source), "EXTRA");
+        Assert.Contains(FileLocalCompiler.Diagnostics(split), d => d.StartsWith("CS1061 ", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("#define EXTRA", "#if EXTRA")]
+    [InlineData("#undef EXTRA", "#if !EXTRA")]
+    public void DefineOrUndefAboveAType_StaysInEveryOutput_SoTheInputSplits(string directive, string condition)
+    {
+        // Removing a type keeps these two directives where they are, in every output. So
+        // nothing is lost, and refusing the input would skip a safe split.
+        var alpha = Write("Alpha.cs", directive + "\ninternal class Alpha\n{\n    public int Read() => new Sibling().Value;\n}\n\n"
+            + "internal class Sibling\n{\n" + condition + "\n    public int Value => 1;\n#endif\n}\n\nfile class AlphaHelper\n{\n}\n");
+        Assert.Empty(FileLocalCompiler.Diagnostics(Compile("EXTRA")));
+
+        Run(Phase.Plan, alpha);
+        var row = Assert.Single(Run(Phase.Content, alpha));
+
+        Assert.Equal("Sibling", Assert.Single(row.NewFiles).Type);
+        Assert.Contains(directive, File.ReadAllText(PathOf("Sibling.cs")), StringComparison.Ordinal);
+        Assert.Empty(FileLocalCompiler.Diagnostics(Compile("EXTRA")));
+    }
+
+    [Fact]
     public void ChecksumPragmaOnAType_IsRefusedWithTheRestOfItsFamily()
     {
         // A checksum pragma changes debug information only, which a compile here cannot

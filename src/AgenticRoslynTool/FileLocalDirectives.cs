@@ -24,7 +24,8 @@ internal static class FileLocalDirectives
 
     /// <summary>
     /// A directive that sets state for the lines below it sits where only some outputs keep
-    /// it: on or inside a type, or on an assembly attribute.
+    /// it: on an assembly attribute, or, for all but <c>#define</c> and <c>#undef</c>, on
+    /// or inside a type.
     /// </summary>
     internal const string DirectiveStateReason = "file-local type shares the file with a #line, #nullable, #pragma, #define, or #undef directive that only one output would keep; manual split required";
 
@@ -34,9 +35,12 @@ internal static class FileLocalDirectives
     /// </summary>
     /// <remarks>
     /// A split removes two things from an output: the types it does not hold, and, from
-    /// every output but the kept file, the assembly attributes. A directive attached to
-    /// either leaves with it. One attached to a using directive or to the namespace
-    /// keyword stays in every output, and is not refused.
+    /// every output but the kept file, the assembly attributes. A directive attached to an
+    /// assembly attribute leaves with it. So does one attached to a type, with one
+    /// exception that was measured: removing a type keeps a <c>#define</c> or
+    /// <c>#undef</c> in every output, so those two are refused on an assembly attribute
+    /// only. A directive attached to a using directive or to the namespace keyword stays in
+    /// every output, and is not refused.
     /// </remarks>
     /// <param name="root">The parsed input.</param>
     /// <param name="types">Every top-level type in the input.</param>
@@ -47,10 +51,18 @@ internal static class FileLocalDirectives
             return (GlobalUsingReason, null);
         }
 
-        var removable = types.Select(type => type.Node.FullSpan).Concat(root.AttributeLists.Select(list => list.FullSpan)).ToArray();
+        var onTypes = types.Select(type => type.Node.FullSpan).ToArray();
+        var onAttributes = root.AttributeLists.Select(list => list.FullSpan).ToArray();
         foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
         {
-            if (DescribeKind(trivia) is { } kind && removable.Any(span => span.Contains(trivia.SpanStart)))
+            if (DescribeKind(trivia) is not { } kind)
+            {
+                continue;
+            }
+
+            var survivesTypeRemoval = trivia.IsKind(SyntaxKind.DefineDirectiveTrivia) || trivia.IsKind(SyntaxKind.UndefDirectiveTrivia);
+            if (onAttributes.Any(span => span.Contains(trivia.SpanStart))
+                || (!survivesTypeRemoval && onTypes.Any(span => span.Contains(trivia.SpanStart))))
             {
                 var line = trivia.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
                 return (DirectiveStateReason, $"{kind} directive at line {line}");

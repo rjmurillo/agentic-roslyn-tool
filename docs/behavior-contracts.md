@@ -515,7 +515,7 @@ Reason text shown in italics is a template; the run substitutes real values.
 | A `file` type and at most one other type | skipped | `nothing to split: file-local types stay in their file and at most one other type is declared` |
 | A `file` type, and text an `#if` excludes anywhere in the file | skipped | `file-local type shares the file with conditionally excluded text; manual split required` |
 | A `file` type, and a `global using` directive | skipped | `file-local type shares the file with a global using directive; manual split required` |
-| A `file` type, and a `#line`, `#nullable`, `#pragma`, `#define`, or `#undef` directive on or inside a type, or on an assembly attribute | skipped | `file-local type shares the file with a #line, #nullable, #pragma, #define, or #undef directive that only one output would keep; manual split required` |
+| A `file` type, and a `#line`, `#nullable`, or `#pragma` directive on or inside a type, or any of those or a `#define` or `#undef` on an assembly attribute | skipped | `file-local type shares the file with a #line, #nullable, #pragma, #define, or #undef directive that only one output would keep; manual split required` |
 | A `file` type declares an extension method or an extension block | skipped | `file-local type declares extension members; manual split required` |
 | Any identifier in a using directive equals a `file` type's name | skipped | `using directive names a file-local type; manual split required` |
 | An ordinary type, or a type nested in one, names a `file` type in its base list | skipped | `type lists a file-local type among its base types; manual split required` |
@@ -526,7 +526,9 @@ The last three put the type's name in the row's `note`, for example `Numbers dec
 extension members`. The directive row puts the directive and its line there, for example
 `#line directive at line 7`. A directive attached to a using directive or to the namespace
 keyword belongs to no type, so every output repeats it and this refusal does not apply. One
-attached to an assembly attribute is refused, because only the kept file keeps those. An eighth `file` reason comes from
+attached to an assembly attribute is refused, because only the kept file keeps those. A
+`#define` or `#undef` attached to a type is not refused: removing a type keeps it in every
+output. An eighth `file` reason comes from
 `BuildPlan`, described under
 [File-local types](#file-local-types).
 

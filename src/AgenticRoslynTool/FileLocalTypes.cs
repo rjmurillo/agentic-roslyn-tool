@@ -189,7 +189,7 @@ internal static class FileLocalTypes
             var root = CSharpSyntaxTree.ParseText(output.Text, parseOptions, path: output.Path).GetCompilationUnitRoot();
             if (!FileLocalDirectives.KeepsEveryDirective(input, root))
             {
-                return $"{output.Path} would not keep every #line, #nullable, #pragma, #define, and #undef directive of {readPath}";
+                return $"{output.Path} would not hold the same #line, #nullable, #pragma, #define, and #undef directives as {readPath}";
             }
 
             if (PathComparison.Comparer.Equals(output.Path, readPath))

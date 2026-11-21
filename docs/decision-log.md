@@ -1239,7 +1239,10 @@ The split is on by default and has no flag.
   - A `#line`, `#nullable`, `#pragma`, `#define`, or `#undef` directive sits where only
     some outputs keep it. It applies to every line below it. A split removes two things
     from an output: the types it does not hold, and, from every output but the kept file,
-    the assembly attributes. A directive attached to either leaves with it. With `#line
+    the assembly attributes. A directive attached to an assembly attribute leaves with it.
+    So does one attached to a type, with one measured exception: removing a type keeps a
+    `#define` or `#undef` in every output, so those two are refused on an assembly
+    attribute only. With `#line
     100 "Mapped.cs"` above a moved type, a `CallerFilePath` value in the `file` type below
     it changed from `Mapped.cs` to `Alpha.cs`, with no diagnostic. With `#nullable enable`
     above an assembly attribute, the moved file lost it and raised CS8632. A directive
@@ -1309,7 +1312,10 @@ fails a test.
 name, so the metadata name changes. An opt in flag: a first run would still skip every
 such file, and the checks are the same either way. A semantic model: decision 1. Reading the
 excluded text of an `#if`: it means parsing once for each symbol set, and the tool does
-not know the sets.
+not know the sets. Refusing a global using alias only: a plain one was not shown to break,
+but it too is repeated project wide, and the narrower rule saves little. Copying a state
+directive into each output in place of refusing: that writes a line the user did not put
+there, and today the tool only removes types and blank lines.
 
 **Consequences.** This is a breaking change to default results. A file that was `skipped`
 with `contains file-local type; manual split required` is now `split`, or `skipped` with
@@ -1351,8 +1357,8 @@ compiling what the split would then write. Tests pin the last three without a co
 - Drop the global using refusal, and the split writes a global alias into two files. The
   build fails with CS1537.
 - Drop the state directive refusal, and a `#line`, `#nullable`, `#pragma`, `#define`, or
-  `#undef` directive leaves a file with the type or the assembly attribute it is attached
-  to. Code below it gets another caller path, a warning it did not have, or loses a
+  `#undef` directive leaves a file with the assembly attribute it is attached to. All but
+  the last two also leave with a type. Code below it gets another caller path, a warning it did not have, or loses a
   member inside `#if`.
 - Let the kept type exception apply when the file is named for a type, and that type
   moves out to a file of its own name, which is the file being read.

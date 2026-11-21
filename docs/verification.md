@@ -157,7 +157,10 @@ file's name. So one output must be written to the path the input was read from, 
 file fails with `<input path>: a file that declares a file-local type would be renamed`.
 Every other output must declare no `file` type and name none. A failure reads
 `<output path>: a file-local type would leave <input path>`, or `<output path> names
-file-local type <name>, which stays in <input path>`.
+file-local type <name>, which stays in <input path>`. Every output, the kept file
+included, must also hold the same `#line`, `#nullable`, `#pragma`, `#define`, and `#undef`
+directives as the input, in order. A failure reads `<output path> would not hold the same
+#line, #nullable, #pragma, #define, and #undef directives as <input path>`.
 
 The plan refuses these inputs before this check can see them, and records a skip with its
 own reason. The check asks again about the text that would reach disk, so a mistake in
