@@ -63,7 +63,9 @@ internal static class OutputBuilder
     /// <c>SyntaxRemoveOptions.KeepUnbalancedDirectives</c> to prevent orphaned
     /// preprocessor tokens, assembly-level attributes are cleared on non-kept outputs
     /// (attributes stay only in the kept file), and the tree is run through
-    /// <see cref="BlankLineCollapser"/> before serialization. The header is injected
+    /// <see cref="BlankLineCollapser"/> before serialization. Last,
+    /// <see cref="NullableDirectives.Restore"/> restates the nullable context each kept
+    /// type had in the source, which a removed type may have carried away. The header is injected
     /// after body text is captured so line-conservation counting is not confused by
     /// it.
     /// </summary>
@@ -81,11 +83,13 @@ internal static class OutputBuilder
             }
 
             newRoot = (CompilationUnitSyntax)new BlankLineCollapser().Visit(newRoot)!;
-            var rendered = newRoot.ToFullString();
+            var kept = types.Where(t => !remove.Contains(t.Node)).ToArray();
+            var (restoredRoot, addedLines) = NullableDirectives.Restore(newRoot, kept, source.NewLine);
+            var rendered = restoredRoot.ToFullString();
             var body = EnsureTrailingNewLine(rendered, source.NewLine, source.HasFinalNewLine);
             var text = EnsureHeader(rendered, header);
             text = EnsureTrailingNewLine(text, source.NewLine, source.HasFinalNewLine);
-            outputs.Add(new OutputFile(file.Path, file.Type, text, body));
+            outputs.Add(new OutputFile(file.Path, file.Type, text, body, addedLines));
         }
 
         return outputs.ToArray();

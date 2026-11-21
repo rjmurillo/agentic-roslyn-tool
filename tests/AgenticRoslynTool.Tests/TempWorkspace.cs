@@ -34,13 +34,13 @@ internal sealed class TempWorkspace : IDisposable
 
     // Runs the two-phase flow the CLI uses: Plan writes the manifest, Content consumes it.
     // Renames are not exercised here so the primary type must match the file base name.
-    public IReadOnlyList<FileResult> RunPlanThenContent(string listPath, string manifestPath)
+    public IReadOnlyList<FileResult> RunPlanThenContent(string listPath, string manifestPath, string? requiredHeader = null)
     {
-        var planOptions = new Options(listPath, manifestPath, Root, Phase.Plan, null);
+        var planOptions = new Options(listPath, manifestPath, Root, Phase.Plan, requiredHeader);
         var planResults = new FileSplitter(planOptions).Run();
         ManifestWriter.Write(planResults, manifestPath, CollisionNaming.FileFirst);
 
-        var contentOptions = new Options(listPath, manifestPath, Root, Phase.Content, null);
+        var contentOptions = new Options(listPath, manifestPath, Root, Phase.Content, requiredHeader);
         return new FileSplitter(contentOptions).Run();
     }
 

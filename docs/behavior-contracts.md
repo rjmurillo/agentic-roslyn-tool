@@ -601,6 +601,26 @@ when any of these hold:
 - An output does not parse.
 - A type's declaration plus its owned trivia appears in more than one output, or in none.
 - The set of top level types across all outputs does not equal the input set.
+- An output's own type reads a different nullable context in the output text than in the
+  source. The output is parsed again from the text that would reach disk.
+
+### Nullable context
+
+Every type keeps the nullable context it had in the source file. A `#nullable` directive
+travels with the type whose trivia or body holds it, so a type that followed it in the
+source can land in a file that never sets it. After the other types are removed,
+`NullableDirectives.Restore` folds the active `#nullable` directives up to each kept type,
+in the source and in the output, and adds the fewest lines that close the gap:
+
+- One `#nullable enable`, `disable`, or `restore` line when annotations and warnings end
+  equal. Otherwise one line per setting that changes, with an `annotations` or `warnings`
+  target.
+- No line when the contexts already match, so a file with no `#nullable` directive, or
+  with one above the namespace, splits byte for byte as before.
+- The lines go above the type's first comment, doc comment, or attribute, at the start of
+  a line, ending in the source file's newline.
+- The tool parses with no preprocessor symbols. A directive in an `#if` branch that is off
+  counts for nothing. `#pragma` directives are not restated.
 
 ### VerifyLineConservation
 
@@ -617,6 +637,11 @@ exempt from the duplication check.
 **It counts `OutputFile.BodyText`, not `OutputFile.Text`.** `BodyText` is the output
 before any `--require-header` injection. Counting `Text` would let an injected header line
 mask a dropped source line, which defeats the guard.
+
+**It subtracts `OutputFile.AddedLines` from each output first.** Those are the `#nullable`
+lines the tool restated. Each is removed once, before either check, so an added line can
+neither hide a dropped one nor read as a duplicate. An added line the output does not hold
+throws.
 
 ### WriteOutputs
 

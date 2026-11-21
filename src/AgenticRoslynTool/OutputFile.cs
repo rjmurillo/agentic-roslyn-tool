@@ -15,4 +15,10 @@ namespace AgenticRoslynTool;
 /// The output text before any <c>--require-header</c> injection. Line conservation
 /// counting uses this so that an injected header cannot mask a dropped source line.
 /// </param>
-internal sealed record OutputFile(string Path, TopLevelType Type, string Text, string BodyText);
+/// <param name="AddedLines">
+/// The <c>#nullable</c> lines the tool added to restate the source file's nullable context,
+/// one entry per added line. They are in both texts. Line conservation subtracts exactly
+/// these before it counts, so an added line can neither hide a dropped source line nor
+/// read as a duplicated one.
+/// </param>
+internal sealed record OutputFile(string Path, TopLevelType Type, string Text, string BodyText, IReadOnlyList<string> AddedLines);

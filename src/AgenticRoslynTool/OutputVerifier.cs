@@ -23,8 +23,10 @@ internal static class OutputVerifier
     /// (3) each input type's declaration and owned trivia appears exactly once
     /// across the outputs (never dropped, never duplicated);
     /// (4) non-whitespace lines are conserved across the split
-    /// (see <see cref="VerifyLineConservation"/>); and
-    /// (5) the set of top-level types in the outputs matches the input set exactly.
+    /// (see <see cref="VerifyLineConservation"/>);
+    /// (5) the set of top-level types in the outputs matches the input set exactly; and
+    /// (6) each output's type keeps its source nullable context
+    /// (see <see cref="VerifyNullableContext"/>).
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown as soon as any invariant fails, so the failure is surfaced without partial output being written.</exception>
     internal static void VerifyOutputs(string originalPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions, string? requiredHeader)
@@ -61,6 +63,31 @@ internal static class OutputVerifier
         if (!inputKeys.SequenceEqual(outputTypes, StringComparer.Ordinal))
         {
             throw new InvalidOperationException($"{originalPath}: output top-level type set does not match input");
+        }
+
+        VerifyNullableContext(originalPath, outputs, parseOptions);
+    }
+
+    /// <summary>
+    /// Checks that each output's own type reads the same nullable context in the output text
+    /// as it did in the source. The output is parsed again from <see cref="OutputFile.Text"/>,
+    /// which is what reaches disk, so a misplaced or dropped <c>#nullable</c> line fails the
+    /// file before it is written.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when an output type's annotations or warnings setting differs from the source.</exception>
+    internal static void VerifyNullableContext(string originalPath, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions)
+    {
+        foreach (var output in outputs)
+        {
+            var source = output.Type.Node;
+            var expected = NullableDirectives.StateAt(source.SyntaxTree.GetRoot(), source.SpanStart);
+            var root = CSharpSyntaxTree.ParseText(output.Text, parseOptions, path: output.Path).GetCompilationUnitRoot();
+            var written = TopLevelType.Find(root).First(t => StringComparer.Ordinal.Equals(t.Key, output.Type.Key)).Node;
+            var actual = NullableDirectives.StateAt(root, written.SpanStart);
+            if (actual != expected)
+            {
+                throw new InvalidOperationException($"{originalPath}: nullable context for {output.Type.Key} is {actual} in {output.Path}, but {expected} in the source");
+            }
         }
     }
 
@@ -166,7 +193,18 @@ internal static class OutputVerifier
         var result = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var output in outputs)
         {
-            foreach (var (line, count) in CountNonWhitespaceLines(output.BodyText))
+            var lines = CountNonWhitespaceLines(output.BodyText);
+            foreach (var added in output.AddedLines)
+            {
+                if (!lines.TryGetValue(added, out var present) || present == 0)
+                {
+                    throw new InvalidOperationException($"{output.Path}: added line is missing from the output: {added}");
+                }
+
+                lines[added] = present - 1;
+            }
+
+            foreach (var (line, count) in lines)
             {
                 result[line] = result.TryGetValue(line, out var existing) ? existing + count : count;
             }

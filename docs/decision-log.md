@@ -1174,6 +1174,38 @@ so the same pair collides on ``Box`1.cs``. `NestedNamespaceTests` pins all of th
 **Reversal warning.** Stop the walk at one level and nested types are copied into every
 output again, at exit code 0, with no guard to stop it.
 
+### Decision 30. The split restates the source's nullable context
+
+**Context.** A `#nullable` directive sits in the leading trivia of the type below it, or
+inside a type's body. Each output removes every other type with its trivia. With
+`#nullable enable` above the second of three types, the third type's new file had no such
+line, and its `string?` raised CS8632. Its warnings changed too, at exit code 0.
+
+**Decision.** `NullableDirectives.Restore` folds the active `#nullable` directives, in
+order, up to each kept type in the source and in the output. Where the two differ, it adds
+the fewest canonical lines above the type. `OutputFile.AddedLines` records them, line
+conservation subtracts exactly those, and `VerifyOutputs` checks each output's context
+before anything is written.
+
+Two other ways were tried and rejected:
+
+- `SyntaxRemoveOptions.KeepDirectives` keeps every directive of a removed type. Tested on
+  a type holding `#region R` and `#nullable enable`, the other output kept an empty
+  `#region R` and `#endregion`, and the body's `#nullable enable`.
+- Copying the source directives keeps a body directive's line in two files. That line is
+  not prologue, so line conservation rightly refuses it.
+
+**Consequences.** Files that split before still split. A new file can gain a `#nullable`
+line no source line matches, which is the point. Files with no `#nullable` directive, or
+with one above the namespace, split byte for byte as before. Three gaps remain and are
+recorded in `AGENTS.md` under known issues: a directive under an undefined symbol, a
+`#pragma` directive, and a source named as generated code. `NullableContextTests` pins
+the behavior with the compiler's own semantic model, under both project defaults.
+
+**Reversal warning.** Remove `Restore` and a type below a `#nullable` directive silently
+changes context in its new file. Exempt lines by their `#nullable` text instead of
+`AddedLines`, and a dropped body directive passes line conservation.
+
 ## Credit
 
 The approach owes a debt to Lizzy Gallagher's write up on Roslyn refactoring,

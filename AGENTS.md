@@ -24,8 +24,8 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 40 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 359 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 41 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 385 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -46,6 +46,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `DirectiveAnalyzer.cs` | Decides whether preprocessor directives make a split unsafe. Returns a verdict, never acts on one. |
 | `OutputBuilder.cs` | Renders the text of every output file: name, carved source, required header, trailing newline. |
 | `OutputVerifier.cs` | The correctness checks, run against in-memory outputs before anything is written. A failure here means nothing reaches disk. |
+| `NullableDirectives.cs` | Folds `#nullable` directives into the context at a point, and restates a kept type's source context in an output that lost it. Read decision 30 first. |
 | `WorkspaceWriter.cs` | The only place the tool touches the working tree. Every rename runs through `git mv`; every write preserves encoding and byte order mark. |
 | `GitCommand.cs` | Runs one git command with a time limit. Passes each argument on its own, reads both streams, and kills git and its children on expiry. |
 | `Program.cs` | Top level statements. Verb dispatch, error handling, exit codes, output selection. Decides which file a run writes: the manifest in `plan`, the report otherwise. Declares no type. |
@@ -69,7 +70,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `SplitPlan.cs` | The decision for one input: keep, rename, split, or refuse. |
 | `PlannedFile.cs` | One output file inside a plan, before content is rendered. |
 | `PlannedOutputEntry.cs` | A planned output path paired with its owning input, used for cross file collision detection. |
-| `OutputFile.cs` | Rendered output. `BodyText` excludes any injected header; `Text` includes it. |
+| `OutputFile.cs` | Rendered output. `BodyText` excludes any injected header; `Text` includes it. `AddedLines` lists the `#nullable` lines the tool restated. |
 | `BlankLineCollapser.cs` | Collapses the blank line runs left behind when a type is removed. |
 | `DirectiveInfo.cs` | One preprocessor directive and its span. |
 | `DirectiveSafety.cs` | Verdict on whether directives make a file unsafe to split. |
@@ -89,7 +90,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 359 passed, 0 failed
+dotnet test  -c Release      # must be 385 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -135,7 +136,9 @@ weight.
    write, and do not describe the run as atomic.
 4. **Line conservation counts `OutputFile.BodyText`, not `Text`.** `BodyText` is the
    output before any `--require-header` injection. Counting `Text` would let an injected
-   header hide a dropped source line.
+   header hide a dropped source line. The count also subtracts `OutputFile.AddedLines`,
+   the `#nullable` lines the tool restated, one for one and nothing else. Never exempt
+   a line by its text, such as every line that starts with `#nullable`.
 5. **Keep header normalization and header verification on the same value.**
    `NormalizeHeaderText` runs once, and both the injection and the `StartsWith` check use
    its result. When those two drifted apart, a header passed with `\n` against a CRLF
@@ -404,10 +407,32 @@ agent does not pay again.
 - **`nextArgs` is null for `--input -` on purpose.** A second process reads an empty
   stream, plans nothing, and exits 0. A test that pipes paths and expects `nextArgs` is
   testing the wrong thing.
+- **A `#nullable` line above a type is prologue, so line conservation never needed to
+  exempt it.** Ownership starts at the doc comment or the declaration, and a directive
+  above both sits outside every owned span. A `#nullable` line inside a type's body is not
+  prologue. That is the case that needs `AddedLines`, so a test of the exemption must put
+  the directive in a body, as `NullableDirectivesTests` does.
+- **Prove a nullable change with the compiler, not with `NullableDirectives`.**
+  `NullableContextOracle` reads `SemanticModel.GetNullableContext` under a project default
+  of both disable and enable. Checking one default lets `#nullable disable` pass where the
+  source said `#nullable restore`. The verifier's own context check shares the tool's
+  fold, so it cannot catch a wrong fold.
 
 ## Known issues, not yet fixed
 
 Recorded so nobody rediscovers them and nobody assumes they are intentional.
+
+- A `#nullable` directive inside an `#if` branch that is off counts for nothing. The tool
+  parses with no preprocessor symbols. A build that defines the symbol can give a type a
+  different context in the source than in its new file. The tool cannot know which
+  symbols a build defines. `DirectiveUnderAnUndefinedSymbol_IsNotRestated_KnownIssue`
+  pins the current output.
+- A `#pragma warning` directive above one type still travels only with that type. A later
+  type's new file loses the suppression. Only `#nullable` is restated; see decision 30.
+- A source file whose name Roslyn reads as generated code, such as `Foo.g.cs`, has
+  nullable off by default. Its new files take ordinary names, so the project default
+  applies to them instead. `NullableDirectives` treats "no directive" as the same default
+  on both sides, so it does not add a `#nullable disable` for this.
 
 - The header probe matches a multi-line banner literally, so an existing banner whose
   internal lines carry trailing spaces or tabs is not recognized and a second copy is

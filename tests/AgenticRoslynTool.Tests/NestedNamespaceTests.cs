@@ -69,8 +69,8 @@ public sealed class NestedNamespaceTests
         var second = "namespace A\n{\n\n    namespace B\n    {\n        public class Deep\n        {\n        }\n    }\n\n    public class Second\n    {\n    }\n}\n";
         var outputs = new[]
         {
-            new OutputFile("Outer.cs", types[0], outer, outer),
-            new OutputFile("Second.cs", types[^1], second, second),
+            new OutputFile("Outer.cs", types[0], outer, outer, Array.Empty<string>()),
+            new OutputFile("Second.cs", types[^1], second, second, Array.Empty<string>()),
         };
 
         var ex = Assert.Throws<InvalidOperationException>(
