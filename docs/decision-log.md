@@ -1236,13 +1236,16 @@ The split is on by default and has no flag.
     symbols defined, so a scan cannot read that text.
   - The input holds a `global using` directive. Every output repeats every using
     directive, and a global alias declared in two files fails the build with CS1537.
-  - A `#line`, `#nullable`, or `#pragma` directive sits on or inside a type. It applies
-    to every line below it, but it is attached to one type and leaves with that type. The
-    kept file then changes meaning with no rename and no edit to the `file` type. With
-    `#line 100 "Mapped.cs"` above a moved type, a `CallerFilePath` value in the `file`
-    type below it changed from `Mapped.cs` to `Alpha.cs`, with no diagnostic. A directive
-    above the namespace belongs to no type, and every output repeats it, so that case
-    still splits.
+  - A `#line`, `#nullable`, `#pragma`, `#define`, or `#undef` directive sits where only
+    some outputs keep it. It applies to every line below it. A split removes two things
+    from an output: the types it does not hold, and, from every output but the kept file,
+    the assembly attributes. A directive attached to either leaves with it. With `#line
+    100 "Mapped.cs"` above a moved type, a `CallerFilePath` value in the `file` type below
+    it changed from `Mapped.cs` to `Alpha.cs`, with no diagnostic. With `#nullable enable`
+    above an assembly attribute, the moved file lost it and raised CS8632. A directive
+    attached to a using directive or to the namespace keyword stays in every output, so
+    that case still splits. `OutputVerifier` also checks that every output holds the same
+    such directives as the input.
   - The input declares at most one ordinary type. Nothing can move.
 - The split row's `note` says which `file` types stayed and whether SA1402 still flags
   the file. The brief asked for a note that says SA1402 still flags it. Finding 1 narrowed
@@ -1317,8 +1320,11 @@ body fails that check at plan time, and nothing is written. That defect is older
 this change and `AGENTS.md` lists it. When the kept type is a class or record,
 one SA1402 warning stays for each `file` class or record, and a person must suppress it. The scan is conservative,
 so some safe inputs are skipped: a moved type that merely has a member named like the
-`file` type, and any input with an `#if` branch the parse excludes. How many inputs each
-refusal still skips was not measured.
+`file` type, any input with an `#if` branch the parse excludes, a balanced `#pragma
+warning disable` and `restore` pair inside one type, and a plain `global using` of a
+namespace. The evidence for the last covers aliases only: an alias in two files failed
+with CS1537, and a namespace in two files built clean. How many inputs each refusal still
+skips was not measured.
 
 One hole is known and is not closed here. A `file` modifier inside an excluded `#if`
 branch is never seen, so that type is planned as an ordinary one. `AGENTS.md` lists it
@@ -1344,9 +1350,10 @@ compiling what the split would then write. Tests pin the last three without a co
   `FileLocalPremiseTests` shows the binding change.
 - Drop the global using refusal, and the split writes a global alias into two files. The
   build fails with CS1537.
-- Drop the state directive refusal, and a `#line`, `#nullable`, or `#pragma` directive
-  leaves the kept file with a moved type. The `file` type below it gets another caller
-  path, or a warning it did not have.
+- Drop the state directive refusal, and a `#line`, `#nullable`, `#pragma`, `#define`, or
+  `#undef` directive leaves a file with the type or the assembly attribute it is attached
+  to. Code below it gets another caller path, a warning it did not have, or loses a
+  member inside `#if`.
 - Let the kept type exception apply when the file is named for a type, and that type
   moves out to a file of its own name, which is the file being read.
 - Drop the check in `OutputVerifier`, and a planning mistake reaches disk. The planner is

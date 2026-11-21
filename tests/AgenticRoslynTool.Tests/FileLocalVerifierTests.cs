@@ -50,6 +50,21 @@ public sealed class FileLocalVerifierTests
     }
 
     [Fact]
+    public void OutputThatLostAStateDirective_FailsTheRow()
+    {
+        // The planner refuses a directive a split would drop. This asks again about the
+        // text that would reach disk, so a place the planner did not think of fails here.
+        const string Source = "#nullable enable\n" + Kept;
+        var input = TopLevelType.Find(CSharpSyntaxTree.ParseText(Source, ParseOptions, path: ReadPath).GetCompilationUnitRoot()).ToArray();
+        var kept = new OutputFile(ReadPath, input[0], Source, Source);
+        var moved = new OutputFile("/work/Caller.cs", input[0], Prologue + "internal class Caller\n{\n}\n", string.Empty);
+
+        var violation = FileLocalTypes.DescribeViolation(ReadPath, input, [kept, moved], ParseOptions);
+
+        Assert.Equal("/work/Caller.cs would not keep every #line, #nullable, #pragma, #define, and #undef directive of /work/Alpha.cs", violation);
+    }
+
+    [Fact]
     public void VerifyOutputs_RunsTheCheck_OnAnOtherwiseFaithfulSplit()
     {
         // Every older check passes here: the outputs parse, and no type or line is lost.

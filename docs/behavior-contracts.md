@@ -515,7 +515,7 @@ Reason text shown in italics is a template; the run substitutes real values.
 | A `file` type and at most one other type | skipped | `nothing to split: file-local types stay in their file and at most one other type is declared` |
 | A `file` type, and text an `#if` excludes anywhere in the file | skipped | `file-local type shares the file with conditionally excluded text; manual split required` |
 | A `file` type, and a `global using` directive | skipped | `file-local type shares the file with a global using directive; manual split required` |
-| A `file` type, and a `#line`, `#nullable`, or `#pragma` directive on or inside a type | skipped | `file-local type shares the file with a #line, #nullable, or #pragma directive that only one output would keep; manual split required` |
+| A `file` type, and a `#line`, `#nullable`, `#pragma`, `#define`, or `#undef` directive on or inside a type, or on an assembly attribute | skipped | `file-local type shares the file with a #line, #nullable, #pragma, #define, or #undef directive that only one output would keep; manual split required` |
 | A `file` type declares an extension method or an extension block | skipped | `file-local type declares extension members; manual split required` |
 | Any identifier in a using directive equals a `file` type's name | skipped | `using directive names a file-local type; manual split required` |
 | An ordinary type, or a type nested in one, names a `file` type in its base list | skipped | `type lists a file-local type among its base types; manual split required` |
@@ -524,8 +524,9 @@ Reason text shown in italics is a template; the run substitutes real values.
 The seven `file` rows apply in the order shown, and the first that holds decides the reason.
 The last three put the type's name in the row's `note`, for example `Numbers declares
 extension members`. The directive row puts the directive and its line there, for example
-`#line directive at line 7`. A directive above the namespace belongs to no type, so every
-output repeats it and this refusal does not apply. An eighth `file` reason comes from
+`#line directive at line 7`. A directive attached to a using directive or to the namespace
+keyword belongs to no type, so every output repeats it and this refusal does not apply. One
+attached to an assembly attribute is refused, because only the kept file keeps those. An eighth `file` reason comes from
 `BuildPlan`, described under
 [File-local types](#file-local-types).
 
@@ -651,7 +652,7 @@ in a nested namespace is scanned like any other.
 Nothing else about the workflow changes. The row carries a content hash, and the content
 phase refuses a changed file as `stale plan:`. A retry reports the row as `already
 applied`. A moved type takes its name from `--file-naming`, and a colliding one from
-`--collision-naming`. Verified by the eight `FileLocal*Tests` classes. Seven of them compile
+`--collision-naming`. Verified by the nine `FileLocal*Tests` classes. Eight of them compile
 source with the C# compiler, because a parse cannot show a binding.
 
 ### VerifyOutputs
@@ -668,6 +669,8 @@ when any of these hold:
 - The set of top level types across all outputs does not equal the input set.
 - The input declares a `file` type, and no output is written to the path that was read.
   That would be a rename.
+- The input declares a `file` type, and an output does not hold the same `#line`,
+  `#nullable`, `#pragma`, `#define`, and `#undef` directives as the input, in order.
 - The input declares a `file` type, and an output for another path declares one or names
   one. `BuildPlan` refuses these inputs first, so this fails a row only after a planning
   mistake.

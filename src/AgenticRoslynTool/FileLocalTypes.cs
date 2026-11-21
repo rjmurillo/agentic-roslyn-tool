@@ -159,7 +159,8 @@ internal static class FileLocalTypes
     /// Checks the rendered outputs of an input that declares a <c>file</c> type, and says
     /// what is wrong or returns null. One output must be written to the path the input was
     /// read from, or the file would be renamed. Every other output must declare no
-    /// <c>file</c> type and name none.
+    /// <c>file</c> type and name none. Every output must keep every directive that sets
+    /// state for the lines below it.
     /// </summary>
     /// <remarks>
     /// <see cref="PlanAround"/> already refuses these inputs. This asks again about the
@@ -182,9 +183,20 @@ internal static class FileLocalTypes
             return $"{readPath}: a file that declares a file-local type would be renamed";
         }
 
-        foreach (var output in outputs.Where(o => !PathComparison.Comparer.Equals(o.Path, readPath)))
+        var input = fileLocal[0].Node.SyntaxTree.GetCompilationUnitRoot();
+        foreach (var output in outputs)
         {
             var root = CSharpSyntaxTree.ParseText(output.Text, parseOptions, path: output.Path).GetCompilationUnitRoot();
+            if (!FileLocalDirectives.KeepsEveryDirective(input, root))
+            {
+                return $"{output.Path} would not keep every #line, #nullable, #pragma, #define, and #undef directive of {readPath}";
+            }
+
+            if (PathComparison.Comparer.Equals(output.Path, readPath))
+            {
+                continue;
+            }
+
             if (TopLevelType.Find(root).Any(t => t.HasFileModifier))
             {
                 return $"{output.Path}: a file-local type would leave {readPath}";

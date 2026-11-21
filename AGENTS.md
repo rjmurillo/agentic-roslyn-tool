@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 43 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 446 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 453 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -45,7 +45,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `SplitPlanner.cs` | Decides what a split would do: which type stays, where each moved type lands, which inputs collide, which path a phase reads. Does not act. |
 | `DirectiveAnalyzer.cs` | Decides whether preprocessor directives make a split unsafe. Returns a verdict, never acts on one. |
 | `FileLocalTypes.cs` | Decides what a split may do with an input that declares a `file` type: the refusals, the kept type, the row's note, and the check on rendered outputs. Returns a verdict, never acts on one. Read decision 30 before changing it. |
-| `FileLocalDirectives.cs` | Refuses an input with a `file` type when a directive would change what the kept file means: a `global using`, or a `#line`, `#nullable`, or `#pragma` on or inside a type. Returns a verdict, never acts on one. |
+| `FileLocalDirectives.cs` | Refuses an input with a `file` type when a directive would change what the kept file means: a `global using`, or a `#line`, `#nullable`, `#pragma`, `#define`, or `#undef` on or inside a type or on an assembly attribute. Also tells the verifier whether an output kept every such directive. Returns a verdict, never acts on one. |
 | `FileLocalNames.cs` | The name scan behind `FileLocalTypes.cs`: says whether a type, a using directive, or a rendered output names a `file` type. Matches by name alone, on purpose. |
 | `OutputBuilder.cs` | Renders the text of every output file: name, carved source, required header, trailing newline. |
 | `OutputVerifier.cs` | The correctness checks, run against in-memory outputs before anything is written. A failure here means nothing reaches disk. |
@@ -92,7 +92,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 446 passed, 0 failed
+dotnet test  -c Release      # must be 453 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -198,7 +198,8 @@ weight.
     when a `file` type declares extension members, when a using directive names one,
     when a type names one in a base list, when an `#if` excludes text the scan cannot
     read, when the file has a `global using` directive, or when a `#line`, `#nullable`,
-    or `#pragma` directive sits on or inside a type. Never relax the name scan to "looks
+    `#pragma`, `#define`, or `#undef` directive sits on or inside a type or on an assembly
+    attribute. Never relax the name scan to "looks
     unrelated": a `file` type hides a same-named type from another namespace, and the
     moved code would compile clean against that other type. `OutputVerifier` checks the
     rendered text again. The `FileLocal*Tests` classes pin each rule by compiling. See
@@ -443,6 +444,12 @@ agent does not pay again.
   method with no diagnostic. Review found this in round four. Before you relax a refusal
   in `FileLocalTypes`, ask how the type that stays can hand a `file` type to another file.
   `FileLocalPremiseTests` pins the compiler rules that close the other ways.
+- **"Above the namespace" is not one place.** A directive there is attached to whatever
+  token follows it. Attached to a `using` or to the `namespace` keyword, every output keeps
+  it. Attached to an `[assembly: ...]` attribute, only the kept file does, because
+  `OutputBuilder` clears attribute lists on every other output. A refusal written for
+  "on or inside a type" missed that. Reason from what `BuildOutputs` removes, not from
+  where a line sits on the page.
 - **An extension block is a `TypeDeclarationSyntax`.** `OfType<TypeDeclarationSyntax>()`
   returns it beside the classes, with an empty identifier. Find it by
   `SyntaxKind.ExtensionBlockDeclaration`.
@@ -462,8 +469,9 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   An input with a `file` type used to be skipped before this check ran, and now reaches
   it like any other input.
 
-- A `#line`, `#nullable`, or `#pragma` directive placed above one type travels only with
-  that type. With `#nullable enable` above the second of three types, the third type's new
+- A `#line`, `#nullable`, `#pragma`, `#define`, or `#undef` directive placed above one
+  type travels only with that type. One placed above an `[assembly: ...]` attribute stays
+  in the kept file only, because every other output drops those attributes. With `#nullable enable` above the second of three types, the third type's new
   file has no such line, and its `string?` raises CS8632. With `#line 100 "Mapped.cs"`
   there, a `CallerFilePath` value in the third type changed from `Mapped.cs` to the new
   file's name, with no diagnostic. The directive sits in the leading trivia of the type
