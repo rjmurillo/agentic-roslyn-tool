@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 43 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 459 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 469 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -92,7 +92,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 459 passed, 0 failed
+dotnet test  -c Release      # must be 469 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -323,6 +323,10 @@ agent does not pay again.
   leave out a planned rename. See decision 24 and the known issue below. `nextArgs`
   repeats `--file-naming metadata` for the next phase, because the manifest does not
   record it; see decision 27.
+- **`new UTF8Encoding(false)` has an empty preamble.** `WriteEncoded` takes the byte
+  order mark from `GetPreamble`, so a UTF-8 source read with that encoding lost its mark
+  on every output. The UTF-8 mark branch in `EncodedSource` must pass `true`. The no mark
+  branch must stay `false`. `ByteOrderMarkRoundTripTests` pins both, byte for byte.
 - **A backtick in a path is escaped in `--json` output.** ``Foo`1.cs`` is written as
   `Foo\u00601.cs`. Parse the JSON before you search it for a file name. The CSV manifest
   holds the character itself.

@@ -58,7 +58,10 @@ internal sealed class EncodedSource
         {
             emitPreamble = true;
             preambleLength = 3;
-            return new UTF8Encoding(false, true);
+
+            // The write takes the mark from GetPreamble, which is empty unless the first
+            // argument is true. A false here dropped the mark from every output.
+            return new UTF8Encoding(true, true);
         }
 
         if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
