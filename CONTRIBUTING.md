@@ -15,7 +15,7 @@ dotnet test  -c Release      # must be 469 passed, 0 failed
 
 `TreatWarningsAsErrors` is on. A warning fails the build. There is no separate lint step.
 
-The .NET SDK is pinned in `global.json` to 10.0.403 with `rollForward: latestMinor`, so
+The .NET SDK is pinned in `global.json` to 10.0.404 with `rollForward: latestMinor`, so
 any 10.0 SDK at or above that version works, including a later minor band such as 10.1.
 An 11.0 SDK does not.
 
