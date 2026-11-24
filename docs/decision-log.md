@@ -1453,9 +1453,13 @@ fix missed. After the retry, the only `failed` rows in the six are two Benchmark
 template files, and one Dapper file that fails an output check for an unrelated reason
 fixed separately. Review then found two more ways the first `#error` rule went wrong: it
 ignored symbols the file sets itself, and matching by location alone excused a broken
-`#else` beside an `#error`. Both now fail, as the base version did. A fourth round found
-that a `#define` inside `#if !NET` was taken as set in every build, which failed a valid
-polyfill file. It now counts as a build symbol. The six repositories informed the symbol
+`#else` beside an `#error`. Both now fail, as the base version did. Review probes, not a
+repository, found two more cases: a `#define` inside `#if !NET`, and a `#define` that a
+later `#if NET && !FOO` unsets. Each was taken as set in every build, which failed a valid
+file. A symbol any symbol-dependent branch sets or unsets now counts as a build symbol. A
+fifth round measured the `#error` check as quadratic: one crafted file with 80,000 guarded
+`#error` lines took 230 seconds. Each diagnostic now finds its directive by binary search,
+and that file takes about 53 seconds, close to the same file with `#warning` lines. The six repositories informed the symbol
 retry, so their result is no longer independent evidence for it. Confirming it needs
 repositories that played no part in tuning it.
 

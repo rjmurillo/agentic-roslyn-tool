@@ -82,6 +82,8 @@ public sealed class ErrorDirectiveTests
     // depends on the build. The polyfill pattern below compiles in a build that defines NET.
     [InlineData("#if !NET\n#define LEGACY\n#endif\nnamespace Sample;\n\ninternal class Host\n{\n#if LEGACY\n#error legacy not supported\n#endif\n}\n", false)]
     [InlineData("#if !NET\n#undef MODERN\n#endif\nnamespace Sample;\n\ninternal class Host\n{\n#if !MODERN\n#error needs MODERN\n#endif\n}\n", false)]
+    // A symbol the file defines, then unsets only in some builds, depends on the build.
+    [InlineData("#define X\n#if NET && !FOO\n#undef X\n#endif\nnamespace Sample;\n\ninternal class Host\n{\n#if X\n#error needs NET without FOO\n#endif\n}\n", false)]
     // A broken group beside an excused #error is still broken: only the #error's own
     // diagnostics are excused, never a neighbor's.
     [InlineData("namespace Sample;\n\ninternal class Host\n{\n#if X\n#else\n#error need X\n#else\n#endif\n}\n", true)]
@@ -91,6 +93,22 @@ public sealed class ErrorDirectiveTests
         var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(source, SourceParsing.Options);
 
         Assert.Equal(expectErrors, SourceParsing.Errors(tree).Length != 0);
+    }
+
+    [Fact]
+    public void Errors_StaysFastWithManyGuardedErrorDirectives()
+    {
+        // 20,000 guarded #error lines once took minutes, because every diagnostic was matched
+        // against every excused directive.
+        var body = string.Concat(Enumerable.Repeat("#if X\n#else\n#error e\n#endif\n", 20_000));
+        var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(
+            "namespace Sample;\n\ninternal class Host\n{\n" + body + "}\n", SourceParsing.Options);
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+
+        var errors = SourceParsing.Errors(tree);
+
+        Assert.Empty(errors);
+        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(20), $"Errors took {clock.Elapsed}");
     }
 
     [Fact]

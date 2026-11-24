@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 44 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 508 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 510 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -93,7 +93,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 508 passed, 0 failed
+dotnet test  -c Release      # must be 510 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -254,7 +254,7 @@ agent does not pay again.
   the build sets. One under `#if true`, under a symbol the file sets with `#define` or
   `#undef` outside any symbol-dependent `#if`, or under no `#if`, still fails the file,
   because every build of it fails. A `#define` inside `#if !NET` runs only in some builds,
-  so its symbol still depends on the build.
+  so its symbol still depends on the build, and so does one that any such branch unsets.
 - **With no symbols, a file can stop parsing at all.** `#if NET6_0_OR_GREATER` followed
   by `#elif NETSTANDARD` and no `#else` leaves no branch live here, and the expression
   around it breaks. BenchmarkDotNet has one. `SourceParsing.ParsesWithItsSymbols`

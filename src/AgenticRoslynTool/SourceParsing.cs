@@ -53,15 +53,21 @@ internal static class SourceParsing
     /// <c>#error text</c> and CS8304 for <c>#error version</c>, and sits on that directive.
     /// A broken neighbor, such as a second <c>#else</c>, is never excused. A branch whose
     /// conditions name no symbol, or only symbols the file sets itself with <c>#define</c>
-    /// or <c>#undef</c> outside any symbol-dependent branch, has the same value in every build, so its <c>#error</c> still
-    /// counts, as does one outside any <c>#if</c>.
+    /// or <c>#undef</c> outside any symbol-dependent branch, has the same value in every
+    /// build, so its <c>#error</c> still counts, as does one outside any <c>#if</c>. A
+    /// symbol any symbol-dependent branch sets or unsets counts as a build symbol everywhere
+    /// in the file.
     /// </remarks>
     internal static Diagnostic[] Errors(SyntaxTree tree)
     {
         var excused = SymbolDependentErrorDirectives(tree.GetCompilationUnitRoot());
+        // The excused directives come in document order, so each diagnostic needs one binary
+        // search. Scanning them all per diagnostic, or calling FindTrivia, was quadratic: a
+        // file with 40,000 guarded #error lines took about a minute.
+        var starts = excused.Select(e => e.Span.Start).ToArray();
         return tree.GetDiagnostics()
             .Where(d => d.Severity == DiagnosticSeverity.Error)
-            .Where(d => !(ErrorDirectiveIds.Contains(d.Id) && excused.Any(directive => directive.Span.IntersectsWith(d.Location.SourceSpan))))
+            .Where(d => !(ErrorDirectiveIds.Contains(d.Id) && SitsOnExcused(d.Location.SourceSpan.Start, starts, excused)))
             .ToArray();
     }
 
@@ -113,38 +119,69 @@ internal static class SourceParsing
     {
         var excused = new List<ErrorDirectiveTriviaSyntax>();
         // Symbols the file sets itself, outside any branch that depends on a build symbol.
-        // Only those have the same value in every build: a #define under #if !NET runs in
-        // some builds and not in others.
+        // Only those have the same value in every build.
         var setByFile = new HashSet<string>(StringComparer.Ordinal);
-        // One entry per open #if group: whether any condition seen so far in it names a symbol
-        // the build sets.
+        // Symbols some symbol-dependent branch sets or unsets, such as a #define under
+        // #if !NET. Their value differs between builds, so they never count as set by the file.
+        var setByBuild = new HashSet<string>(StringComparer.Ordinal);
+        // One entry per open #if group: whether any condition seen so far in it names a build
+        // symbol. dependentGroups counts the true entries, so each check is constant time.
         var groups = new Stack<bool>();
+        var dependentGroups = 0;
         foreach (var directive in root.DescendantTrivia().Where(t => t.IsDirective).Select(t => t.GetStructure()).OfType<DirectiveTriviaSyntax>())
         {
             switch (directive)
             {
-                case DefineDirectiveTriviaSyntax define when define.IsActive && !groups.Any(dependsOnSymbol => dependsOnSymbol):
-                    setByFile.Add(define.Name.ValueText);
+                // Under a symbol-dependent branch a directive runs in some builds, whether or
+                // not it is live here, so an inactive one counts too. Outside such a branch an
+                // inactive directive sits under a constant false condition and never runs.
+                case DefineDirectiveTriviaSyntax define when define.IsActive || dependentGroups > 0:
+                    RecordSet(define.Name.ValueText, dependentGroups > 0, setByFile, setByBuild);
                     break;
-                case UndefDirectiveTriviaSyntax undef when undef.IsActive && !groups.Any(dependsOnSymbol => dependsOnSymbol):
-                    setByFile.Add(undef.Name.ValueText);
+                case UndefDirectiveTriviaSyntax undef when undef.IsActive || dependentGroups > 0:
+                    RecordSet(undef.Name.ValueText, dependentGroups > 0, setByFile, setByBuild);
                     break;
                 case IfDirectiveTriviaSyntax ifDirective:
-                    groups.Push(NamesBuildSymbol(ifDirective.Condition, setByFile));
+                    var ifDepends = NamesBuildSymbol(ifDirective.Condition, setByFile);
+                    groups.Push(ifDepends);
+                    dependentGroups += ifDepends ? 1 : 0;
                     break;
                 case ElifDirectiveTriviaSyntax elif when groups.Count > 0:
-                    groups.Push(groups.Pop() || NamesBuildSymbol(elif.Condition, setByFile));
+                    var before = groups.Pop();
+                    var after = before || NamesBuildSymbol(elif.Condition, setByFile);
+                    groups.Push(after);
+                    dependentGroups += after && !before ? 1 : 0;
                     break;
                 case EndIfDirectiveTriviaSyntax when groups.Count > 0:
-                    groups.Pop();
+                    dependentGroups -= groups.Pop() ? 1 : 0;
                     break;
-                case ErrorDirectiveTriviaSyntax error when groups.Any(dependsOnSymbol => dependsOnSymbol):
+                case ErrorDirectiveTriviaSyntax error when dependentGroups > 0:
                     excused.Add(error);
                     break;
             }
         }
 
         return excused;
+    }
+
+    private static bool SitsOnExcused(int position, int[] starts, List<ErrorDirectiveTriviaSyntax> excused)
+    {
+        var index = Array.BinarySearch(starts, position);
+        index = index >= 0 ? index : ~index - 1;
+        return index >= 0 && position < excused[index].Span.End;
+    }
+
+    private static void RecordSet(string symbol, bool underBuildSymbol, HashSet<string> setByFile, HashSet<string> setByBuild)
+    {
+        if (underBuildSymbol)
+        {
+            setByBuild.Add(symbol);
+            setByFile.Remove(symbol);
+        }
+        else if (!setByBuild.Contains(symbol))
+        {
+            setByFile.Add(symbol);
+        }
     }
 
     private static bool NamesBuildSymbol(ExpressionSyntax condition, HashSet<string> setByFile) =>

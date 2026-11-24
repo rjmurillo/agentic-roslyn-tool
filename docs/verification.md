@@ -34,8 +34,8 @@ A row that fails any check below reports its reason after the prefix
 
 Each output file is parsed with Roslyn, using the preview language version and the
 `FileBasedProgram` feature, so `#:` and `#!` lines parse. Any error diagnostic fails the
-file with this reason, except one raised by an `#error` whose branch names a preprocessor
-symbol. The tool defines no symbols, so it cannot know which branch the real build takes.
+file with this reason, except one raised by an `#error` whose branch names a symbol the
+build sets, not one the file sets itself outside a symbol-dependent `#if`. The tool defines no symbols, so it cannot know which branch the real build takes.
 Several errors are joined by a semicolon. `SourceParsing` holds this rule for the input and
 every output.
 
