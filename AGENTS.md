@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 46 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 534 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 535 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -95,7 +95,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 534 passed, 0 failed
+dotnet test  -c Release      # must be 535 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -529,7 +529,9 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
 - A source file whose name Roslyn reads as generated code, such as `Foo.g.cs`, has
   nullable off by default. Its new files take ordinary names, so the project default
   applies to them instead. `NullableDirectives` treats "no directive" as the same default
-  on both sides, so it does not add a `#nullable disable` for this.
+  on both sides, so it does not add a `#nullable disable` for this. The other way round
+  happens too. A type named `TemporaryGeneratedFile_Beta` lands in a file Roslyn reads as
+  generated. There a restated `#nullable restore` means disabled, not the project default.
 
 - A `#warning` or `#error` directive above the namespace is copied into every output, so
   a build reports it once for each new file. This is true with or without a `file` type.

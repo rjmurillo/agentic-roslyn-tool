@@ -122,12 +122,13 @@ internal static class NullableDirectives
     /// <param name="carved">The output tree after the other types were removed.</param>
     /// <param name="kept">The source type the output keeps.</param>
     /// <param name="newLine">The source file's newline, used to end each added line.</param>
+    /// <param name="header">The normalized <c>--require-header</c> text, or empty. A banner that opens the output stays above the added lines.</param>
     /// <returns>The output tree, and every line added to it, so the verifier can tell an added line from a duplicated source line.</returns>
-    internal static (CompilationUnitSyntax Root, IReadOnlyList<string> AddedLines) Restore(CompilationUnitSyntax carved, TopLevelType kept, string newLine)
+    internal static (CompilationUnitSyntax Root, IReadOnlyList<string> AddedLines) Restore(CompilationUnitSyntax carved, TopLevelType kept, string newLine, string header)
     {
         var node = TopLevelType.FindMatch(carved, kept).Node;
         var lines = DirectivesBetween(StateAt(carved, node.SpanStart), SourceStateOf(kept));
-        return lines.Count == 0 ? (carved, lines) : (InsertAbove(carved, node, lines, newLine), lines);
+        return lines.Count == 0 ? (carved, lines) : (InsertAbove(carved, node, lines, newLine, header), lines);
     }
 
     /// <summary>
@@ -173,15 +174,16 @@ internal static class NullableDirectives
     /// earlier token never reaches here in a split that passes: line conservation already
     /// refuses that file. If one did, the added directive would sit mid-line, and the parse
     /// check in <see cref="OutputVerifier.VerifyOutputs"/> would fail the file unwritten.
+    /// One comment is skipped: the required banner, when this type's trivia opens the file
+    /// with it. Lines added above it would hide it from <see cref="OutputBuilder.EnsureHeader"/>,
+    /// which would then write a second banner.
     /// </remarks>
-    private static CompilationUnitSyntax InsertAbove(CompilationUnitSyntax root, MemberDeclarationSyntax node, IReadOnlyList<string> lines, string newLine)
+    private static CompilationUnitSyntax InsertAbove(CompilationUnitSyntax root, MemberDeclarationSyntax node, IReadOnlyList<string> lines, string newLine, string header)
     {
         var leading = node.GetLeadingTrivia();
-        var index = 0;
-        while (index < leading.Count && (leading[index].IsKind(SyntaxKind.WhitespaceTrivia) || leading[index].IsKind(SyntaxKind.EndOfLineTrivia)))
-        {
-            index++;
-        }
+        var text = leading.ToFullString();
+        var banner = header.Length > 0 && node.FullSpan.Start == 0 && OutputBuilder.StartsWithHeader(text.TrimStart(), header) ? text.Length - text.TrimStart().Length + header.Length : 0;
+        var index = leading.TakeWhile(trivia => trivia.FullSpan.Start < banner || trivia.IsKind(SyntaxKind.WhitespaceTrivia) || trivia.IsKind(SyntaxKind.EndOfLineTrivia)).Count();
 
         while (index > 0 && leading[index - 1].IsKind(SyntaxKind.WhitespaceTrivia))
         {

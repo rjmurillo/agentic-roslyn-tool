@@ -107,6 +107,19 @@ public sealed class NullableContextTests
     }
 
     [Fact]
+    public void BannerAboveAMovedType_StaysFirstAndIsNotRepeated()
+    {
+        // Beta's own banner opens Beta.cs. A restated line above it hid the banner from the
+        // header check, which then wrote a second copy.
+        using var ws = new TempWorkspace();
+        var source = "class Alpha\n{\n    string? a;\n#nullable enable\n}\n\n// Copyright X\nclass Beta { string? b; }\n";
+
+        SplitPreserved(ws, source, "// Copyright X");
+
+        Assert.Equal("// Copyright X\n#nullable enable\nclass Beta { string? b; }\n", Read(ws, "Beta.cs"));
+    }
+
+    [Fact]
     public void DirectiveAboveTheNamespace_IsNotAddedAgain()
     {
         using var ws = new TempWorkspace();

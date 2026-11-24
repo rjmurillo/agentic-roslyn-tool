@@ -711,7 +711,8 @@ this for the type each output is named for. A kept file can also hold `file` typ
   also includes a `#nullable` between the attribute and the namespace, which every file
   keeps; the guard over-refuses that one.
 - The lines go above the type's first comment, doc comment, or attribute, at the start of
-  a line, ending in the source file's newline.
+  a line, ending in the source file's newline. A `--require-header` banner that opens the
+  file stays first: the lines go below it, so the file never gets a second banner.
 - The tool parses with no preprocessor symbols. A file with no `#if` has one build, so
   the fold is exact there. A file that holds a movable `#nullable` and any `#if` is skipped
   with `a #nullable directive a split can move shares the file with an #if directive or comes before a using directive; manual split required`.

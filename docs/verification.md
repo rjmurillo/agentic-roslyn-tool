@@ -185,7 +185,8 @@ again and compares the type's context with the source. A mismatch fails the file
 `<input path>: nullable context for <type> is ... in <output path>, but ... in the source`.
 
 Expect these added lines in the content commit, in the kept file or a new one. Each sits
-directly above a type or its first comment, doc comment, or attribute, and reads
+directly above a type or its first comment, doc comment, or attribute, or below the
+required banner when that banner opens the file, and reads
 `#nullable enable`, `disable`, or `restore`, with an optional `annotations` or `warnings`.
 Deleting one brings back the loss of context the split caused.
 

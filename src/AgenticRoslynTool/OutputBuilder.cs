@@ -82,7 +82,7 @@ internal static class OutputBuilder
             }
 
             newRoot = (CompilationUnitSyntax)new BlankLineCollapser().Visit(newRoot)!;
-            var (restoredRoot, addedLines) = NullableDirectives.Restore(newRoot, file.Type, source.NewLine);
+            var (restoredRoot, addedLines) = NullableDirectives.Restore(newRoot, file.Type, source.NewLine, headerText);
             var rendered = restoredRoot.ToFullString();
             var body = EnsureTrailingNewLine(rendered, source.NewLine, source.HasFinalNewLine);
             var text = EnsureHeader(rendered, header);
