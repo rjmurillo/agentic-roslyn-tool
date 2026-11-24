@@ -16,6 +16,8 @@ public sealed class MsBuildCompileItemTests : IDisposable
     [InlineData("<Compile Include=\"$(MSBuildThisFileDirectory)SpecBase.cs\" />", "SpecBase.cs")]
     [InlineData("<Compile Remove=\"SpecBase.cs\" />", "SpecBase.cs")]
     [InlineData("<compile Include=\"..\\UnitTests\\SpecBase.cs\" />", "SpecBase.cs")]
+    [InlineData("<Compile include=\"SpecBase.cs\" />", "SpecBase.cs")]
+    [InlineData("<Compile Include=\"100% Done.cs\" />", "100% Done.cs")]
     [InlineData("<Compile Include=\"Shared%2FSpecBase.cs\" />", "SpecBase.cs")]
     [InlineData("<Compile Include=\"Shared%5cSpec*.cs\" />", "SpecBase.cs")]
     [InlineData("<Compile Include=\"$(Root)%2F$(Dir)SpecBase.cs\" />", "SpecBase.cs")]

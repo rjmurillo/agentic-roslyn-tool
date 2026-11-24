@@ -26,6 +26,12 @@ internal sealed class MsBuildCompileItems
     /// <summary>The longest item value read, in characters. A longer one makes its file unreadable, so no pattern is built from it.</summary>
     internal const int MaxValueLength = 4096;
 
+    /// <summary>
+    /// The most wildcard patterns one scan keeps. Each input is matched against every one,
+    /// so the cap bounds that cost. A file whose pattern finds no room counts as unreadable.
+    /// </summary>
+    internal const int MaxPatterns = 10_000;
+
     private static readonly string[] ItemAttributes = ["Include", "Update", "Remove", "Exclude"];
 
     private static readonly XmlReaderSettings ReaderSettings = new()
@@ -61,7 +67,8 @@ internal sealed class MsBuildCompileItems
     /// Files are read in ordinal order of their relative path, so the file a reason names is
     /// the same on every run and every platform. A path <see cref="MsBuildFileFinder.IsSafeToOpen"/>
     /// rejects, a file that is not valid XML or cannot be read, and a file with an item value
-    /// over <see cref="MaxValueLength"/> are recorded as unreadable. Names read from a file
+    /// over <see cref="MaxValueLength"/> or a pattern past <see cref="MaxPatterns"/> are
+    /// recorded as unreadable. Names read from a file
     /// before its error still count, which only refuses more.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Thrown when a directory cannot be listed.</exception>
@@ -120,9 +127,14 @@ internal sealed class MsBuildCompileItems
         return unreadable.File is null ? null : UnreadableReason(unreadable.File);
     }
 
-    /// <summary>Reads one file. Returns false when an item value is too long to read safely.</summary>
+    /// <summary>
+    /// Reads one file. Returns false when a value was too long to read safely, or the scan
+    /// already holds <see cref="MaxPatterns"/> patterns. Reading goes on either way, so
+    /// later names in the file still count.
+    /// </summary>
     private bool Read(string path, string relative)
     {
+        var complete = true;
         using var reader = XmlReader.Create(path, ReaderSettings);
         while (reader.Read())
         {
@@ -132,24 +144,26 @@ internal sealed class MsBuildCompileItems
                 continue;
             }
 
-            var values = ItemAttributes
-                .Select(reader.GetAttribute)
-                .SelectMany(text => (text ?? string.Empty).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-            foreach (var value in values)
+            // Attribute names are matched in any case too. That only reads more values.
+            while (reader.MoveToNextAttribute())
             {
-                if (value.Length > MaxValueLength)
+                if (!ItemAttributes.Contains(reader.LocalName, StringComparer.OrdinalIgnoreCase))
                 {
-                    return false;
+                    continue;
                 }
 
-                Add(value, relative);
+                foreach (var value in reader.Value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    complete &= value.Length <= MaxValueLength && Add(value, relative);
+                }
             }
         }
 
-        return true;
+        return complete;
     }
 
-    private void Add(string value, string relative)
+    /// <summary>Stores one value. Returns false when it is a pattern the scan has no room for.</summary>
+    private bool Add(string value, string relative)
     {
         if (CompileItemName.ExactName(value) is { } exact)
         {
@@ -159,9 +173,15 @@ internal sealed class MsBuildCompileItems
         {
             _suffixes.TryAdd(suffix, relative);
         }
+        else if (_patterns.Count >= MaxPatterns)
+        {
+            return CompileItemName.NamesNoSingleFile(value);
+        }
         else if (CompileItemName.Matcher(value) is { } pattern)
         {
             _patterns.TryAdd(pattern.ToString(), (pattern, relative));
         }
+
+        return true;
     }
 }

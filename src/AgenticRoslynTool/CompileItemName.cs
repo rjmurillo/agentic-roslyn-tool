@@ -63,17 +63,25 @@ internal static class CompileItemName
     /// </remarks>
     internal static Regex? Matcher(string value)
     {
-        var segment = FileSegment(value);
-        if (segment.Length == 0 || segment is "*" or "**" || segment.Equals("*.cs", StringComparison.OrdinalIgnoreCase))
+        if (NamesNoSingleFile(value))
         {
             return null;
         }
+
+        var segment = FileSegment(value);
 
         // The text comes from files in the repository, so the engine must not backtrack. A
         // pattern of many wildcards would otherwise take exponential time on one name.
         return new Regex(
             "^" + ToPattern(segment) + "$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Singleline | RegexOptions.NonBacktracking);
+    }
+
+    /// <summary>True when the segment is empty, or exactly <c>*.cs</c>, <c>*</c>, or <c>**</c>. Cheap: no pattern is built.</summary>
+    internal static bool NamesNoSingleFile(string value)
+    {
+        var segment = FileSegment(value);
+        return segment.Length == 0 || segment is "*" or "**" || segment.Equals("*.cs", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

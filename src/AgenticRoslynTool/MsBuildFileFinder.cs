@@ -13,15 +13,16 @@ internal static class MsBuildFileFinder
 
     /// <summary>
     /// Every <c>.csproj</c>, <c>.props</c>, <c>.targets</c>, <c>.projitems</c>, and
-    /// <c>.shproj</c> file under <paramref name="root"/>, plus every directory symlink that
-    /// leads outside it. Directories named <c>bin</c>, <c>obj</c>, and <c>.git</c> are skipped.
+    /// <c>.shproj</c> file under <paramref name="root"/>, plus every directory symlink whose
+    /// target the walk does not reach. Directories named <c>bin</c>, <c>obj</c>, and
+    /// <c>.git</c> are skipped.
     /// </summary>
     /// <remarks>
-    /// No directory symlink is followed. One whose final target lies under the root needs no
-    /// visit, because the walk reaches the same files by their real path. One that leads
-    /// outside the root, or nowhere, is returned: it can hold a project the scan does not
-    /// read, so the caller treats it like an MSBuild file it cannot open. Walks the tree by
-    /// hand for the reason <see cref="InputSource.DiscoverSourceFiles"/> does.
+    /// No directory symlink is followed. One whose final target the walk reaches by its real
+    /// path needs no visit. Any other is returned: a target outside the root, or one inside
+    /// a skipped directory. It can hold a project the scan does not read, so the caller
+    /// treats it like an MSBuild file it cannot open. Walks the tree by hand for the reason
+    /// <see cref="InputSource.DiscoverSourceFiles"/> does.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Thrown when a directory cannot be listed. A partial scan would let a split through that a missed project forbids.</exception>
     internal static List<string> Find(string root)
@@ -37,10 +38,7 @@ internal static class MsBuildFileFinder
                 found.AddRange(Directory.EnumerateFiles(directory).Where(IsMsBuildFile));
                 foreach (var child in Directory.EnumerateDirectories(directory))
                 {
-                    var name = Path.GetFileName(child);
-                    if (name.Equals("bin", StringComparison.OrdinalIgnoreCase)
-                        || name.Equals("obj", StringComparison.OrdinalIgnoreCase)
-                        || name.Equals(".git", StringComparison.OrdinalIgnoreCase))
+                    if (IsSkipped(Path.GetFileName(child)))
                     {
                         continue;
                     }
@@ -50,7 +48,7 @@ internal static class MsBuildFileFinder
                     {
                         pending.Push(child);
                     }
-                    else if (!IsInside(link.ResolveLinkTarget(returnFinalTarget: true)?.FullName, root))
+                    else if (!IsWalked(link.ResolveLinkTarget(returnFinalTarget: true)?.FullName, root))
                     {
                         found.Add(child);
                     }
@@ -85,19 +83,22 @@ internal static class MsBuildFileFinder
     }
 
     /// <summary>
-    /// True when a link's final target lies under the root, so the walk reads those files
-    /// through their real path. Case counts, so a doubtful match is reported, not skipped.
+    /// True when the walk reads a link's final target by its real path: the target lies
+    /// under the root, and no directory on the way down is one the walk skips. Case counts
+    /// for the root, so a doubtful match is reported, not skipped.
     /// </summary>
-    private static bool IsInside(string? target, string root)
+    private static bool IsWalked(string? target, string root)
     {
-        if (target is null)
-        {
-            return false;
-        }
-
         var prefix = Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar;
-        return target.StartsWith(prefix, StringComparison.Ordinal);
+        return target is not null
+            && target.StartsWith(prefix, StringComparison.Ordinal)
+            && !target[prefix.Length..].Split(Path.DirectorySeparatorChar).Any(IsSkipped);
     }
+
+    private static bool IsSkipped(string name) =>
+        name.Equals("bin", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("obj", StringComparison.OrdinalIgnoreCase)
+        || name.Equals(".git", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsMsBuildFile(string path) =>
         Extensions.Any(extension => path.EndsWith(extension, StringComparison.OrdinalIgnoreCase));

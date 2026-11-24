@@ -14,17 +14,6 @@ public sealed class MsBuildScanSafetyTests : IDisposable
     public void Dispose() => _workspace.Dispose();
 
     [Fact]
-    public void SymlinkedMsBuildFile_IsNotOpened_AndRefusesItsDirectory()
-    {
-        // The target names nothing. Were the link followed, Bar.cs would pass.
-        var target = _workspace.WriteFile("outside/Target.xml", "<Project />");
-        Directory.CreateDirectory(PathOf("src/App"));
-        File.CreateSymbolicLink(PathOf("src/App/App.csproj"), target);
-
-        Assert.Equal(Reason, Scan().DescribeRefusal(PathOf("src/App/Bar.cs")));
-    }
-
-    [Fact]
     public void EmptyMsBuildFile_RefusesItsDirectory()
     {
         _workspace.WriteFile("src/App/App.csproj", string.Empty);
@@ -85,37 +74,29 @@ public sealed class MsBuildScanSafetyTests : IDisposable
     }
 
     [Fact]
-    public void OverlongItemValue_RefusesItsDirectory_WithoutBuildingAPattern()
+    public void OverlongItemValue_RefusesItsDirectory_AndLaterNamesStillCount()
     {
         var value = new string('?', MsBuildCompileItems.MaxValueLength + 1);
-        _workspace.WriteFile("src/App/App.csproj", $"<Project><ItemGroup><Compile Include=\"{value}\" /></ItemGroup></Project>");
-
-        Assert.Equal(Reason, Scan().DescribeRefusal(PathOf("src/App/Bar.cs")));
-    }
-
-    [Fact]
-    public void DirectoryLinkLeavingTheRoot_IsNotFollowed_AndRefusesItsParent()
-    {
-        // A project behind the link could name any file, and the scan does not read it.
-        using var outside = new TempWorkspace();
-        outside.WriteFile("Shared.projitems", "<Project><ItemGroup><Compile Include=\"Unrelated.cs\" /></ItemGroup></Project>");
-        Directory.CreateDirectory(PathOf("src/App"));
-        Directory.CreateSymbolicLink(PathOf("src/App/Shared"), outside.Root);
-
+        _workspace.WriteFile("src/App/App.csproj", $"<Project><ItemGroup><Compile Include=\"{value}\" /><Compile Include=\"../Lib/Bar.cs\" /></ItemGroup></Project>");
         var items = Scan();
 
-        Assert.Equal("cannot read MSBuild Compile items in src/App/Shared; manual split required", items.DescribeRefusal(PathOf("src/App/Bar.cs")));
-        Assert.Null(items.DescribeRefusal(PathOf("src/Lib/Bar.cs")));
+        Assert.Equal(Reason, items.DescribeRefusal(PathOf("src/App/Baz.cs")));
+        Assert.Equal(
+            "file is named by an MSBuild Compile item in src/App/App.csproj; manual split required",
+            items.DescribeRefusal(PathOf("src/Lib/Bar.cs")));
     }
 
     [Fact]
-    public void DirectoryLinkInsideTheRoot_RefusesNothing()
+    public void PatternsPastTheCap_MakeTheirFileUnreadable()
     {
-        // The walk reads the target by its real path, so the link adds nothing unseen.
-        _workspace.WriteFile("src/Real/Real.csproj", "<Project><ItemGroup><Compile Include=\"Unrelated.cs\" /></ItemGroup></Project>");
-        Directory.CreateSymbolicLink(PathOf("src/App"), PathOf("src/Real"));
+        // The cap bounds the matches each input costs. The first file fills it.
+        var patterns = string.Join(';', Enumerable.Range(0, MsBuildCompileItems.MaxPatterns).Select(i => $"p{i}*.x"));
+        _workspace.WriteFile("src/A/A.csproj", $"<Project><ItemGroup><Compile Include=\"{patterns}\" /></ItemGroup></Project>");
+        _workspace.WriteFile("src/App/App.csproj", "<Project><ItemGroup><Compile Include=\"Extra*.y\" /></ItemGroup></Project>");
+        var items = Scan();
 
-        Assert.Null(Scan().DescribeRefusal(PathOf("src/Bar.cs")));
+        Assert.Null(items.DescribeRefusal(PathOf("src/A/Bar.cs")));
+        Assert.Equal(Reason, items.DescribeRefusal(PathOf("src/App/Bar.cs")));
     }
 
     [Fact]

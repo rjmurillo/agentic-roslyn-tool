@@ -42,14 +42,15 @@ internal static class MsBuildText
     /// <summary>Reads the <c>%XX</c> escape at <paramref name="index"/>, when one is there.</summary>
     internal static bool TryReadEscape(string text, int index, out char escaped)
     {
+        // Exactly two hex digits, as MSBuild reads it. HexNumber alone would accept "% D".
         escaped = default;
         if (text[index] != '%' || index + 2 >= text.Length
-            || !byte.TryParse(text.AsSpan(index + 1, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var code))
+            || !char.IsAsciiHexDigit(text[index + 1]) || !char.IsAsciiHexDigit(text[index + 2]))
         {
             return false;
         }
 
-        escaped = (char)code;
+        escaped = (char)byte.Parse(text.AsSpan(index + 1, 2), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture);
         return true;
     }
 
