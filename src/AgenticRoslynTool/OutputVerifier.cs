@@ -21,15 +21,19 @@ internal static class OutputVerifier
     /// (1) every output starts with the required header when one was requested;
     /// (2) every output is a syntactically valid compilation unit;
     /// (3) each input type's declaration and owned trivia appears exactly once
-    /// across the outputs (never dropped, never duplicated);
+    /// across the outputs (never dropped, never duplicated), or as often as the input
+    /// holds that text when the input declares a <c>file</c> type;
     /// (4) non-whitespace lines are conserved across the split
     /// (see <see cref="VerifyLineConservation"/>);
     /// (5) the set of top-level types in the outputs matches the input set exactly; and
-    /// (6) each output's type keeps its source nullable context
+    /// (6) a <c>file</c> type stays in the file it was read from, no output that
+    /// leaves that file names one, and every output keeps the input's state directives
+    /// (see <see cref="FileLocalTypes.DescribeViolation"/>); and
+    /// (7) each output's type keeps its source nullable context
     /// (see <see cref="VerifyNullableContext"/>).
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown as soon as any invariant fails, so the failure is surfaced without partial output being written.</exception>
-    internal static void VerifyOutputs(string originalPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions, string? requiredHeader)
+    internal static void VerifyOutputs(string readPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions, string? requiredHeader)
     {
         foreach (var output in outputs)
         {
@@ -46,26 +50,44 @@ internal static class OutputVerifier
             }
         }
 
+        // A declaration's text appears once across the outputs. An input with a file-local
+        // type is the exception, because that type shares the kept file with another type.
+        // A second file-local type written the same way stays beside it. An ordinary type's
+        // text can sit inside a file-local type's text, such as `class Helper { }` inside
+        // `file class Helper { }`. So for such an input each text is expected as often as
+        // the input itself holds it, counted the same way on both sides.
+        var sourceText = inputTypes[0].Node.SyntaxTree.GetText().ToString();
+        var hasFileLocal = inputTypes.Any(t => t.HasFileModifier);
         foreach (var inputType in inputTypes)
         {
             var declaration = GetTypeOwnedText(inputType);
+            var expected = hasFileLocal ? CountOccurrences(sourceText, declaration) : 1;
             var count = outputs.Sum(o => CountOccurrences(o.Text, declaration));
-            if (count != 1)
+            if (count != expected)
             {
-                throw new InvalidOperationException($"{originalPath}: declaration and owned trivia for {inputType.Key} appears {count} times across outputs");
+                throw new InvalidOperationException($"{readPath}: declaration and owned trivia for {inputType.Key} appears {count} times across outputs, expected {expected}");
             }
         }
 
-        VerifyLineConservation(originalPath, inputTypes, outputs);
+        VerifyLineConservation(readPath, inputTypes, outputs);
 
         var outputTypes = outputs.SelectMany(o => TopLevelType.Find(CSharpSyntaxTree.ParseText(o.Text, parseOptions, path: o.Path).GetCompilationUnitRoot())).Select(t => t.Key).Order(StringComparer.Ordinal).ToArray();
         var inputKeys = inputTypes.Select(t => t.Key).Order(StringComparer.Ordinal).ToArray();
         if (!inputKeys.SequenceEqual(outputTypes, StringComparer.Ordinal))
         {
-            throw new InvalidOperationException($"{originalPath}: output top-level type set does not match input");
+            throw new InvalidOperationException($"{readPath}: output top-level type set does not match input");
         }
 
-        VerifyNullableContext(originalPath, outputs, parseOptions);
+        // A file-local type stays in the file it was read from, no output that leaves that
+        // file may name one, and every output keeps the input's state directives. The
+        // planner refuses such an input first. This asks again about the text that would
+        // reach disk.
+        if (FileLocalTypes.DescribeViolation(readPath, inputTypes, outputs, parseOptions) is { } violation)
+        {
+            throw new InvalidOperationException(violation);
+        }
+
+        VerifyNullableContext(readPath, outputs, parseOptions);
     }
 
     /// <summary>
@@ -78,20 +100,23 @@ internal static class OutputVerifier
     /// does. A <c>--require-header</c> that holds a <c>#nullable</c> line changes the context
     /// on purpose, because the caller asked for that header. This check uses the same fold as
     /// <see cref="NullableDirectives.Restore"/>, so it catches a misplaced line, not a wrong
-    /// fold. Tests prove the fold against the compiler.
+    /// fold. Tests prove the fold against the compiler. It checks the type the output is
+    /// named for. A kept file can also hold <c>file</c> types, but
+    /// <see cref="FileLocalDirectives"/> refuses any such input with a state directive on or
+    /// inside a type, so every type in it shares the prologue's context.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Thrown when an output lacks its own type, or when that type's annotations or warnings setting differs from the source.</exception>
-    internal static void VerifyNullableContext(string originalPath, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions)
+    internal static void VerifyNullableContext(string readPath, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions)
     {
         foreach (var output in outputs)
         {
             var expected = NullableDirectives.SourceStateOf(output.Type);
             var root = CSharpSyntaxTree.ParseText(output.BodyText, parseOptions, path: output.Path).GetCompilationUnitRoot();
-            var written = TopLevelType.FindByKey(root, output.Type.Key);
+            var written = TopLevelType.FindMatch(root, output.Type);
             var actual = NullableDirectives.StateAt(root, written.Node.SpanStart);
             if (actual != expected)
             {
-                throw new InvalidOperationException($"{originalPath}: nullable context for {output.Type.Key} is {NullableDirectives.Describe(actual)} in {output.Path}, but {NullableDirectives.Describe(expected)} in the source");
+                throw new InvalidOperationException($"{readPath}: nullable context for {output.Type.Key} is {NullableDirectives.Describe(actual)} in {output.Path}, but {NullableDirectives.Describe(expected)} in the source");
             }
         }
     }
@@ -139,7 +164,7 @@ internal static class OutputVerifier
     /// first, one for one, through <see cref="CountOutputLines"/>.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Thrown when a non-whitespace input line is not preserved across the outputs, when an output line that was not in the prologue appears more times in the outputs than in the input, or when an added line is not a <c>#nullable</c> directive the output holds.</exception>
-    internal static void VerifyLineConservation(string originalPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs)
+    internal static void VerifyLineConservation(string readPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs)
     {
         var sourceText = inputTypes[0].Node.SyntaxTree.GetText().ToString();
         var prologueLines = GetPrologueLines(sourceText, inputTypes);
@@ -151,7 +176,7 @@ internal static class OutputVerifier
             outputLines.TryGetValue(line, out var outputCount);
             if (outputCount < count)
             {
-                throw new InvalidOperationException($"{originalPath}: non-whitespace line was dropped: {line}");
+                throw new InvalidOperationException($"{readPath}: non-whitespace line was dropped: {line}");
             }
         }
 
@@ -160,7 +185,7 @@ internal static class OutputVerifier
             originalLines.TryGetValue(line, out var originalCount);
             if (count > originalCount && !prologueLines.Contains(line))
             {
-                throw new InvalidOperationException($"{originalPath}: non-prologue line was duplicated: {line}");
+                throw new InvalidOperationException($"{readPath}: non-prologue line was duplicated: {line}");
             }
         }
     }

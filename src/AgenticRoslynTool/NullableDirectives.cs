@@ -122,7 +122,7 @@ internal static class NullableDirectives
     /// <returns>The output tree, and every line added to it, so the verifier can tell an added line from a duplicated source line.</returns>
     internal static (CompilationUnitSyntax Root, IReadOnlyList<string> AddedLines) Restore(CompilationUnitSyntax carved, TopLevelType kept, string newLine)
     {
-        var node = TopLevelType.FindByKey(carved, kept.Key).Node;
+        var node = TopLevelType.FindMatch(carved, kept).Node;
         var lines = DirectivesBetween(StateAt(carved, node.SpanStart), SourceStateOf(kept));
         return lines.Count == 0 ? (carved, lines) : (InsertAbove(carved, node, lines, newLine), lines);
     }

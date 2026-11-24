@@ -25,7 +25,7 @@ internal static class DirectiveAnalyzer
     {
         foreach (var file in plan.Files)
         {
-            var newRoot = OutputBuilder.Carve(root, types, file.Type);
+            var newRoot = OutputBuilder.Carve(root, types, file);
             if (ContainsEmptyDirectiveGroup(newRoot.ToFullString()))
             {
                 return true;

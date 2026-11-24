@@ -34,9 +34,10 @@ internal sealed class TopLevelType
     public IReadOnlyList<string> TypeParameters { get; }
 
     /// <summary>
-    /// True when the type is declared with the <c>file</c> modifier. File-local types
-    /// are refused because splitting them across files would change their visibility
-    /// contract.
+    /// True when the type is declared with the <c>file</c> modifier. Such a type never
+    /// leaves its file, and that file is never renamed: the type is visible only there, and
+    /// the compiler builds its metadata name from the file's name. The ordinary types
+    /// beside it may still move out. <see cref="FileLocalTypes"/> decides when.
     /// </summary>
     public bool HasFileModifier => Node switch { BaseTypeDeclarationSyntax type => type.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.FileKeyword)), DelegateDeclarationSyntax type => type.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.FileKeyword)), _ => false, };
 
@@ -67,14 +68,15 @@ internal sealed class TopLevelType
     }
 
     /// <summary>
-    /// Finds the type whose <see cref="Key"/> is <paramref name="key"/> in a tree, such as an
-    /// output after the other types were removed.
+    /// Finds <paramref name="type"/> again in another tree, such as an output after the other
+    /// types were removed. It matches the key and the <c>file</c> modifier, because a kept file
+    /// can hold <c>class Helper</c> beside <c>file class Helper</c>.
     /// </summary>
-    /// <exception cref="InvalidOperationException">Thrown when no type in the tree has that key.</exception>
-    public static TopLevelType FindByKey(CompilationUnitSyntax root, string key)
+    /// <exception cref="InvalidOperationException">Thrown when no type in the tree matches.</exception>
+    public static TopLevelType FindMatch(CompilationUnitSyntax root, TopLevelType type)
     {
-        return Find(root).FirstOrDefault(t => StringComparer.Ordinal.Equals(t.Key, key))
-            ?? throw new InvalidOperationException($"output does not declare {key}");
+        return Find(root).FirstOrDefault(t => StringComparer.Ordinal.Equals(t.Key, type.Key) && t.HasFileModifier == type.HasFileModifier)
+            ?? throw new InvalidOperationException($"output does not declare {type.Key}");
     }
 
     private static IEnumerable<TopLevelType> FromMember(MemberDeclarationSyntax member)

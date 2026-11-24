@@ -19,7 +19,7 @@ namespace AgenticRoslynTool;
 /// family. A <c>#nullable</c> line counts as content there, so it does not empty a group.
 /// Every group the two let through reaches this guard, wherever it sits in or around a
 /// type. Do not describe that set as a list of shapes; review found lists incomplete twice.
-/// See decision 30.
+/// See decision 31.
 /// </remarks>
 internal static class ConditionalNullable
 {
@@ -38,8 +38,8 @@ internal static class ConditionalNullable
 
         foreach (var file in plan.Files)
         {
-            var carved = OutputBuilder.Carve(root, types, file.Type);
-            var kept = TopLevelType.FindByKey(carved, file.Type.Key).Node;
+            var carved = OutputBuilder.Carve(root, types, file);
+            var kept = TopLevelType.FindMatch(carved, file.Type).Node;
             if (CountBefore(carved, kept.SpanStart) != CountBefore(root, file.Type.Node.SpanStart))
             {
                 return true;

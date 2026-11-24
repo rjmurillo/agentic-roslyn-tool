@@ -252,6 +252,10 @@ the intended division of labor.
 > amount of manual work for the possibility of a silent miscompile. The manual tail is
 > cheaper.
 
+Decision 30 amends this one for `file` scoped types. The ordinary types beside one can now
+move, under the refusal rules that decision records. It calls its own argument an
+enumeration, not a proof. The rule above did not change.
+
 ## 14. Exclusions come from the command line, not from the source
 
 **Decision.** `--exclude <path-substring>`, repeatable, empty by default. Matching is case
@@ -1174,7 +1178,208 @@ so the same pair collides on ``Box`1.cs``. `NestedNamespaceTests` pins all of th
 **Reversal warning.** Stop the walk at one level and nested types are copied into every
 output again, at exit code 0, with no guard to stop it.
 
-### Decision 30. The split restates the source's nullable context
+### Decision 30. A file that holds a `file` type is split around it
+
+**Context.** Decision 13 lists `file` scoped types among the inputs refused whole. So a
+file with one `file` helper beside several ordinary types was left whole for a human. No
+count of such files was taken. Three facts were measured before this changed. The build was a scratch project
+on `net10.0` with StyleCop.Analyzers `1.2.0-beta.556`, and only SA1402 and SA1649 enabled.
+
+1. **SA1402 flags a file that holds a `file` class beside another class.** `internal class
+   Alpha`, `file class AlphaHelper`, and `internal class Sibling` in `Alpha.cs` raised
+   SA1402 at lines 8 and 12. After `Sibling` moved out, the warning at line 8 was still
+   there. No split makes such a file SA1402 clean. In these builds SA1402 left alone the
+   class the file is named for, or the first class when none matched, and flagged each
+   other class. Two `file` classes beside `Alpha` raised two warnings, and a `file record`
+   raised one. By default SA1402 checks classes and records only. A `file` struct,
+   interface, enum, or delegate beside one class raised nothing, and so did a `file class`
+   beside one struct.
+2. **Renaming the file changes the `file` type's metadata name.** `typeof(AlphaHelper).FullName`
+   was `Probe.<Alpha>F6987AE8...__AlphaHelper`. After `Alpha.cs` became `AlphaRenamed.cs`
+   it was `Probe.<AlphaRenamed>FD638230...__AlphaHelper`. An edit to the file's text left
+   the name alone.
+3. **SA1649 fires when the `file` type is declared first.** With `file class AlphaHelper`
+   above `internal class Alpha` in `Alpha.cs`, SA1649 reported line 3. That is a condition
+   of the source, and the tool does not fix it.
+
+**Decision.** This amends decision 13. A `file` type no longer refuses the whole input.
+Decision 13's rule stands: the tool splits only what it can prove safe, and never guesses.
+The split is on by default and has no flag.
+
+- A `file` type never leaves its file, and that file is never renamed. `gitMove` is false
+  for these inputs in every phase.
+- The kept type stays with the `file` types, and every other ordinary type moves. If one
+  type that would move fails the check, the whole input is skipped.
+- The keep rule picks the kept type among the ordinary types. When no ordinary type is
+  named for the file, that rule only takes the first one. Then the one ordinary type that
+  names a `file` type is kept instead. This is safe because such a type can never move:
+  keeping it turns a refusal into a split whose moved types all pass the same check. With
+  two such types one would have to move, so the input is skipped.
+- A moved type is refused when any identifier in it equals a `file` type's name. The scan
+  compares the identifier's value, so `@Name` and a Unicode escape match. It reads
+  documentation comments, where a `cref` lives. It matches an attribute written without
+  its `Attribute` suffix. A match counts even when it looks unrelated, because a `file`
+  type hides a same-named type from a namespace or a using directive.
+- Some inputs are refused before any type is chosen to move:
+  - A `file` type declares an extension method or an extension block. These bind with no
+    name at the call site: `foreach`, `await`, deconstruction, collection initializers,
+    and query syntax all do it. No name scan can see that.
+  - A using directive names a `file` type, as an alias or with `using static`. Every
+    output repeats every using directive, and rule 1 forbids pruning them. The check is by
+    name, like the scan: any identifier in a using directive counts, so `using
+    System.Text.Json;` beside `file class Json` is refused too.
+  - An ordinary type, or a type nested in one, names a `file` type in its base list. The
+    compiler allows `class Alpha : IMarker<AlphaHelper>`. `Alpha` stays, so no moved type
+    names the helper. A moved type still gets one, by inference from a generic call that
+    takes the interface. See the next section.
+  - The input holds text a preprocessor directive excludes. The tool parses with no
+    symbols defined, so a scan cannot read that text.
+  - The input holds a `global using` directive. Every output repeats every using
+    directive, and a global alias declared in two files fails the build with CS1537.
+  - A `#line`, `#nullable`, `#pragma`, `#define`, or `#undef` directive sits on or inside
+    a type, or on an assembly attribute. It applies to every line below it. A split removes
+    two things from an output: the types it does not hold, and, from every output but the
+    kept file, the assembly attributes. A directive attached to an assembly attribute
+    leaves with it. So does a `#line`, `#nullable`, or `#pragma` attached to a type.
+    Removing a type keeps a `#define` or `#undef` in every output, but drops an `#if`
+    around it. With `#if !X`, `#define EXTRA`, `[System.Serializable]`, `#endif` on a
+    moved type, the kept file defined `EXTRA` always, and a member under `#if EXTRA`
+    appeared in a build that defines `X`, with no diagnostic. The attribute puts part of
+    the type inside the group. Without it the older `#if` check skips the file. The tool does not tell a guarded one from a plain
+    one, so it refuses both. With `#line
+    100 "Mapped.cs"` above a moved type, a `CallerFilePath` value in the `file` type below
+    it changed from `Mapped.cs` to `Alpha.cs`, with no diagnostic. With `#nullable enable`
+    above an assembly attribute, the moved file lost it and raised CS8632. A directive
+    attached to a using directive or to the namespace keyword stays in every output, so
+    that case still splits. `OutputVerifier` also checks that every output holds the same
+    such directives as the input. That check sees a dropped directive. It does not see a
+    lost `#if` guard, so the refusal is the only guard for that case.
+  - The input declares at most one ordinary type. Nothing can move.
+- The split row's `note` says which `file` types stayed and whether SA1402 still flags
+  the file. The brief asked for a note that says SA1402 still flags it. Finding 1 narrowed
+  that: with default settings the warning needs two classes or records in the kept file.
+  So every note says `SA1402 still flags the file`, and when fewer than two stay it adds
+  `where it checks more than classes`. A note that promised a warning the build never
+  raised would send a caller to suppress nothing. The note carries no path,
+  because the content phase searches notes for collision paths.
+- `OutputVerifier` asks again about the rendered text. One output must be written to the
+  path that was read, and no other output may declare or name a `file` type.
+- A `file` type may sit at any namespace depth. Decision 29 made every such type a type
+  the tool places and scans, so no rule here depends on depth.
+
+The maintainer's brief named the first two refusals in that list. The other five go
+beyond the brief: a base list, excluded text, a global using directive, a state
+directive, and nothing to split. A reviewer on the pull request showed the breaks behind
+the global using and state directive refusals. Both breaks also hit an input with no
+`file` type, where they are older than this change and are listed in `AGENTS.md` as known
+issues. Three more things go beyond the brief. The note
+scopes its SA1402 claim, as above. The SA1402 guide said a `file` type is exempt from
+SA1402, and finding 1 says it is not, so the guide now says so. And `OutputVerifier`
+expected each declaration's text once across the outputs. A `file` type shares the kept
+file with another type, so one text can now hold another: two `file` types written the
+same way, or `class Helper { }` inside `file class Helper { }`. For an input with a `file`
+type the check now expects each text as often as the input holds it. Other inputs still
+expect one. The kept type exception was allowed by the brief, not required.
+
+**Why these refusals, and what they do not prove.** A moved type can come to depend on a
+`file` type in three ways that were found and tested.
+
+1. It writes the name, in a body, an attribute, a base list, or a comment. The name scan
+   refuses it.
+2. It uses an extension member that a `file` type declares. No name appears at the call
+   site, so the input is refused outright.
+3. It infers the type from the type that stays. `class Alpha : IMarker<AlphaHelper>` beside
+   `static T Make<T>(IMarker<T> marker)` lets a moved type write `Maker.Make(new Alpha())`
+   and hold an `AlphaHelper`. In one file a call on that value bound to the helper's own
+   method. In two files it bound to an extension method on `object`, with no diagnostic.
+   A test program printed `Value=1` before the split and `Value=2` after. So a base list
+   that names a `file` type is refused outright, in the type that stays and in any type
+   nested in it.
+
+The first version of this decision claimed the name scan alone was enough. Review found
+the third way after that claim was written. So this is an argument by enumeration, and
+not a proof that no fourth way exists.
+
+The compiler closes the other places where a `file` type could sit on the surface of an
+ordinary type. Each was observed in a scratch build. CS9051 forbids one in a member
+signature, a constraint, an event, a delegate, and a primary constructor. CS9053 forbids
+one in the base class of an ordinary type, and in the interfaces of an ordinary interface.
+CS9071 forbids two types of one name in one namespace of one file. Two namespace blocks of
+one file may each hold a type of that name, and the name scan refuses a moved one.
+
+A binding made through a symbol is not a lookup by name. A `file` class named in a
+`CollectionBuilder` attribute was still bound from another file. That is one observation,
+not a survey of every attribute the compiler reads. `FileLocalPremiseTests` pins the
+compiler rules, that observation, and the inference case, so a compiler that relaxes one
+fails a test.
+
+**Rejected.** Moving the `file` type with the types that use it: the new file has a new
+name, so the metadata name changes. An opt in flag: a first run would still skip every
+such file, and the checks are the same either way. A semantic model: decision 1. Reading the
+excluded text of an `#if`: it means parsing once for each symbol set, and the tool does
+not know the sets. Refusing a global using alias only: a plain one was not shown to break,
+but it too is repeated project wide, and the narrower rule saves little. Copying a state
+directive into each output in place of refusing: that writes source the caller did not
+ask for. Today the tool adds only the header a caller passes with `--require-header`.
+
+**Consequences.** This is a breaking change to default results. A file that was `skipped`
+with `contains file-local type; manual split required` is now `split`, or `skipped` with
+one of eight new reasons, or with any reason that applies to an ordinary input, such as a
+`#region` over two types. That old reason is gone. Such a file can also end `failed`, as any ordinary input can. One known
+case: the ownership check counts text, so a type with three blank lines in a row in its
+body fails that check at plan time, and nothing is written. That defect is older than
+this change and `AGENTS.md` lists it. When the kept type is a class or record,
+one SA1402 warning stays for each `file` class or record, and a person must suppress it. The scan is conservative,
+so some safe inputs are skipped: a moved type that merely has a member named like the
+`file` type, any input with an `#if` branch the parse excludes, a balanced `#pragma
+warning disable` and `restore` pair inside one type, and a plain `global using` of a
+namespace. The evidence for the last covers aliases only: an alias in two files failed
+with CS1537, and a namespace in two files built clean. How many inputs each refusal still
+skips was not measured.
+
+One hole is known and is not closed here. A `file` modifier inside an excluded `#if`
+branch is never seen, so that type is planned as an ordinary one. `AGENTS.md` lists it
+under known issues.
+
+**Reversal warning.** The first nine items were each tested by removing the rule and
+compiling what the split would then write. Tests pin the last three without a compile.
+
+- Let the keep rule rename the file, and the `file` type's metadata name changes with no
+  error. Reflection, logs, and serialized type names all read that name.
+- Drop the name scan, and a moved type that uses the `file` type stops compiling. When
+  another namespace holds a type of the same name, it compiles clean and binds to that
+  type instead. `FileLocalNameScanTests` shows the binding change.
+- Drop the extension refusal, and `foreach (var item in 3)` over a `file` class's
+  `GetEnumerator` extension stops compiling in the new file. No identifier names the class.
+- Drop the using refusal, and the new file carries an alias to a type it cannot see.
+- Drop the excluded text refusal, and the split compiles in one configuration and breaks
+  in another.
+- Compare raw token text in place of the identifier's value, and `@AlphaHelper` passes
+  the scan.
+- Drop the base list refusal, and a moved type infers a `file` type from the type that
+  stays. A call on it then binds to another method with no diagnostic.
+  `FileLocalPremiseTests` shows the binding change.
+- Drop the global using refusal, and the split writes a global alias into two files. The
+  build fails with CS1537.
+- Drop the state directive refusal, and a `#line`, `#nullable`, `#pragma`, `#define`, or
+  `#undef` directive leaves a file with the assembly attribute it is attached to. The
+  first three also leave with a type. `OutputVerifier` then fails that row, so nothing is
+  written, but the row ends `failed` in place of `skipped`. A `#define` or `#undef` on a
+  type stays and loses its `#if` guard. The verifier does not see that, so the split is
+  written, and a member under `#if` appears or vanishes with no diagnostic.
+- Let the kept type exception apply when the file is named for a type, and that type
+  moves out to a file of its own name, which is the file being read.
+- Drop the check in `OutputVerifier`, and a planning mistake reaches disk. The planner is
+  then the only guard.
+- Reword the start of the note, and the packaged agent documents stop matching it.
+  `PackagedAgentDocsTests` fails on that.
+
+Re-check this argument when the C# language version or the Roslyn package changes. The tool
+parses with the preview language version, so new syntax parses with no error. A new way to
+bind to a type with no name at the use site needs a new refusal here. Extension blocks in
+C# 14 were one.
+
+### Decision 31. The split restates the source's nullable context
 
 **Context.** A `#nullable` directive sits in the leading trivia of the type below it, or
 inside a type's body. Each output removes every other type with its trivia. With
@@ -1209,11 +1414,18 @@ The `KeepDirectives` result was observed on Microsoft.CodeAnalysis.CSharp 5.9.0.
 
 **Consequences.** A file that split before still splits, with one exception. A file
 with a `#nullable` under `#if` before a type that lands in another file is now skipped,
-in any branch, even `#if false`, since the parse cannot tell a dead branch from an
-undefined symbol. Two older guards refuse some of these files first, with their own
-reasons; the rest get the new one. A new file can gain a `#nullable` line no source
-line matches, which is the point. Files with no `#nullable` directive, or with one above the namespace, split
-byte for byte as before.
+in any branch, even `#if false`. The parse can tell `#if false` from an undefined
+symbol, but the guard does not read the condition: it counts every `#nullable` under
+`#if`, which keeps the rule simple and fails safe. Two older guards refuse some of these
+files first, with their own reasons; the rest get the new one. A new file can gain a
+`#nullable` line no source line matches, which is the point. Files with no `#nullable`
+directive, or with one above the namespace, split byte for byte as before.
+
+`Restore` restates the context of the type each output is named for. Decision 30 lets a
+kept file also hold `file` types, but it refuses any such input with a `#nullable` on or
+inside a type, so `Restore` adds no line to one. `FileLocalKeptFileRefusalTests` pins
+that an unchecked split of such an input still breaks where the kept file's `file` type
+loses the context.
 
 The context check reads each output's body, before any `--require-header` banner, as
 line conservation does. A banner that holds a `#nullable` line changes every new file's
@@ -1224,7 +1436,8 @@ Each type asks about the same source tree, so `SourceDirectives` lists a tree's
 directives once and caches the list on the root. Walking the tree for each type took
 54.5s against 6.1s on main for one file of 1800 types with a `#pragma` each.
 `ConditionalNullable` also skips its carve when the source holds no `#nullable` under
-`#if`. With both, that file plans in about the time main takes.
+`#if`. With both, that file plans in about the time main takes. A file that does hold
+such a directive still carves each output once more, so it plans more slowly than main.
 
 Three gaps remain and are recorded in `AGENTS.md` under known issues: a `#pragma`
 directive, a source named as generated code, and a `// <auto-generated/>` comment. Each

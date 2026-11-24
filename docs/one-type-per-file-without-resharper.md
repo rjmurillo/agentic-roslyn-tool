@@ -230,7 +230,9 @@ The tool skips a file and records the reason in the manifest and the report when
 file safely. The common cases:
 
 - The file has top-level statements.
-- The file has a `file`-local type.
+- A type that would move uses a `file`-local type. The `file` type itself always stays in
+  its file, and the other types move out when none of them uses it. See
+  [fix-sa1402-whole-repo.md](fix-sa1402-whole-repo.md#files-that-hold-a-file-type).
 - An `#if` or `#region` block spans more than one type, so a split would break it apart.
 - An `#if` or `#region` has no matching end directive.
 - A split would leave an empty `#if` or `#region` block behind.

@@ -513,8 +513,25 @@ Reason text shown in italics is a template; the run substitutes real values.
 | Parse produced an error diagnostic | failed | `input has syntax errors: <diagnostics>` |
 | File has top level statements | skipped | `contains top-level statements; manual split required` |
 | One type or fewer | skipped | `nothing to split: input has <n> top-level type declaration(s)` |
-| Any `file` scoped type | skipped | `contains file-local type; manual split required` |
+| A `file` type and at most one other type | skipped | `nothing to split: file-local types stay in their file and at most one other type is declared` |
+| A `file` type, and text an `#if` excludes anywhere in the file | skipped | `file-local type shares the file with conditionally excluded text; manual split required` |
+| A `file` type, and a `global using` directive | skipped | `file-local type shares the file with a global using directive; manual split required` |
+| A `file` type, and a `#line`, `#nullable`, `#pragma`, `#define`, or `#undef` directive on or inside a type, or on an assembly attribute | skipped | `file-local type shares the file with a #line, #nullable, #pragma, #define, or #undef directive on or inside a type or on an assembly attribute; manual split required` |
+| A `file` type declares an extension method or an extension block | skipped | `file-local type declares extension members; manual split required` |
+| Any identifier in a using directive equals a `file` type's name | skipped | `using directive names a file-local type; manual split required` |
+| An ordinary type, or a type nested in one, names a `file` type in its base list | skipped | `type lists a file-local type among its base types; manual split required` |
 | Anything else that throws while handling one input | failed | the exception message |
+
+The seven `file` rows apply in the order shown, and the first that holds decides the reason.
+The last three put the type's name in the row's `note`, for example `Numbers declares
+extension members`. The directive row puts the directive and its line there, for example
+`#line directive at line 7`. A directive attached to a using directive or to the namespace
+keyword belongs to no type, so every output repeats it and this refusal does not apply. One
+attached to an assembly attribute is refused, because only the kept file keeps those. A
+`#define` or `#undef` attached to a type is refused too. Removing a type keeps it in every
+output, but drops an `#if` around it, and the tool does not tell the two cases apart. An eighth `file` reason comes from
+`BuildPlan`, described under
+[File-local types](#file-local-types).
 
 The `stale plan:` rows are the exception to "before parsing" in one phase. The content
 phase applies its three straight after the read. The renames phase computes its plan row
@@ -598,6 +615,54 @@ original file name. The same reason covers two manifest rows that resolve to one
 Under `metadata`, differing by type parameter names is not enough: `Box<T>` and `Box<U>`
 share ``Box`1.cs`` and are refused this way.
 
+### File-local types
+
+A type declared with the `file` modifier never leaves its file, and that file is never
+renamed. The type is visible only in that file, and the compiler builds its metadata name
+from the file's name. The ordinary types beside it may move out. Decision 30 records the
+measurements behind each rule here.
+
+- **No rename, in any phase.** The kept path is the input path and `gitMove` is false. A
+  manifest row edited to plan a rename is never applied. When the file was also renamed
+  by hand, the content phase skips the row with `content phase plan does not match
+  manifest`. When it was not, the row is `failed` with `Content phase expected renamed
+  file at <path>`. Ignore that message's advice to run the renames phase: it performs no
+  rename for such an input. Re-run the plan.
+- **The plan is made over the ordinary types.** The keep rule picks the kept type among
+  them. Every other ordinary type moves. The `file` types stay in the kept file.
+- **One exception to the keep rule.** When no ordinary type is named for the file, the keep
+  rule only takes the first one. If exactly one ordinary type names a `file` type, that
+  type is kept instead, because it can never move.
+- **A moved type that names a `file` type refuses the input.** The row is `skipped` with
+  `moved type names a file-local type; manual split required`, and its `note` names both,
+  for example `Caller names AlphaHelper`. Any identifier counts: one in a method body, a
+  type argument, an attribute written without its `Attribute` suffix, `nameof`, or a
+  `cref` in a documentation comment. The scan compares the identifier's value, so
+  `@AlphaHelper` matches. It is a scan by name only. A member that merely shares the name
+  refuses the input too.
+- **The split row carries a note.** It starts `file-local type stayed in this file:
+  <names>`, or `file-local types` for more than one. Every note then says `; SA1402 still flags the file`. That is the
+  whole claim when the kept file holds two or more classes or records, which is what SA1402
+  checks by default. Otherwise the note scopes it: `; SA1402 still flags the file where it
+  checks more than classes`. When the keep rule would have renamed the file, the note adds `; the file
+  keeps its name because a rename changes a file-local type's metadata name`. Any
+  directive note or collision note follows after ` | `. Callers may match on the leading
+  `file-local type`. A content retry reports the row as `already applied` with no note, so
+  read the note from the plan manifest.
+
+The split leaves the file with more than one type, so SA1402 can still report it. See
+[fix-sa1402-whole-repo.md](fix-sa1402-whole-repo.md#files-that-hold-a-file-type) for how
+to suppress that warning.
+
+A `file` type may sit at any namespace depth. It still stays in the kept file, and a type
+in a nested namespace is scanned like any other.
+
+Nothing else about the workflow changes. The row carries a content hash, and the content
+phase refuses a changed file as `stale plan:`. A retry reports the row as `already
+applied`. A moved type takes its name from `--file-naming`, and a colliding one from
+`--collision-naming`. Verified by the nine `FileLocal*Tests` classes. Eight of them compile
+source with the C# compiler, because a parse cannot show a binding.
+
 ### VerifyOutputs
 
 Runs before `WriteOutputs`. Throws, and the file is recorded `failed` and never written,
@@ -606,9 +671,21 @@ when any of these hold:
 - An output does not start with the required header, when `--require-header` is set.
 - An output does not parse.
 - A type's declaration plus its owned trivia appears in more than one output, or in none.
+  For an input that declares a `file` type the count is not fixed at one: each text is
+  expected as often as the input itself holds it, because one declaration's text can sit
+  inside another's in the kept file.
 - The set of top level types across all outputs does not equal the input set.
 - An output's own type reads a different nullable context in the output body than in the
   source. The body is parsed again, before any `--require-header` banner.
+- The input declares a `file` type, and no output is written to the path that was read.
+  That would be a rename.
+- The input declares a `file` type, and an output does not hold the same `#line`,
+  `#nullable`, `#pragma`, `#define`, and `#undef` directives as the input, in order. This
+  does not see a lost `#if` around a `#define` or `#undef` that stayed. The refusal in
+  `FileLocalDirectives.DescribeRefusal` is the only guard for that.
+- The input declares a `file` type, and an output for another path declares one or names
+  one. `BuildPlan` refuses these inputs first, so this fails a row only after a planning
+  mistake.
 
 ### Nullable context
 
@@ -618,7 +695,10 @@ carried; `AGENTS.md` lists them as known issues. A `#nullable` directive
 travels with the type whose trivia or body holds it, so a type that followed it in the
 source can land in a file that never sets it. After the other types are removed,
 `NullableDirectives.Restore` folds the active `#nullable` directives up to each kept type,
-in the source and in the output, and adds the fewest lines that close the gap:
+in the source and in the output, and adds the fewest lines that close the gap. It does
+this for the type each output is named for. A kept file can also hold `file` types, but
+`FileLocalDirectives` refuses any such input with a `#nullable` on or inside a type, so
+`Restore` never adds a line there:
 
 - One `#nullable enable`, `disable`, or `restore` line when annotations and warnings end
   equal. Otherwise one line per setting that changes, with an `annotations` or `warnings`

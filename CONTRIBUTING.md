@@ -10,12 +10,12 @@ orientation for a human too.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 400 passed, 0 failed
+dotnet test  -c Release      # must be 510 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on. A warning fails the build. There is no separate lint step.
 
-The .NET SDK is pinned in `global.json` to 10.0.403 with `rollForward: latestMinor`, so
+The .NET SDK is pinned in `global.json` to 10.0.404 with `rollForward: latestMinor`, so
 any 10.0 SDK at or above that version works, including a later minor band such as 10.1.
 An 11.0 SDK does not.
 
@@ -97,7 +97,9 @@ git push origin v0.2.0
 A release that carries a breaking change bumps the minor version while the major is 0.
 `--generate-notes` lists pull request titles only, so edit the release notes to name each
 break and its recovery step. Decisions 22, 23, 25, and 26 hold the wording: re-run the plan, and pass
-`--phase` or `--dry-run` explicitly.
+`--phase` or `--dry-run` explicitly. Decision 30 holds one more: the skip reason `contains
+file-local type; manual split required` is gone. Match the reasons in the skip tables of
+`docs/behavior-contracts.md`. Such a file can also end `failed` now, which exits 1.
 
 The same workflow also runs from `workflow_dispatch`, so a release can be cut without
 pushing a tag. It takes a `version` input and a `push_nuget` toggle. Run it with

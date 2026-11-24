@@ -59,7 +59,7 @@ internal static class OutputBuilder
 
     /// <summary>
     /// Materializes the in-memory output text for every planned file. For each planned
-    /// output, all other top-level types are removed with
+    /// output, every top-level type it does not hold (see <see cref="PlannedFile.Holds"/>) is removed with
     /// <c>SyntaxRemoveOptions.KeepUnbalancedDirectives</c> to prevent orphaned
     /// preprocessor tokens, assembly-level attributes are cleared on non-kept outputs
     /// (attributes stay only in the kept file), and the tree is run through
@@ -75,7 +75,7 @@ internal static class OutputBuilder
         var outputs = new List<OutputFile>();
         foreach (var file in plan.Files)
         {
-            var newRoot = Carve(root, types, file.Type);
+            var newRoot = Carve(root, types, file);
             if (!file.IsKept)
             {
                 newRoot = newRoot.WithAttributeLists(default);
@@ -94,15 +94,16 @@ internal static class OutputBuilder
     }
 
     /// <summary>
-    /// Removes every type but <paramref name="kept"/> from the source tree, keeping any
-    /// directive left unbalanced. <see cref="BuildOutputs"/>,
+    /// Removes every type <paramref name="file"/> does not hold from the source tree, keeping
+    /// any directive left unbalanced. <see cref="PlannedFile.Holds"/> decides, so the kept file
+    /// keeps its <c>file</c> types. <see cref="BuildOutputs"/>,
     /// <see cref="DirectiveAnalyzer.ProducesEmptyDirectiveShell"/>, and
     /// <see cref="ConditionalNullable.IsDropped"/> carve through here, so those guards judge
     /// the same tree the output is built from.
     /// </summary>
-    internal static CompilationUnitSyntax Carve(CompilationUnitSyntax root, IReadOnlyList<TopLevelType> types, TopLevelType kept)
+    internal static CompilationUnitSyntax Carve(CompilationUnitSyntax root, IReadOnlyList<TopLevelType> types, PlannedFile file)
     {
-        var remove = types.Where(t => !ReferenceEquals(t, kept)).Select(t => t.Node).ToArray();
+        var remove = types.Where(t => !file.Holds(t)).Select(t => t.Node).ToArray();
         return root.RemoveNodes(remove, SyntaxRemoveOptions.KeepUnbalancedDirectives) ?? root;
     }
 

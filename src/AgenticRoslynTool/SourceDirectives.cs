@@ -12,7 +12,7 @@ namespace AgenticRoslynTool;
 /// each time made a file with many types take time that grew with the square of its type
 /// count: 54.5s against 6.1s on main for 1800 types with a <c>#pragma</c> each. So each
 /// tree's directives are listed once and kept, keyed weakly on the root, which lets a tree
-/// and its list be collected together. See decision 30.
+/// and its list be collected together. See decision 31.
 /// </remarks>
 internal static class SourceDirectives
 {

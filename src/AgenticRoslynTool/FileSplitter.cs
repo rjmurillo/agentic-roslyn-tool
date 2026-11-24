@@ -10,7 +10,7 @@ namespace AgenticRoslynTool;
 /// Core engine of the <c>split-types</c> command. Given a list of C# files that
 /// declare more than one top-level type, it computes a per-file split plan, verifies
 /// it against a set of correctness invariants, and (in the content phase) writes one
-/// output file per top-level type. All parsing and rewriting go through the Roslyn
+/// output file per ordinary top-level type. A <c>file</c> type stays in the kept file. All parsing and rewriting go through the Roslyn
 /// Syntax API; no semantic model is used.
 /// </summary>
 /// <remarks>
@@ -58,7 +58,7 @@ internal sealed class FileSplitter
 
     /// <summary>
     /// Reason recorded when a split would drop a <c>#nullable</c> directive under <c>#if</c>
-    /// that sets a type's context. See decision 30.
+    /// that sets a type's context. See decision 31.
     /// </summary>
     internal const string ConditionalNullableReason = "a #nullable directive under #if sets a type's context and the split would drop it; manual split required";
 
@@ -492,9 +492,11 @@ internal sealed class FileSplitter
             return FileResult.Skip(originalPath, readPath, $"nothing to split: input has {types.Length} top-level type declaration(s)");
         }
 
-        if (types.Any(t => t.HasFileModifier))
+        // A file-local type stays where it is. This refuses the inputs no choice of kept
+        // type could make safe. BuildPlan refuses the rest, once it knows which types move.
+        if (FileLocalTypes.DescribeRefusal(types) is { } fileLocalRefusal)
         {
-            return FileResult.Skip(originalPath, readPath, "contains file-local type; manual split required");
+            return FileResult.Skip(originalPath, readPath, fileLocalRefusal.Reason) with { Note = fileLocalRefusal.Note };
         }
 
         var directiveSafety = DirectiveAnalyzer.AnalyzeDirectiveSafety(root, types);

@@ -24,8 +24,8 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 43 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 400 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 46 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 510 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -40,13 +40,16 @@ Every source file, so you do not have to open one to find out whether it matters
 
 | File | Responsibility |
 |---|---|
-| `FileSplitter.cs` | The orchestrator. Runs a phase over the inputs and turns one input into one result row. Delegates the actual work to `InputSource`, `SplitPlanner`, `DirectiveAnalyzer`, `ConditionalNullable`, `OutputBuilder`, `OutputVerifier`, and `WorkspaceWriter`, and the plan binding to `PlanBinding.cs`. Read this first. |
+| `FileSplitter.cs` | The orchestrator. Runs a phase over the inputs and turns one input into one result row. Delegates the actual work to `InputSource`, `SplitPlanner`, `DirectiveAnalyzer`, `FileLocalTypes`, `ConditionalNullable`, `OutputBuilder`, `OutputVerifier`, and `WorkspaceWriter`, and the plan binding to `PlanBinding.cs`. Read this first. |
 | `InputSource.cs` | Turns whatever the caller supplied, a directory, a list file, a manifest, standard input, into an ordered list of absolute paths. |
 | `SplitPlanner.cs` | Decides what a split would do: which type stays, where each moved type lands, which inputs collide, which path a phase reads. Does not act. |
 | `DirectiveAnalyzer.cs` | Decides whether preprocessor directives make a split unsafe. Returns a verdict, never acts on one. |
+| `FileLocalTypes.cs` | Decides what a split may do with an input that declares a `file` type: the refusals, the kept type, the row's note, and the check on rendered outputs. Returns a verdict, never acts on one. Read decision 30 before changing it. |
+| `FileLocalDirectives.cs` | Refuses an input with a `file` type when a directive would make the split change what a file means, or break the build around it: a `global using`, or a `#line`, `#nullable`, `#pragma`, `#define`, or `#undef` on or inside a type or on an assembly attribute. Also tells the verifier whether an output kept every such directive. Returns a verdict, never acts on one. |
+| `FileLocalNames.cs` | The name scan behind `FileLocalTypes.cs`: says whether a type, a using directive, or a rendered output names a `file` type. Matches by name alone, on purpose. |
 | `OutputBuilder.cs` | Renders the text of every output file: name, carved source, required header, trailing newline. |
 | `OutputVerifier.cs` | The correctness checks, run against in-memory outputs before anything is written. A failure here means nothing reaches disk. |
-| `NullableDirectives.cs` | Folds `#nullable` directives into the context at a point, and restates a kept type's source context in an output that lost it. Read decision 30 first. |
+| `NullableDirectives.cs` | Folds `#nullable` directives into the context at a point, and restates a kept type's source context in an output that lost it. Read decision 31 first. |
 | `ConditionalNullable.cs` | Decides whether a split would drop a `#nullable` under `#if`, which no unconditional line can restate. Returns a verdict, never acts on one. |
 | `SourceDirectives.cs` | Lists a tree's preprocessor directives once and caches the list on the root, so a split walks the source tree once, not once per type. |
 | `WorkspaceWriter.cs` | The only place the tool touches the working tree. Every rename runs through `git mv`; every write preserves encoding and byte order mark. |
@@ -68,9 +71,9 @@ Every source file, so you do not have to open one to find out whether it matters
 | `PlanMismatch.cs` | Words the note for a content phase row that disagrees with its manifest: the other `--file-naming` name, or what differs in the plan shape. |
 | `KeptRenameCollisions.cs` | Decides which planned kept file renames stand. Gives a rename target to the first input that claims it, and holds the renames phase to the renames the manifest plans. |
 | `EncodedSource.cs` | Reads bytes into text while capturing encoding, byte order mark, and newline style, then writes them back unchanged. |
-| `TopLevelType.cs` | One top level type declaration plus the file name it maps to. |
+| `TopLevelType.cs` | One top level type declaration plus the file name it maps to. `HasFileModifier` marks a `file` type. |
 | `SplitPlan.cs` | The decision for one input: keep, rename, split, or refuse. |
-| `PlannedFile.cs` | One output file inside a plan, before content is rendered. |
+| `PlannedFile.cs` | One output file inside a plan, before content is rendered. `Holds` says which types an output declares: its own, and in the kept file every `file` type. |
 | `PlannedOutputEntry.cs` | A planned output path paired with its owning input, used for cross file collision detection. |
 | `OutputFile.cs` | Rendered output. `BodyText` excludes any injected header; `Text` includes it. `AddedLines` lists the `#nullable` lines the tool restated. |
 | `BlankLineCollapser.cs` | Collapses the blank line runs left behind when a type is removed. |
@@ -92,13 +95,13 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 400 passed, 0 failed
+dotnet test  -c Release      # must be 510 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
 is on as well. There is no separate lint step to run.
 
-The SDK is pinned in `global.json` to 10.0.403 with `rollForward: latestMinor`. The
+The SDK is pinned in `global.json` to 10.0.404 with `rollForward: latestMinor`. The
 target framework is `net10.0`, set once in `Directory.Build.props`.
 
 ### End to end smoke test
@@ -192,6 +195,20 @@ weight.
     `split-types` command and each backticked flag fragment through `Options.Parse`. It
     proves the commands still parse, not that the two files agree in prose. Rename or
     remove a flag and update both files in the same change. See decision 28.
+
+16. **A `file` type never leaves its file, and that file is never renamed.** The type is
+    visible only there, and the compiler builds its metadata name from the file's name.
+    `gitMove` is false for such an input in every phase. An ordinary type moves out only
+    when no identifier in it equals a `file` type's name. An input is refused outright
+    when a `file` type declares extension members, when a using directive names one,
+    when a type names one in a base list, when an `#if` excludes text the scan cannot
+    read, when the file has a `global using` directive, or when a `#line`, `#nullable`,
+    `#pragma`, `#define`, or `#undef` directive sits on or inside a type or on an assembly
+    attribute. Never relax the name scan to "looks
+    unrelated": a `file` type hides a same-named type from another namespace, and the
+    moved code would compile clean against that other type. `OutputVerifier` checks the
+    rendered text again. The `FileLocal*Tests` classes pin each rule by compiling. See
+    decision 30.
 
 ## Conventions for anything you write
 
@@ -311,6 +328,12 @@ agent does not pay again.
   leave out a planned rename. See decision 24 and the known issue below. `nextArgs`
   repeats `--file-naming metadata` for the next phase, because the manifest does not
   record it; see decision 27.
+- **`new UTF8Encoding(false)` has an empty preamble.** `WriteEncoded` takes the byte
+  order mark from `GetPreamble`, so a UTF-8 source read with that encoding lost its mark
+  on every output. The UTF-8 mark branch in `EncodedSource` must pass `true`. The no mark
+  branch must stay `false`. `WriteEncoded` reads `EmitPreamble` and `GetPreamble` apart,
+  so the two must agree. The round trip rows in `ByteOrderMarkRoundTripTests` check that
+  they agree on every branch, and compare every written byte.
 - **A backtick in a path is escaped in `--json` output.** ``Foo`1.cs`` is written as
   `Foo\u00601.cs`. Parse the JSON before you search it for a file name. The CSV manifest
   holds the character itself.
@@ -430,20 +453,91 @@ agent does not pay again.
   `NullableDirectiveTriviaSyntax` with `IsActive` false. Walk directives, not text, to
   find one.
 
+- **A parse proves nothing about a `file` type.** `OutputVerifier` only parses, and a moved
+  type that names a `file` type parses fine. Compile the source before and after with
+  `FileLocalCompiler`, and give every tree its real path: the compiler builds a `file`
+  type's metadata name from that path, so a tree with no path cannot show a rename.
+- **A refusal test must also compile what the refusal prevents.** A test that only asserts
+  the skip reason passes whether or not the refusal is needed.
+  `FileLocalCompiler.SplitUnchecked` builds the outputs with no refusal in the way. The
+  shadowing case compiles clean and binds to another type, so assert on the bound symbol
+  there, not on diagnostics.
+- **StyleCop SA1402 does not exempt a `file` type.** This repository's SA1402 guide said it
+  did. A build with StyleCop.Analyzers `1.2.0-beta.556` flagged a `file class` and a `file
+  record` beside another class. By default it checks classes and records only: a `file`
+  struct, interface, enum, or delegate beside one class raised nothing, and so did a
+  `file class` beside one struct. The row's note follows that count, so do not reword it
+  to promise a warning. Measure a StyleCop claim in a scratch project before you write it
+  down.
+- **A name scan of the moved types was not enough for a `file` type.** `class Alpha :
+  IMarker<AlphaHelper>` compiles, and `Alpha` stays, so no moved type names the helper.
+  A moved type still got one by generic inference, and a call on it bound to another
+  method with no diagnostic. Review found this in round four. Before you relax a refusal
+  in `FileLocalTypes`, ask how the type that stays can hand a `file` type to another file.
+  `FileLocalPremiseTests` pins the compiler rules that close the other ways.
+- **"Above the namespace" is not one place.** A directive there is attached to whatever
+  token follows it. Attached to a `using` or to the `namespace` keyword, every output keeps
+  it. Attached to an `[assembly: ...]` attribute, only the kept file does, because
+  `OutputBuilder` clears attribute lists on every other output. A refusal written for
+  "on or inside a type" missed that. Reason from what `BuildOutputs` removes, not from
+  where a line sits on the page.
+- **An extension block is a `TypeDeclarationSyntax`.** `OfType<TypeDeclarationSyntax>()`
+  returns it beside the classes, with an empty identifier. Find it by
+  `SyntaxKind.ExtensionBlockDeclaration`.
+- **Keep paths out of a row's note unless the collision pass wrote them.** The content
+  phase searches `planned.Note` for a collision name. The `file` type note carries type
+  names only for that reason.
+
 ## Known issues, not yet fixed
 
 Recorded so nobody rediscovers them and nobody assumes they are intentional.
 
-- A `#pragma warning` directive above one type still travels only with that type. A later
-  type's new file loses the suppression. Only `#nullable` is restated; see decision 30.
+- The ownership check counts text, so some valid inputs end `failed` at plan time. A type
+  with three blank lines in a row inside its body is one: the blank line collapse rewrites
+  the body, and the check then finds the original text zero times. A comment above the
+  first type that repeats a one line declaration is another: every output repeats the
+  comment. Nothing is written in either case. This is true with or without a `file` type.
+  An input with a `file` type used to be skipped before this check ran, and now reaches
+  it like any other input.
+
+- A `#line` or `#pragma` directive placed above one type travels only with that type. A
+  `#define` or `#undef` there is different: removing a type keeps it in every output, but
+  drops an `#if` around it. With `#if !X`, `#define EXTRA`, `[System.Serializable]`,
+  `#endif` above the first type, the second type's file defined `EXTRA` always. The
+  attribute line matters: with no part of the type inside the group, the file is skipped
+  with `#if group at line 1 crosses top-level type boundaries`. Any of these placed above
+  an `[assembly: ...]` attribute stays in the kept file only, because every other output
+  drops those attributes. With `#line 100 "Mapped.cs"` above the second of three types, a
+  `CallerFilePath` value in the third type changed from `Mapped.cs` to the new file's
+  name, with no diagnostic. The directive sits in the leading trivia of the type below
+  it, and each output removes every other type with its trivia. A `#nullable` directive
+  is the exception: since decision 31 each output restates the context its type had. An
+  input with a `file` type is refused for all of these. Every other input still splits.
+
 - A source file whose name Roslyn reads as generated code, such as `Foo.g.cs`, has
   nullable off by default. Its new files take ordinary names, so the project default
   applies to them instead. `NullableDirectives` treats "no directive" as the same default
   on both sides, so it does not add a `#nullable disable` for this.
-- A `// <auto-generated/>` comment above the first type is that type's trivia, so only
-  its file keeps it. The compiler reads such a comment as generated code and turns
-  nullable off for the whole file. The other new files lose that, as they did before
-  decision 30. `NullableDirectives` folds directives only, so it cannot see this.
+
+- A `#warning` or `#error` directive above the namespace is copied into every output, so
+  a build reports it once for each new file. This is true with or without a `file` type.
+
+- A `// <auto-generated/>` comment directly above the first type travels only with that
+  type. The compiler reads that comment as a mark of generated code, and it reports no
+  nullable warnings there. With the comment above a moved type, the kept file lost it,
+  and a `file` type in that file raised CS8618 where it raised nothing before. This is
+  true with or without a `file` type. A comment above a `using` line or the `namespace`
+  line reaches every output. `--exclude` keeps generated files out of a run.
+  `NullableDirectives` folds directives only, so decision 31 cannot restate this.
+
+- A `global using` alias is copied into every output, like any using directive. The next
+  build fails with CS1537, because a global alias may be declared once in a project. An
+  input with a `file` type is refused for this. Every other input still splits.
+
+- A `file` modifier inside an excluded `#if` branch is not seen. In `#if X` / `file` /
+  `#else` / `internal` / `#endif` / `class Maybe`, the parse reads `Maybe` as `internal`
+  and the tool moves it. A build that defines `X` then has a `file` type in a new file.
+  The refusal for excluded text applies only once the parse has found a `file` type.
 
 - The header probe matches a multi-line banner literally, so an existing banner whose
   internal lines carry trailing spaces or tabs is not recognized and a second copy is

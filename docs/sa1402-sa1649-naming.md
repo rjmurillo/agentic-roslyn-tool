@@ -320,6 +320,40 @@ allows several parts of one partial type in one file, and the build raised no SA
 `Order.cs`. Any other pair that maps to one file name, such as two `Shared` classes in two
 namespace blocks of one file, needs a manual split.
 
+## A `file` type in the file
+
+The tool never renames a file that declares a `file` type. The compiler builds that type's
+metadata name from the file's name, so a rename changes it. In one build,
+`typeof(AlphaHelper).FullName` was `Probe.<Alpha>F6987AE8...__AlphaHelper` in `Alpha.cs`,
+and `Probe.<AlphaRenamed>FD638230...__AlphaHelper` after the file became
+`AlphaRenamed.cs`. So two SA1649 cases stay as they were before the split. Both were
+measured with StyleCop.Analyzers `1.2.0-beta.556`.
+
+* **The `file` type is declared first.** SA1649 compares the file name with the first
+  type. With `file class AlphaHelper` above `internal class Alpha` in `Alpha.cs`, the build
+  reported SA1649 at line 3. The tool does not reorder types. Move the `file` type below
+  the ordinary one by hand: with `Alpha` first, the same build raised no SA1649.
+* **No type is named for the file.** `Widgets.cs` held `file class WidgetHelper` and
+  `internal class Gadget`, and the build reported SA1649. The tool skips that file, since
+  one ordinary type leaves nothing to move. With a second ordinary type it splits. Without
+  a `file` type it would also rename the file for its kept type. Here it keeps
+  `Widgets.cs`, and the split row's `note` ends with `the file keeps its name because a rename changes a file-local type's
+  metadata name`. The same holds under `--file-naming metadata`: `Foo<T>` beside a `file`
+  type stays in `Foo.cs`, where the convention expects ``Foo`1.cs``.
+
+Rename such a file by hand only when nothing reads the `file` type's metadata name.
+Reflection, logs, and serialized type names can all read it. Otherwise suppress SA1649
+for that file, with the same `.editorconfig` section shown
+[above](#fix-files-that-were-already-split):
+
+```ini
+[src/Widgets.cs]
+dotnet_diagnostic.SA1649.severity = none
+```
+
+SA1402 also stays on these files. See
+[fix-sa1402-whole-repo.md](fix-sa1402-whole-repo.md#files-that-hold-a-file-type).
+
 ## Configure the convention
 
 `stylecop` is the default, so you only need a setting to choose `metadata`, or to make the
