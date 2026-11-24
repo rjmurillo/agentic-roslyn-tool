@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 46 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 518 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 519 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -95,7 +95,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 518 passed, 0 failed
+dotnet test  -c Release      # must be 519 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -450,10 +450,12 @@ agent does not pay again.
   `ConditionalNullable` compared counts of conditional `#nullable` directives before each
   type, in the source and in its output. A conditional directive in a type's own leading
   trivia travels with it, so the counts matched, while an unconditional directive above it
-  was lost. Then review found a `#define` under `#if`, whose `#if` a split drops, change a
-  conditional `#nullable` in the last type. `ConditionalNullable.AffectsAType` now refuses
-  both. Its remarks hold the rule. Do not restate it as a list of places a group can sit:
-  review found such lists incomplete in three rounds.
+  was lost. Then review found a `#define` change a conditional `#nullable` in the last
+  type, first through a dropped `#if` around it, then through a dropped `[assembly: ...]`
+  attribute below it. `ConditionalNullable.AffectsAType` now refuses a conditional
+  `#nullable` before the last type, and any `#define` or `#undef` beside one. Its remarks
+  hold the rule. Do not narrow it to the places a directive can be lost: review found such
+  lists incomplete in four rounds.
 - **Roslyn parses a directive in a branch that is off as an inactive directive.** It is
   never disabled text, whatever its spacing, so `# nullable enable` under `#if X` is a
   `NullableDirectiveTriviaSyntax` with `IsActive` false. Walk directives, not text, to

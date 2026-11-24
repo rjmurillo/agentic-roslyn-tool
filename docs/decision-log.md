@@ -1397,11 +1397,13 @@ semantic model, under both project defaults and every set of the source's `#if` 
 A `#nullable` under `#if` is not restated. The tool parses with no symbols, so one
 unconditional line would be wrong in some build. `ConditionalNullable.AffectsAType`
 refuses a file where one starts before the last type. It also refuses a file that holds
-both a `#nullable` and a `#define` or `#undef` under `#if`: removing the first type drops
-the `#if` around such a definition, so a conditional `#nullable` that reads the symbol
-sets a different context in the new file. With both refusals, every build reads the same
-`#nullable` directives before each type in the source and in its new file, and the fold
-is exact. An earlier rule refused only when an output lost a conditional directive. It
+a `#nullable` under `#if` and any `#define` or `#undef`. An `#if` condition reads only
+project symbols and the file's own definitions, and a split can change the definitions a
+new file sees: it drops the `#if` around one above the first type, and it drops one above
+an `[assembly: ...]` attribute, which only the kept file keeps. Review found those two
+drops in turn, so the rule refuses every definition rather than listing where one is
+lost. With both refusals, every build reads the same `#nullable` directives before and
+inside each type, in the source and in its new file, and the fold is exact. An earlier rule refused only when an output lost a conditional directive. It
 missed a conditional directive that travels with its own type while an unconditional one
 above it is lost: with the symbol defined, the source sets the type's context only
 through the lost directive. Five review rounds checked with no symbols and passed that
@@ -1431,12 +1433,12 @@ The `KeepDirectives` result was observed on Microsoft.CodeAnalysis.CSharp 5.9.0.
 **Consequences.** A file that split before still splits, with one exception. A file
 where a `#nullable` under `#if` starts before the last type is now skipped, in any
 branch, even `#if false`, and even when a later unconditional directive overrides it. So
-is a file that holds both a `#nullable` and a `#define` or `#undef` under `#if`. The parse
+is a file that holds a `#nullable` under `#if` and any `#define` or `#undef`. The parse
 can tell `#if false` from an undefined symbol, but the guard does not read conditions:
 it refuses every such directive, which keeps the rule simple and fails safe. Earlier
 checks refuse some of these files first, with their own reasons. A conditional
 `#nullable` inside the last type, after its start, still splits and travels with that
-type when no definition is conditional. A new file can gain a `#nullable` line no source
+type when the file holds no `#define` or `#undef`. A new file can gain a `#nullable` line no source
 line matches, which is the point. Files with no `#nullable` directive split byte for
 byte as before. So do files with one above the namespace, unless an `[assembly: ...]`
 attribute follows it: that attribute stays only in the kept file, and its trivia with it,

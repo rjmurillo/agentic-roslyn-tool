@@ -573,8 +573,8 @@ A directive wholly contained inside a single type is allowed and travels with th
 that would leave a directive group with no code inside it.
 
 `ConditionalNullable.AffectsAType` is a third. It refuses a file where a `#nullable`
-under `#if` starts before the last type, or where a `#define` or `#undef` under `#if`
-sits beside any `#nullable` under `#if`. See "Nullable context" below. The second check
+under `#if` starts before the last type, or where any `#define` or `#undef` sits beside a
+`#nullable` under `#if`. See "Nullable context" below. The second check
 carves the tree through `OutputBuilder.Carve`, the same call that starts each output.
 `AnalyzeDirectiveSafety` and `AffectsAType` read the source and do not carve.
 
@@ -712,14 +712,16 @@ this for the type each output is named for. A kept file can also hold `file` typ
   a line, ending in the source file's newline.
 - The tool parses with no preprocessor symbols, so it cannot restate a `#nullable` under
   `#if`. The file is skipped with
-  `a #nullable or #define directive under #if could change the nullable context of a type in some build; manual split required`
+  `a #nullable directive under #if could set a different nullable context for a type in a new file, in some build; manual split required`
   when a `#nullable` under `#if` starts before the last type, whether active or in a
-  branch that is off. It is also skipped when the file holds a `#define` or `#undef` under
-  `#if` and any `#nullable` under `#if`, because a split drops the `#if` around such a
-  definition when it removes the first type. `ConditionalNullable.AffectsAType` decides
+  branch that is off. It is also skipped when the file holds any `#define` or `#undef`
+  beside a `#nullable` under `#if`, because a split can change the definitions a new file
+  sees: it drops the `#if` around one above the first type, and it drops one above an
+  `[assembly: ...]` attribute. `ConditionalNullable.AffectsAType` decides
   this from the source, before any output is built. It does not read conditions, so it
   also refuses `#if false`. A conditional `#nullable` inside the last type, after its
-  start, is allowed when no definition is conditional, and travels with that type.
+  start, is allowed when the file holds no `#define` or `#undef`, and travels with that
+  type.
 - `#pragma` directives are not restated. A `#pragma warning` does not change the nullable
   context; it suppresses warnings, and that suppression is lost the same way.
 - `VerifyOutputs` checks each output with the same fold, so it catches a misplaced line,

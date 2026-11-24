@@ -18,10 +18,14 @@ namespace AgenticRoslynTool;
 /// enough: a conditional directive in a type's own leading trivia travels with it, so no
 /// output loses it, yet an unconditional directive above it can be lost. Review found that
 /// wrong write after a counting rule had passed five rounds.</item>
-/// <item>A <c>#define</c> or <c>#undef</c> under <c>#if</c>, in a file that also holds a
-/// <c>#nullable</c> under <c>#if</c>. A split drops the <c>#if</c> around such a definition when
-/// it removes the first type, so the symbol changes in the new files, and a conditional
-/// <c>#nullable</c> that reads it, even inside the last type, sets a different context.</item>
+/// <item>Any <c>#define</c> or <c>#undef</c>, in a file that also holds a <c>#nullable</c> under
+/// <c>#if</c>. An <c>#if</c> condition reads only project symbols and the file's own
+/// definitions, and a split can change the definitions a new file sees. It drops the
+/// <c>#if</c> around a definition above the first type, and it drops a definition above an
+/// <c>[assembly: ...]</c> attribute, which only the kept file keeps. A conditional
+/// <c>#nullable</c> that reads the symbol, even inside the last type, then sets a different
+/// context. Review found the two drops in turn, so the rule refuses every definition rather
+/// than the places one can be lost. With no definition, every file sees the same symbols.</item>
 /// </list>
 /// <para>
 /// Earlier checks run first and refuse some of these files with their own reasons. A
@@ -35,8 +39,8 @@ internal static class ConditionalNullable
 {
     /// <summary>
     /// Reports whether a <c>#nullable</c> under <c>#if</c> starts before the last type in
-    /// <paramref name="types"/>, or whether the file holds both a <c>#nullable</c> and a
-    /// <c>#define</c> or <c>#undef</c> under <c>#if</c>.
+    /// <paramref name="types"/>, or whether the file holds both a <c>#nullable</c> under
+    /// <c>#if</c> and any <c>#define</c> or <c>#undef</c>.
     /// </summary>
     internal static bool AffectsAType(CompilationUnitSyntax root, IReadOnlyList<TopLevelType> types)
     {
@@ -47,7 +51,7 @@ internal static class ConditionalNullable
 
         var end = root.FullSpan.End;
         return CountBefore(root, end) > 0
-            && CountUnderIf(root, end, SyntaxKind.DefineDirectiveTrivia, SyntaxKind.UndefDirectiveTrivia) > 0;
+            && SourceDirectives.Before(root, end).Any(directive => directive.Kind() is SyntaxKind.DefineDirectiveTrivia or SyntaxKind.UndefDirectiveTrivia);
     }
 
     /// <summary>
@@ -58,27 +62,21 @@ internal static class ConditionalNullable
     /// </summary>
     internal static int CountBefore(CSharpSyntaxNode root, int position)
     {
-        return CountUnderIf(root, position, SyntaxKind.NullableDirectiveTrivia);
-    }
-
-    private static int CountUnderIf(CSharpSyntaxNode root, int position, params SyntaxKind[] kinds)
-    {
         var depth = 0;
         var count = 0;
         foreach (var directive in SourceDirectives.Before(root, position))
         {
-            var kind = directive.Kind();
-            if (kind == SyntaxKind.IfDirectiveTrivia)
+            switch (directive.Kind())
             {
-                depth++;
-            }
-            else if (kind == SyntaxKind.EndIfDirectiveTrivia)
-            {
-                depth--;
-            }
-            else if (depth > 0 && kinds.Contains(kind))
-            {
-                count++;
+                case SyntaxKind.IfDirectiveTrivia:
+                    depth++;
+                    break;
+                case SyntaxKind.EndIfDirectiveTrivia:
+                    depth--;
+                    break;
+                case SyntaxKind.NullableDirectiveTrivia when depth > 0:
+                    count++;
+                    break;
             }
         }
 
