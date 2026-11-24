@@ -90,8 +90,7 @@ public sealed class RenameTargetCollisionTests
         var naming = typeFirst ? CollisionNaming.TypeFirst : CollisionNaming.FileFirst;
         var listPath = ws.WriteInputList(inputs);
         var manifestPath = Path.Combine(ws.Root, "m.csv");
-        FileNamingRuns.Git(ws.Root, "init", "--quiet");
-        FileNamingRuns.Git(ws.Root, ["add", .. inputs.Select(Path.GetFileName)!]);
+        GitFixture.InitAndTrack(ws.Root, inputs);
         var plan = FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Plan, FileNamingConvention.StyleCop, naming);
         FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Renames, FileNamingConvention.StyleCop, naming);
         content = FileNamingRuns.RunPhase(ws, listPath, manifestPath, Phase.Content, FileNamingConvention.StyleCop, naming);
