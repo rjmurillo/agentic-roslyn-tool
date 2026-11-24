@@ -18,11 +18,19 @@ internal static class SplitPlanner
     private const string PlanMismatchReason = "content phase plan does not match manifest";
 
     /// <summary>
-    /// Cross-file collision pass. If two different source files would each emit an
-    /// output file with the same simple name (for example both emitting <c>Foo.cs</c>),
-    /// each is qualified in the form <paramref name="collisionNaming"/> selects. If the
-    /// qualified form still collides, the affected inputs are converted to skips with a
-    /// manual-handling reason.
+    /// Cross-file collision pass. Makes every path a <c>split</c> row creates unique across
+    /// the plan, ignoring case, before the plan is written. It runs three steps:
+    /// <list type="number">
+    /// <item>A row whose computed new file is another row's renamed kept file is refused
+    /// with <see cref="PlannedOutputClaims.Reason"/>. A renamed kept file is an output the
+    /// plan owns.</item>
+    /// <item>If two different source files would each emit an output file with the same
+    /// simple name (for example both emitting <c>Foo.cs</c>), each is qualified in the form
+    /// <paramref name="collisionNaming"/> selects. If the qualified form still collides,
+    /// the affected inputs are converted to skips with a manual-handling reason.</item>
+    /// <item>A row whose new file, qualified or not, is a path another row creates, renames
+    /// into, or leaves in place is refused with <see cref="PlannedOutputClaims.Reason"/>.</item>
+    /// </list>
     /// </summary>
     /// <remarks>
     /// The default form, <c>OriginalFileName.TypeName.cs</c>, violates StyleCop SA1649
@@ -32,10 +40,20 @@ internal static class SplitPlanner
     /// opt-in because it changes planned paths, and a plan and its content run must agree.
     /// This pass does not probe the disk for the qualified path. The content phase does,
     /// in <see cref="BuildPlan"/>, before anything is written.
+    /// Two rows that rename to one target are left alone here.
+    /// <see cref="KeptRenameCollisions"/> settles them after every refusal. A plan with no
+    /// collision comes back as the same rows. See decision 32.
     /// </remarks>
     /// <param name="results">One row per input, as the plan phase computed them.</param>
     /// <param name="collisionNaming">Which qualified form to use for a colliding output.</param>
     internal static IReadOnlyList<FileResult> ResolvePlannedOutputCollisions(IReadOnlyList<FileResult> results, CollisionNaming collisionNaming = CollisionNaming.FileFirst)
+    {
+        var claimed = PlannedOutputClaims.RefuseRenameTargets(results);
+        return PlannedOutputClaims.RefuseSharedOutputs(QualifyCollidingNames(claimed, collisionNaming));
+    }
+
+    /// <summary>The name step of <see cref="ResolvePlannedOutputCollisions"/>. Qualifies or refuses new files that share a path across inputs.</summary>
+    private static IReadOnlyList<FileResult> QualifyCollidingNames(IReadOnlyList<FileResult> results, CollisionNaming collisionNaming)
     {
         var entries = results
             .Where(r => r.Status == "split")
