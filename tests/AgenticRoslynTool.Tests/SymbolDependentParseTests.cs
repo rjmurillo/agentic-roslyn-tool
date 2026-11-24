@@ -120,6 +120,7 @@ public sealed class SymbolDependentParseTests
 
         Assert.Equal(0, SymbolRetry.RunChild(new StringReader("1\nA\n" + source)));
         Assert.Equal(1, SymbolRetry.RunChild(new StringReader("0\n" + source)));
+        Assert.Equal(2, SymbolRetry.RunChild(new StringReader("not a count\n" + source)));
     }
 
     private static string DeepUnderIf(int depth) =>

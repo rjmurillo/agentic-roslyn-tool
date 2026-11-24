@@ -214,7 +214,8 @@ weight.
     The tool cannot prove this for every file, because it parses without the build's
     symbols. So when the parse cannot tell, it skips with a reason, and the parse check
     fails only a file broken with and without the symbols its `#if` lines name. A failed
-    output check is a tool bug, never a source problem, and its reason starts
+    output check is a tool bug, never a source problem, unless `--require-header` was not a
+    comment, and its reason starts
     `output check failed: ` so agents route it to exclude and report. `SourceParsing` owns the
     whole parse rule: the options, which errors count, the symbol retry, and file-based
     program detection. Never parse with other options and never filter diagnostics

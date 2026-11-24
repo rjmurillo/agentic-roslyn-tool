@@ -1535,7 +1535,12 @@ chains nest with no bracket at all. The maintainer chose to run the retry in a c
 process. The tool starts itself with a hidden verb and sends the symbols and the text over
 standard input. A crash, a stall past 30 seconds, or a failed start ends only the child, and
 its file is skipped unjudged, with its own reason. Six crafted files that each crashed an
-in-process retry now take 9 seconds in all, and the run goes on. The same round
+in-process retry now take 9 seconds in all, and the run goes on. Each retried file costs
+about 130 milliseconds for the child to start: 50 such files took 6.6 seconds, against
+0.2 seconds with no retry. A real retry, such as BenchmarkDotNet's, finishes in under a
+second, so the 30-second limit only stops crafted input. When the tool is not the entry
+assembly, as under a test host, the child runs through the dotnet host named in
+`DOTNET_HOST_PATH`, because the host on Windows is `testhost.exe`. The same round
 found that an unconditional `#define` after a conditional `#undef` did not fix the symbol
 again. It now does, from that point in the file. The six repositories informed the symbol
 retry, so their result is no longer independent evidence for it. Confirming it needs
@@ -1545,7 +1550,9 @@ repositories that played no part in tuning it.
 not know the build's symbols. A file that is broken with no symbols and with all of them,
 yet compiles under some other set, is still `failed`. An output check can also refuse a
 valid file when the tool builds a bad split. That row says `output check failed`, and the
-agent instructions route it to exclude and report. The symbol retry has the opposite
+agent instructions route it to exclude and report. If the child process cannot start at
+all, every file that needs the retry is skipped unjudged, so a run that would exit 1 can
+exit 0. Each such row names the cause. The symbol retry has the opposite
 cost: a file broken in every real build, but parsing with all its symbols defined, is
 skipped and the run can exit 0. That is safe, because a skipped file is never changed,
 and the skip reason names the cause. Rule 17 says what to do when a real

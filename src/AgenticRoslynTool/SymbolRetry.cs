@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Reflection;
 using System.Text;
 
 namespace AgenticRoslynTool;
@@ -70,22 +71,10 @@ internal static class SymbolRetry
 
             var error = process.StandardError.ReadToEndAsync();
             var output = process.StandardOutput.ReadToEndAsync();
-            try
-            {
-                using var input = process.StandardInput;
-                input.Write(symbols.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\n");
-                foreach (var symbol in symbols)
-                {
-                    input.Write(symbol + "\n");
-                }
 
-                input.Write(text);
-            }
-            catch (IOException)
-            {
-                // The child died before it read everything. Its exit code says why.
-            }
-
+            // The write runs on its own task, inside the time limit. A child that hangs before
+            // it reads would otherwise block this write on a full pipe with no bound.
+            var write = Task.Run(() => WriteInput(process.StandardInput, symbols, text));
             if (!process.WaitForExit(timeLimit ?? TimeLimit))
             {
                 Kill(process);
@@ -93,6 +82,7 @@ internal static class SymbolRetry
             }
 
             // Nothing reads what the child printed. A crash trace would only repeat the stack.
+            Drain(write);
             Drain(error);
             Drain(output);
             return process.ExitCode switch
@@ -114,7 +104,12 @@ internal static class SymbolRetry
     /// </summary>
     internal static int RunChild(TextReader input)
     {
-        var count = int.Parse(input.ReadLine() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+        // Exit 2 on input the parent never sends, so it reads as unjudged, never as a result.
+        if (!int.TryParse(input.ReadLine(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var count))
+        {
+            return 2;
+        }
+
         var symbols = new string[count];
         for (var i = 0; i < count; i++)
         {
@@ -124,12 +119,15 @@ internal static class SymbolRetry
         return SourceParsing.ParsesWithSymbols(input.ReadToEnd(), symbols) ? 0 : 1;
     }
 
-    // Starts the same build that is running. Under "dotnet AgenticRoslynTool.dll", and under
-    // a test host, the process is the dotnet host, so the tool's own assembly goes first.
-    // Installed as a tool, the process is the tool's own launcher.
+    // Starts the same build that is running. When the tool is the entry assembly, the process
+    // is either its own launcher (installed tool, apphost), which takes the verb as is, or the
+    // dotnet host ("dotnet AgenticRoslynTool.dll", dnx), which needs the assembly first. When
+    // something else hosts the tool, such as a test host, which is testhost.exe on Windows,
+    // the child runs through the dotnet host the SDK names in DOTNET_HOST_PATH.
     private static ProcessStartInfo? StartInfo()
     {
-        var host = Environment.ProcessPath;
+        var toolIsEntry = Assembly.GetEntryAssembly() == typeof(SymbolRetry).Assembly;
+        var host = toolIsEntry ? Environment.ProcessPath : Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet";
         if (string.IsNullOrEmpty(host))
         {
             return null;
@@ -143,7 +141,7 @@ internal static class SymbolRetry
             StandardInputEncoding = Utf8,
             UseShellExecute = false,
         };
-        if (Path.GetFileNameWithoutExtension(host).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+        if (!toolIsEntry || Path.GetFileNameWithoutExtension(host).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
         {
             start.ArgumentList.Add(typeof(SymbolRetry).Assembly.Location);
         }
@@ -167,7 +165,28 @@ internal static class SymbolRetry
         process.WaitForExit(StreamDrainLimit);
     }
 
-    private static void Drain(Task<string> stream)
+    private static void WriteInput(StreamWriter input, IReadOnlyList<string> symbols, string text)
+    {
+        try
+        {
+            using (input)
+            {
+                input.Write(symbols.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\n");
+                foreach (var symbol in symbols)
+                {
+                    input.Write(symbol + "\n");
+                }
+
+                input.Write(text);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException)
+        {
+            // The child died or was killed before it read everything. Its exit says why.
+        }
+    }
+
+    private static void Drain(Task stream)
     {
         try
         {
