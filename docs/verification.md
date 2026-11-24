@@ -73,7 +73,8 @@ covers part of it, as the next section shows.
 Blank lines need the same care. A blank line inside a block comment or an `#if` region is
 part of a token's trivia text, not a gap between declarations. The tool removes types and
 collapses blank lines through Roslyn trivia, never through text edits, so it cannot rewrite
-the inside of a comment. See
+the inside of a comment. It also leaves every type's owned span alone, so this check sees
+that span unchanged. See
 [decision-log.md, decision 3](decision-log.md#3-blank-lines-are-handled-through-trivia-never-through-text).
 
 ## Check 3: line conservation
