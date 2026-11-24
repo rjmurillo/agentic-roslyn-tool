@@ -249,7 +249,8 @@ lists every refusal under "Manifest and report". Any file in the manifest format
 earlier report, so do not point `--report` at a second plan you want to keep.
 
 Because the plan stays as you reviewed it, a content run can be repeated. When a row
-fails, fix the cause and run the same command again. The retry applies the rows that
+fails, fix the cause and run the same command again. Never edit a source file to get
+past the tool: a failed check on a file your build compiles is a bug in the tool. The retry applies the rows that
 failed. A row an earlier run already applied is reported as `skipped` with a reason that
 starts with `already applied`, and its files are not written again. A file that changed
 for any other reason since the plan is `skipped` with a `stale plan:` reason.
@@ -320,6 +321,7 @@ One production run processed 7,818 files and split 461 of them. Roslyn parsed ev
 * A type declared with the `file` modifier never leaves its file, and that file is never renamed, because the compiler builds the type's metadata name from the file's name. The tool moves the ordinary types out and leaves the `file` type with the kept type. SA1402 then still flags that file, once for each `file` class or record when the kept type is a class or record too, and the row's `note` says so. Suppress it for that file in `.editorconfig`, or with a pragma. The file is skipped when a type that would move names a `file` type, when a `file` type declares extension members, when a using directive names one, when a type lists one among its base types, when the file has an excluded `#if` branch, a `global using` directive, or a `#line`, `#nullable`, `#pragma`, `#define`, or `#undef` directive on or inside a type or on an assembly attribute, or when it has only one other type. (details: [docs/fix-sa1402-whole-repo.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/fix-sa1402-whole-repo.md#files-that-hold-a-file-type))
 * The tool does not prune using directives. A seemingly unused using can supply an extension method or target-typed conversion. Removing it would turn a mechanical edit into a semantic change.
 * The tool uses the Roslyn Syntax API without a semantic model. It does not resolve types across projects.
+* A file that parses only once its preprocessor symbols are defined is skipped. The tool defines none, so it would split a tree your build never sees.
 * A .NET 10 file-based program, a file with `#:` or `#!` lines, is never split. It compiles alone, so a type moved to a new file would leave the program.
 * `dotnet new` template sources, such as files with `#if (UseXunit)`, are not C# until the template engine runs. They are marked `failed`. Pass `--exclude` for the template folder.
 * A `failed` row on a file your build compiles is a bug in the tool. Exclude that file and [open an issue](https://github.com/rjmurillo/agentic-roslyn-tool/issues). Do not edit the file to get past the tool.

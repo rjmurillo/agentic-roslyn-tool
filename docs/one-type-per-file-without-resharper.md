@@ -109,7 +109,8 @@ dotnet build
 
 The `renames` and `content` phases never change `split-plan.csv`. They record what they
 did in `split-plan.report.csv` beside it. If `content` fails a file, fix the cause and run
-the same command again.
+the same command again. Never edit the source file to get past the tool: a failed check on
+a file your build compiles is a bug in the tool.
 
 Review the plan before you go on. Commit the renames on their own, so git records each
 one as a rename and the file keeps its history. Review the diff after the `content` phase

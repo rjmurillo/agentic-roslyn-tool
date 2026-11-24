@@ -463,13 +463,17 @@ internal sealed class FileSplitter
             // that may already have rewritten hundreds of others.
             return FileResult.Skip(originalPath, readPath, $"input is not valid UTF-8 and has no byte order mark: {ex.Message}");
         }
-        var parseOptions = SourceParsing.Options;
-        var tree = CSharpSyntaxTree.ParseText(SourceText.From(source.Text, source.Encoding), parseOptions, path: readPath);
+        var tree = CSharpSyntaxTree.ParseText(SourceText.From(source.Text, source.Encoding), SourceParsing.Options, path: readPath);
         var root = tree.GetCompilationUnitRoot();
         var originalDiagnostics = SourceParsing.Errors(tree);
         if (originalDiagnostics.Length != 0)
         {
-            return FileResult.Failed(originalPath, readPath, "input has syntax errors: " + OutputVerifier.JoinDiagnostics(originalDiagnostics));
+            if (SourceParsing.ParsesWithItsSymbols(tree))
+            {
+                return FileResult.Skip(originalPath, readPath, SourceParsing.SymbolDependentReason);
+            }
+
+            return FileResult.Failed(originalPath, readPath, "input has syntax errors: " + SourceParsing.Describe(originalDiagnostics));
         }
 
         // Checked before top-level statements, because a file-based program can declare
@@ -523,7 +527,7 @@ internal sealed class FileSplitter
         {
             var headerText = OutputBuilder.NormalizeHeaderText(_options.RequiredHeader, source.NewLine);
             var outputs = OutputBuilder.BuildOutputs(source, root, types, plan, headerText);
-            OutputVerifier.VerifyOutputs(readPath, types, outputs, parseOptions, headerText);
+            OutputVerifier.VerifyOutputs(readPath, types, outputs, headerText);
 
             if (phase == Phase.Content)
             {

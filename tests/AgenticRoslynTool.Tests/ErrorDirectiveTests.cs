@@ -39,6 +39,38 @@ public sealed class ErrorDirectiveTests
         // The #error travels with the type it sits in, and the output still verifies.
         Assert.Contains("#error Unknown target framework", File.ReadAllText(path));
         Assert.Equal("namespace Sample;\n\ninternal class Moved { }\n", File.ReadAllText(Path.Combine(ws.Root, "Moved.cs")));
+
+        // A second content run reads the split file through the same rule and sees it done.
+        var again = new FileSplitter(new Options(ws.WriteInputList(path), Path.Combine(ws.Root, "m.csv"), ws.Root, Phase.Content, null)).Run();
+        Assert.StartsWith("already applied", Assert.Single(again).Reason);
+    }
+
+    [Theory]
+    // Excused: some enclosing branch depends on a symbol the real build may define.
+    [InlineData("#if NET8_0\n#elif NET472\n#else\n#error x\n#endif", null)]
+    [InlineData("#if A\n#if B\n#else\n#error x\n#endif\n#endif", null)]
+    [InlineData("#if A\n#if true\n#error x\n#endif\n#endif", null)]
+    [InlineData("#if !NETFX\n#error version\n#endif", null)]
+    // Kept: every build takes this branch, so every build fails.
+    [InlineData("#if true\n#error x\n#endif", "CS1029")]
+    [InlineData("#if A\n#endif\n#error x", "CS1029")]
+    [InlineData("#error version", "CS8304")]
+    [InlineData("#endif\n#error x", "CS1029")]
+    public void Errors_ExcusesAnErrorDirectiveOnlyWhenItsBranchNamesASymbol(string directives, string? expectedId)
+    {
+        var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(
+            "namespace Sample;\n\ninternal class Host\n{\n" + directives + "\n}\n", SourceParsing.Options);
+
+        var ids = SourceParsing.Errors(tree).Select(d => d.Id).ToArray();
+
+        if (expectedId is null)
+        {
+            Assert.Empty(ids);
+        }
+        else
+        {
+            Assert.Contains(expectedId, ids);
+        }
     }
 
     [Fact]

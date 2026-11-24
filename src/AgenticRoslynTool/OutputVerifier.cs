@@ -31,7 +31,7 @@ internal static class OutputVerifier
     /// (see <see cref="FileLocalTypes.DescribeViolation"/>).
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown as soon as any invariant fails, so the failure is surfaced without partial output being written.</exception>
-    internal static void VerifyOutputs(string readPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions, string? requiredHeader)
+    internal static void VerifyOutputs(string readPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs, string? requiredHeader)
     {
         foreach (var output in outputs)
         {
@@ -40,11 +40,11 @@ internal static class OutputVerifier
                 throw new InvalidOperationException($"{output.Path} does not start with required file header");
             }
 
-            var tree = CSharpSyntaxTree.ParseText(output.Text, parseOptions, path: output.Path);
+            var tree = CSharpSyntaxTree.ParseText(output.Text, SourceParsing.Options, path: output.Path);
             var diagnostics = SourceParsing.Errors(tree);
             if (diagnostics.Length != 0)
             {
-                throw new InvalidOperationException($"{output.Path} does not parse: {JoinDiagnostics(diagnostics)}");
+                throw new InvalidOperationException($"{output.Path} does not parse: {SourceParsing.Describe(diagnostics)}");
             }
         }
 
@@ -69,7 +69,7 @@ internal static class OutputVerifier
 
         VerifyLineConservation(readPath, inputTypes, outputs);
 
-        var outputTypes = outputs.SelectMany(o => TopLevelType.Find(CSharpSyntaxTree.ParseText(o.Text, parseOptions, path: o.Path).GetCompilationUnitRoot())).Select(t => t.Key).Order(StringComparer.Ordinal).ToArray();
+        var outputTypes = outputs.SelectMany(o => TopLevelType.Find(CSharpSyntaxTree.ParseText(o.Text, SourceParsing.Options, path: o.Path).GetCompilationUnitRoot())).Select(t => t.Key).Order(StringComparer.Ordinal).ToArray();
         var inputKeys = inputTypes.Select(t => t.Key).Order(StringComparer.Ordinal).ToArray();
         if (!inputKeys.SequenceEqual(outputTypes, StringComparer.Ordinal))
         {
@@ -80,7 +80,7 @@ internal static class OutputVerifier
         // file may name one, and every output keeps the input's state directives. The
         // planner refuses such an input first. This asks again about the text that would
         // reach disk.
-        if (FileLocalTypes.DescribeViolation(readPath, inputTypes, outputs, parseOptions) is { } violation)
+        if (FileLocalTypes.DescribeViolation(readPath, inputTypes, outputs) is { } violation)
         {
             throw new InvalidOperationException(violation);
         }
@@ -261,10 +261,4 @@ internal static class OutputVerifier
 
         return count;
     }
-
-
-    /// <summary>Renders a list of Roslyn diagnostics as a single semicolon-separated string, used to build refusal reasons.</summary>
-    internal static string JoinDiagnostics(IEnumerable<Diagnostic> diagnostics)
-    {
-        return string.Join("; ", diagnostics.Select(d => $"{d.Id} {d.GetMessage()}"));
-    }}
+}

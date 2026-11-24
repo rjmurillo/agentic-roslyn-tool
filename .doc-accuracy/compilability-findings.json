@@ -1,0 +1,1861 @@
+{
+  "status": "COMPLETED",
+  "findings": [
+    {
+      "id": "compile-0001",
+      "claim_id": "claim-0046",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 122,
+      "description": "Symbol 'Collections' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "Collections",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Collections' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0002",
+      "claim_id": "claim-0046",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 122,
+      "description": "Symbol 'Generic' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "Generic",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Generic' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0003",
+      "claim_id": "claim-0046",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 122,
+      "description": "Symbol 'Lines' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "Lines",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Lines' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0004",
+      "claim_id": "claim-0046",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 122,
+      "description": "Symbol 'Open' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "Open",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Open' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0005",
+      "claim_id": "claim-0046",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 122,
+      "description": "Symbol 'Order' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "Order",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Order' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0006",
+      "claim_id": "claim-0046",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 122,
+      "description": "Symbol 'OrderLine' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "OrderLine",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'OrderLine' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0007",
+      "claim_id": "claim-0046",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 122,
+      "description": "Symbol 'OrderStatus' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "OrderStatus",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'OrderStatus' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0008",
+      "claim_id": "claim-0046",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 122,
+      "description": "Symbol 'Quantity' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "Quantity",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Quantity' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0009",
+      "claim_id": "claim-0046",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 122,
+      "description": "Symbol 'Shipped' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "Shipped",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Shipped' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0010",
+      "claim_id": "claim-0046",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 122,
+      "description": "Symbol 'Shop' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "Shop",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Shop' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0011",
+      "claim_id": "claim-0046",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 122,
+      "description": "Symbol 'Sku' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "Sku",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Sku' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0012",
+      "claim_id": "claim-0046",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 122,
+      "description": "Symbol 'Status' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "Status",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Status' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0013",
+      "claim_id": "claim-0046",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 122,
+      "description": "Symbol 'System' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "System",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'System' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0014",
+      "claim_id": "claim-0049",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 164,
+      "description": "Symbol 'Collections' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "Collections",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Collections' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0015",
+      "claim_id": "claim-0049",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 164,
+      "description": "Symbol 'Generic' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "Generic",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Generic' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0016",
+      "claim_id": "claim-0049",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 164,
+      "description": "Symbol 'Lines' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "Lines",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Lines' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0017",
+      "claim_id": "claim-0049",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 164,
+      "description": "Symbol 'Order' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "Order",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Order' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0018",
+      "claim_id": "claim-0049",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 164,
+      "description": "Symbol 'OrderLine' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "OrderLine",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'OrderLine' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0019",
+      "claim_id": "claim-0049",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 164,
+      "description": "Symbol 'OrderStatus' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "OrderStatus",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'OrderStatus' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0020",
+      "claim_id": "claim-0049",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 164,
+      "description": "Symbol 'Shop' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "Shop",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Shop' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0021",
+      "claim_id": "claim-0049",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 164,
+      "description": "Symbol 'Status' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "Status",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Status' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0022",
+      "claim_id": "claim-0049",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 164,
+      "description": "Symbol 'System' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\n/// <summary>A customer order.</summary>\npublic class Order\n{\n    public List<OrderLine> Lines { get; } = new();\n\n    public OrderStatus Status { ge",
+        "symbol": "System",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'System' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0023",
+      "claim_id": "claim-0050",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 180,
+      "description": "Symbol 'Collections' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\npublic enum OrderStatus\n{\n    Open,\n    Shipped,\n}",
+        "symbol": "Collections",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Collections' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0024",
+      "claim_id": "claim-0050",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 180,
+      "description": "Symbol 'Generic' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\npublic enum OrderStatus\n{\n    Open,\n    Shipped,\n}",
+        "symbol": "Generic",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Generic' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0025",
+      "claim_id": "claim-0050",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 180,
+      "description": "Symbol 'Open' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\npublic enum OrderStatus\n{\n    Open,\n    Shipped,\n}",
+        "symbol": "Open",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Open' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0026",
+      "claim_id": "claim-0050",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 180,
+      "description": "Symbol 'OrderStatus' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\npublic enum OrderStatus\n{\n    Open,\n    Shipped,\n}",
+        "symbol": "OrderStatus",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'OrderStatus' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0027",
+      "claim_id": "claim-0050",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 180,
+      "description": "Symbol 'Shipped' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\npublic enum OrderStatus\n{\n    Open,\n    Shipped,\n}",
+        "symbol": "Shipped",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Shipped' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0028",
+      "claim_id": "claim-0050",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 180,
+      "description": "Symbol 'Shop' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\npublic enum OrderStatus\n{\n    Open,\n    Shipped,\n}",
+        "symbol": "Shop",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Shop' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0029",
+      "claim_id": "claim-0050",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 180,
+      "description": "Symbol 'System' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\npublic enum OrderStatus\n{\n    Open,\n    Shipped,\n}",
+        "symbol": "System",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'System' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0030",
+      "claim_id": "claim-0051",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 194,
+      "description": "Symbol 'Collections' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\npublic record OrderLine(string Sku, int Quantity);",
+        "symbol": "Collections",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Collections' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0031",
+      "claim_id": "claim-0051",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 194,
+      "description": "Symbol 'Generic' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\npublic record OrderLine(string Sku, int Quantity);",
+        "symbol": "Generic",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Generic' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0032",
+      "claim_id": "claim-0051",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 194,
+      "description": "Symbol 'OrderLine' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\npublic record OrderLine(string Sku, int Quantity);",
+        "symbol": "OrderLine",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'OrderLine' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0033",
+      "claim_id": "claim-0051",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 194,
+      "description": "Symbol 'Quantity' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\npublic record OrderLine(string Sku, int Quantity);",
+        "symbol": "Quantity",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Quantity' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0034",
+      "claim_id": "claim-0051",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 194,
+      "description": "Symbol 'Shop' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\npublic record OrderLine(string Sku, int Quantity);",
+        "symbol": "Shop",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Shop' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0035",
+      "claim_id": "claim-0051",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 194,
+      "description": "Symbol 'Sku' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\npublic record OrderLine(string Sku, int Quantity);",
+        "symbol": "Sku",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Sku' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0036",
+      "claim_id": "claim-0051",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/one-type-per-file-without-resharper.md",
+      "line": 194,
+      "description": "Symbol 'System' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System.Collections.Generic;\n\nnamespace Shop;\n\npublic record OrderLine(string Sku, int Quantity);",
+        "symbol": "System",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'System' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0037",
+      "claim_id": "claim-0055",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 97,
+      "description": "Symbol 'Area' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System;\n\nnamespace Sample;\n\n/// <summary>A shape with an area.</summary>\npublic interface IShape\n{\n    double Area { get; }\n}\n\n// Radius is in meters.\n[Serializable]\npublic sealed class Circle :",
+        "symbol": "Area",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Area' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0038",
+      "claim_id": "claim-0055",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 97,
+      "description": "Symbol 'Circle' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System;\n\nnamespace Sample;\n\n/// <summary>A shape with an area.</summary>\npublic interface IShape\n{\n    double Area { get; }\n}\n\n// Radius is in meters.\n[Serializable]\npublic sealed class Circle :",
+        "symbol": "Circle",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Circle' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0039",
+      "claim_id": "claim-0055",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 97,
+      "description": "Symbol 'IShape' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System;\n\nnamespace Sample;\n\n/// <summary>A shape with an area.</summary>\npublic interface IShape\n{\n    double Area { get; }\n}\n\n// Radius is in meters.\n[Serializable]\npublic sealed class Circle :",
+        "symbol": "IShape",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'IShape' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0040",
+      "claim_id": "claim-0055",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 97,
+      "description": "Symbol 'PI' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System;\n\nnamespace Sample;\n\n/// <summary>A shape with an area.</summary>\npublic interface IShape\n{\n    double Area { get; }\n}\n\n// Radius is in meters.\n[Serializable]\npublic sealed class Circle :",
+        "symbol": "PI",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'PI' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0041",
+      "claim_id": "claim-0055",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 97,
+      "description": "Symbol 'Radius' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System;\n\nnamespace Sample;\n\n/// <summary>A shape with an area.</summary>\npublic interface IShape\n{\n    double Area { get; }\n}\n\n// Radius is in meters.\n[Serializable]\npublic sealed class Circle :",
+        "symbol": "Radius",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Radius' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0042",
+      "claim_id": "claim-0055",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 97,
+      "description": "Symbol 'Sample' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System;\n\nnamespace Sample;\n\n/// <summary>A shape with an area.</summary>\npublic interface IShape\n{\n    double Area { get; }\n}\n\n// Radius is in meters.\n[Serializable]\npublic sealed class Circle :",
+        "symbol": "Sample",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Sample' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0043",
+      "claim_id": "claim-0055",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 97,
+      "description": "Symbol 'Serializable' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System;\n\nnamespace Sample;\n\n/// <summary>A shape with an area.</summary>\npublic interface IShape\n{\n    double Area { get; }\n}\n\n// Radius is in meters.\n[Serializable]\npublic sealed class Circle :",
+        "symbol": "Serializable",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Serializable' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0044",
+      "claim_id": "claim-0055",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 97,
+      "description": "Symbol 'Side' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System;\n\nnamespace Sample;\n\n/// <summary>A shape with an area.</summary>\npublic interface IShape\n{\n    double Area { get; }\n}\n\n// Radius is in meters.\n[Serializable]\npublic sealed class Circle :",
+        "symbol": "Side",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Side' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0045",
+      "claim_id": "claim-0055",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 97,
+      "description": "Symbol 'Square' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System;\n\nnamespace Sample;\n\n/// <summary>A shape with an area.</summary>\npublic interface IShape\n{\n    double Area { get; }\n}\n\n// Radius is in meters.\n[Serializable]\npublic sealed class Circle :",
+        "symbol": "Square",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Square' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0046",
+      "claim_id": "claim-0055",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 97,
+      "description": "Symbol 'System' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "using System;\n\nnamespace Sample;\n\n/// <summary>A shape with an area.</summary>\npublic interface IShape\n{\n    double Area { get; }\n}\n\n// Radius is in meters.\n[Serializable]\npublic sealed class Circle :",
+        "symbol": "System",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'System' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0047",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Add' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Add",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Add' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0048",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'AllDirectories' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "AllDirectories",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'AllDirectories' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0049",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'BaseList' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "BaseList",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'BaseList' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0050",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'BaseListSyntax' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "BaseListSyntax",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'BaseListSyntax' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0051",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'BaseNamespaceDeclarationSyntax' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "BaseNamespaceDeclarationSyntax",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'BaseNamespaceDeclarationSyntax' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0052",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'CSharp' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "CSharp",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'CSharp' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0053",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'CSharpParseOptions' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "CSharpParseOptions",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'CSharpParseOptions' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0054",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'CSharpSyntaxTree' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "CSharpSyntaxTree",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'CSharpSyntaxTree' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0055",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'CodeAnalysis' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "CodeAnalysis",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'CodeAnalysis' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0056",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'ConstraintClauses' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "ConstraintClauses",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'ConstraintClauses' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0057",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Contains' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Contains",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Contains' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0058",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Count' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Count",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Count' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0059",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Default' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Default",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Default' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0060",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'DelegateDeclarationSyntax' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "DelegateDeclarationSyntax",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'DelegateDeclarationSyntax' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0061",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'DiagnosticSeverity' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "DiagnosticSeverity",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'DiagnosticSeverity' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0062",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Empty' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Empty",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Empty' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0063",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'EnumDeclarationSyntax' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "EnumDeclarationSyntax",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'EnumDeclarationSyntax' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0064",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'EnumerateFiles' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "EnumerateFiles",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'EnumerateFiles' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0065",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Environment' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Environment",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Environment' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0066",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'ExitCode' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "ExitCode",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'ExitCode' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0067",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Flat' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Flat",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Flat' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0068",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'ForEach' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "ForEach",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'ForEach' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0069",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'GetCompilationUnitRoot' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "GetCompilationUnitRoot",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'GetCompilationUnitRoot' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0070",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'GetDiagnostics' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "GetDiagnostics",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'GetDiagnostics' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0071",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'GetFullPath' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "GetFullPath",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'GetFullPath' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0072",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'GetRelativePath' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "GetRelativePath",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'GetRelativePath' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0073",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Identifier' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Identifier",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Identifier' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0074",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Join' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Join",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Join' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0075",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Kind' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Kind",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Kind' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0076",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'LanguageVersion' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "LanguageVersion",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'LanguageVersion' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0077",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Length' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Length",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Length' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0078",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'MemberDeclarationSyntax' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "MemberDeclarationSyntax",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'MemberDeclarationSyntax' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0079",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Members' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Members",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Members' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0080",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Microsoft' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Microsoft",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Microsoft' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0081",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Modifiers' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Modifiers",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Modifiers' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0082",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Name' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Name",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Name' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0083",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Ordinal' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Ordinal",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Ordinal' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0084",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Parameters' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Parameters",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Parameters' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0085",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'ParseText' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "ParseText",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'ParseText' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0086",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Preview' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Preview",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Preview' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0087",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'ReadAllText' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "ReadAllText",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'ReadAllText' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0088",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'RemoveEmptyEntries' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "RemoveEmptyEntries",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'RemoveEmptyEntries' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0089",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Row' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Row",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Row' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0090",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'SearchOption' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "SearchOption",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'SearchOption' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0091",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Severity' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Severity",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Severity' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0092",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Sort' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Sort",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Sort' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0093",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'StringComparer' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "StringComparer",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'StringComparer' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0094",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'StringSplitOptions' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "StringSplitOptions",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'StringSplitOptions' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0095",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Syntax' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Syntax",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Syntax' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0096",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'SyntaxList' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "SyntaxList",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'SyntaxList' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0097",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'SyntaxNode' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "SyntaxNode",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'SyntaxNode' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0098",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'SyntaxToken' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "SyntaxToken",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'SyntaxToken' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0099",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'SyntaxTokenList' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "SyntaxTokenList",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'SyntaxTokenList' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0100",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Text' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Text",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Text' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0101",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'ToString' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "ToString",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'ToString' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0102",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'TypeDeclarationSyntax' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "TypeDeclarationSyntax",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'TypeDeclarationSyntax' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0103",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'TypeParameterConstraintClauseSyntax' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "TypeParameterConstraintClauseSyntax",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'TypeParameterConstraintClauseSyntax' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0104",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'TypeParameterList' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "TypeParameterList",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'TypeParameterList' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0105",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'TypeParameterListSyntax' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "TypeParameterListSyntax",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'TypeParameterListSyntax' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0106",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Walk' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Walk",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Walk' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0107",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'Where' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "Where",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'Where' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0108",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'WithLanguageVersion' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "WithLanguageVersion",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'WithLanguageVersion' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    },
+    {
+      "id": "compile-0109",
+      "claim_id": "claim-0059",
+      "severity": "info",
+      "category": "unresolved_symbol",
+      "file": "docs/verification.md",
+      "line": 259,
+      "description": "Symbol 'WriteLine' referenced in documentation not found in codebase",
+      "evidence": {
+        "documented": "#:package Microsoft.CodeAnalysis.CSharp@4.14.0\n\nusing Microsoft.CodeAnalysis;\nusing Microsoft.CodeAnalysis.CSharp;\nusing Microsoft.CodeAnalysis.CSharp.Syntax;\n\nvar root = Path.GetFullPath(args.Length ",
+        "symbol": "WriteLine",
+        "search_scope": "all source files"
+      },
+      "suggested_fix": "Verify 'WriteLine' exists in the codebase. It may be misspelled, renamed, or removed.",
+      "in_diff": false,
+      "original_severity": "high"
+    }
+  ],
+  "external_sdk_suppressed": {
+    "docs/fix-sa1402-whole-repo.md": 37
+  }
+}

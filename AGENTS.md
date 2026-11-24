@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 44 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 483 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 495 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -93,7 +93,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 483 passed, 0 failed
+dotnet test  -c Release      # must be 495 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -205,14 +205,17 @@ weight.
     moved code would compile clean against that other type. `OutputVerifier` checks the
     rendered text again. The `FileLocal*Tests` classes pin each rule by compiling. See
     decision 30.
-17. **A file the C# compiler accepts is never `failed`.** `failed` and exit 1 tell an
+17. **A file the C# compiler accepts must not be `failed`.** `failed` and exit 1 tell an
     agent the run broke. Before decision 33 the packaged skill told it to fix the cause.
     A false `failed` on a valid file invites an agent to edit good code to please the tool.
-    `SourceParsing` owns the whole parse rule: the options, which errors count, and
-    file-based program detection. Never parse with other options and never filter
-    diagnostics anywhere else. `ParseRuleOwnershipTests` fails the build if you do.
-    When a new C# feature or directive appears, add it there with a test taken from a
-    real repository. See decision 33.
+    The tool cannot prove this for every file, because it parses without the build's
+    symbols. So when it cannot tell, it skips with a reason, and it fails only a file that
+    is broken with and without the symbols its `#if` lines name. `SourceParsing` owns the
+    whole parse rule: the options, which errors count, the symbol retry, and file-based
+    program detection. Never parse with other options and never filter diagnostics
+    anywhere else. `ParseRuleOwnershipTests` fails the build if you do. When a real
+    repository shows a new false `failed`, fix it there, with a test taken from that
+    repository. See decision 33.
 
 ## Conventions for anything you write
 
@@ -233,16 +236,25 @@ agent does not pay again.
   0.2.0 passed 469 tests and its own smoke test, then failed on the first real
   repositories it met. It marked 30 valid files `failed` across aspire, xunit, Humanizer,
   and Polly. It broke AutoMapper's build by splitting a file another project compiles by
-  path. It planned a rename onto a path another input's new file already claimed. A fixture you write proves what you thought of, not what other people write.
-  Run the tool over real repositories before you call a parse or guard change done.
+  path. It planned a rename onto a path another input's new file already claimed. A
+  fixture you write proves what you thought of, not what other people write. Run the
+  tool over real repositories before you call a parse or guard change done, including
+  some that did not find the bug you fixed.
 - **`#:` and `#!` are .NET 10 file-based program directives.** Without the
   `FileBasedProgram` parse feature they read as errors CS9298 and CS9314. Such a file
   compiles alone, so a type moved out of it leaves the program. The tool skips it, even
   when it declares `Main` in a class and has no top-level statements.
 - **The tool defines no preprocessor symbols, so `#else` is often the live branch.** A
   `#error Unknown target framework` in that branch raises CS1029 here and never in the
-  real build. `SourceParsing.Errors` ignores CS1029 only inside an `#if` group. A bare
-  `#error` still fails the file, because every build of it fails.
+  real build. `#error version` raises CS8304, not CS1029, so match an `#error`'s
+  diagnostics by location, never by ID. `SourceParsing.Errors` excuses an `#error` only
+  when its branch depends on a symbol. One under `#if true`, or under no `#if`, still
+  fails the file, because every build of it fails.
+- **With no symbols, a file can stop parsing at all.** `#if NET6_0_OR_GREATER` followed
+  by `#elif NETSTANDARD` and no `#else` leaves no branch live here, and the expression
+  around it breaks. BenchmarkDotNet has one. `SourceParsing.ParsesWithItsSymbols`
+  re-parses with every symbol the file's `#if` lines name, and a file that parses then is
+  skipped, not failed. Never split the symbol-defined tree: the build may not see it.
 - **`dotnet new` template sources are not C#.** Lines like `#if (UseXunit)` and
   placeholder names do not parse. Those files are `failed`, correctly. Tell the user to
   pass `--exclude` for the template folder. Do not change the parse rule to accept them.

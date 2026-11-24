@@ -1,0 +1,4567 @@
+{
+  "documentation_files": [
+    {
+      "path": "AGENTS.md",
+      "size_bytes": 44940,
+      "line_count": 583,
+      "code_blocks": 4,
+      "referenced_symbols": [
+        "ByteOrderMarkRoundTripTests",
+        "CollisionNamingContentTests",
+        "CollisionNamingRecordedTests",
+        "Compile",
+        "Compute",
+        "ContentHashTestBase",
+        "ContentRetryTests",
+        "Create",
+        "FileLocalPremiseTests",
+        "Find",
+        "For",
+        "Git",
+        "Holds",
+        "LocalType",
+        "ManifestPathTamperingTests",
+        "NextStepTests",
+        "PackagedAgentDocsTests",
+        "Parse",
+        "ParseRuleOwnershipTests",
+        "PlanAndRecord",
+        "Prepare",
+        "Read",
+        "RenamesPhase_UnderAnotherConvention_CanLeaveOutAPlannedRename",
+        "Run",
+        "RunIn",
+        "RunReportTests",
+        "Safe",
+        "SeparateRunReportTests",
+        "Skip",
+        "Split",
+        "WaitOrKill",
+        "WorkspaceWriterGitTests",
+        "Write"
+      ],
+      "mapped_source_files": [
+        "src/AgenticRoslynTool/BlankLineCollapser.cs",
+        "src/AgenticRoslynTool/CollisionNames.cs",
+        "src/AgenticRoslynTool/CollisionNaming.cs",
+        "src/AgenticRoslynTool/CollisionNamingFlag.cs",
+        "src/AgenticRoslynTool/ContentHash.cs",
+        "src/AgenticRoslynTool/CsvFieldReader.cs",
+        "src/AgenticRoslynTool/DirectiveAnalyzer.cs",
+        "src/AgenticRoslynTool/DirectiveInfo.cs",
+        "src/AgenticRoslynTool/DirectiveSafety.cs",
+        "src/AgenticRoslynTool/EncodedSource.cs",
+        "src/AgenticRoslynTool/FileLocalDirectives.cs",
+        "src/AgenticRoslynTool/FileLocalNames.cs",
+        "src/AgenticRoslynTool/FileLocalTypes.cs",
+        "src/AgenticRoslynTool/FileNamingConvention.cs",
+        "src/AgenticRoslynTool/FileReport.cs",
+        "src/AgenticRoslynTool/FileResult.cs",
+        "src/AgenticRoslynTool/FileSplitter.cs",
+        "src/AgenticRoslynTool/GitCommand.cs",
+        "src/AgenticRoslynTool/InputSource.cs",
+        "src/AgenticRoslynTool/KeptRenameCollisions.cs",
+        "src/AgenticRoslynTool/ManifestCollisionNaming.cs",
+        "src/AgenticRoslynTool/ManifestWriter.cs",
+        "src/AgenticRoslynTool/NewFileReport.cs",
+        "src/AgenticRoslynTool/NewFileResult.cs",
+        "src/AgenticRoslynTool/NextStep.cs",
+        "src/AgenticRoslynTool/Options.cs",
+        "src/AgenticRoslynTool/OutputBuilder.cs",
+        "src/AgenticRoslynTool/OutputFile.cs",
+        "src/AgenticRoslynTool/OutputVerifier.cs",
+        "src/AgenticRoslynTool/PathComparison.cs",
+        "src/AgenticRoslynTool/Phase.cs",
+        "src/AgenticRoslynTool/PlanBinding.cs",
+        "src/AgenticRoslynTool/PlanMismatch.cs",
+        "src/AgenticRoslynTool/PlannedFile.cs",
+        "src/AgenticRoslynTool/PlannedOutputEntry.cs",
+        "src/AgenticRoslynTool/Program.cs",
+        "src/AgenticRoslynTool/ReportFile.cs",
+        "src/AgenticRoslynTool/RunReport.cs",
+        "src/AgenticRoslynTool/RunSummary.cs",
+        "src/AgenticRoslynTool/SourceParsing.cs",
+        "src/AgenticRoslynTool/SplitPlan.cs",
+        "src/AgenticRoslynTool/SplitPlanner.cs",
+        "src/AgenticRoslynTool/TopLevelType.cs",
+        "src/AgenticRoslynTool/WorkspaceWriter.cs",
+        "tests/AgenticRoslynTool.Tests/ByteOrderMarkRoundTripTests.cs",
+        "tests/AgenticRoslynTool.Tests/CliRunner.cs",
+        "tests/AgenticRoslynTool.Tests/CollisionNamingContentTests.cs",
+        "tests/AgenticRoslynTool.Tests/CollisionNamingFixture.cs",
+        "tests/AgenticRoslynTool.Tests/CollisionNamingRecordedTests.cs",
+        "tests/AgenticRoslynTool.Tests/ContentHashTestBase.cs",
+        "tests/AgenticRoslynTool.Tests/ContentRetryTests.cs",
+        "tests/AgenticRoslynTool.Tests/FileLocalCompiler.cs",
+        "tests/AgenticRoslynTool.Tests/FileLocalPremiseTests.cs",
+        "tests/AgenticRoslynTool.Tests/FileNamingRuns.cs",
+        "tests/AgenticRoslynTool.Tests/GitFixture.cs",
+        "tests/AgenticRoslynTool.Tests/ManifestPathTamperingTests.cs",
+        "tests/AgenticRoslynTool.Tests/NextStepTests.cs",
+        "tests/AgenticRoslynTool.Tests/PackagedAgentDocsTests.cs",
+        "tests/AgenticRoslynTool.Tests/ParseRuleOwnershipTests.cs",
+        "tests/AgenticRoslynTool.Tests/RunReportTests.cs",
+        "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+        "tests/AgenticRoslynTool.Tests/SkillDoneRule.cs",
+        "tests/AgenticRoslynTool.Tests/WorkspaceWriterGitTests.cs"
+      ]
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "size_bytes": 7324,
+      "line_count": 152,
+      "code_blocks": 8,
+      "referenced_symbols": [
+        "For",
+        "Git",
+        "Read",
+        "Run",
+        "Split",
+        "Write"
+      ],
+      "mapped_source_files": [
+        "src/AgenticRoslynTool/FileSplitter.cs",
+        "src/AgenticRoslynTool/Phase.cs",
+        "tests/AgenticRoslynTool.Tests/TempWorkspace.cs"
+      ]
+    },
+    {
+      "path": "README.md",
+      "size_bytes": 25641,
+      "line_count": 363,
+      "code_blocks": 28,
+      "referenced_symbols": [
+        "For",
+        "Git",
+        "Run",
+        "Safe",
+        "Skip"
+      ],
+      "mapped_source_files": [
+        "src/AgenticRoslynTool/CollisionNaming.cs",
+        "src/AgenticRoslynTool/ContentHash.cs",
+        "src/AgenticRoslynTool/Options.cs",
+        "src/AgenticRoslynTool/Phase.cs",
+        "src/AgenticRoslynTool/Program.cs"
+      ]
+    },
+    {
+      "path": "docs/behavior-contracts.md",
+      "size_bytes": 51607,
+      "line_count": 767,
+      "code_blocks": 4,
+      "referenced_symbols": [
+        "Apply",
+        "CollisionNamingFlagTests",
+        "CollisionNamingRecordedTests",
+        "ContentHashPlanTests",
+        "ContentHashRenamesTests",
+        "ContentRetryTests",
+        "Describe",
+        "Failed",
+        "FileNamingAgreementTests",
+        "Find",
+        "FollowingNextArgs_RunsTheWholeWorkflow",
+        "For",
+        "Git",
+        "Holds",
+        "KeptRenameCollisionTests",
+        "MetadataRenameTests",
+        "NextStepWorkflowTests",
+        "Parse",
+        "PlanPhaseTests",
+        "Prepare",
+        "Read",
+        "RefusedRenameLocationTests",
+        "RenameFailure_IsAFailedRowInTheReport",
+        "Run",
+        "RunReportTests",
+        "Safe",
+        "SeparateRunReportTests",
+        "Skip",
+        "Split",
+        "Write"
+      ],
+      "mapped_source_files": [
+        "src/AgenticRoslynTool/CollisionNaming.cs",
+        "src/AgenticRoslynTool/CollisionNamingFlag.cs",
+        "src/AgenticRoslynTool/ContentHash.cs",
+        "src/AgenticRoslynTool/DirectiveSafety.cs",
+        "src/AgenticRoslynTool/EncodedSource.cs",
+        "src/AgenticRoslynTool/FileLocalDirectives.cs",
+        "src/AgenticRoslynTool/FileSplitter.cs",
+        "src/AgenticRoslynTool/ManifestWriter.cs",
+        "src/AgenticRoslynTool/NextStep.cs",
+        "src/AgenticRoslynTool/Options.cs",
+        "src/AgenticRoslynTool/OutputFile.cs",
+        "src/AgenticRoslynTool/Phase.cs",
+        "src/AgenticRoslynTool/Program.cs",
+        "src/AgenticRoslynTool/ReportFile.cs",
+        "src/AgenticRoslynTool/RunReport.cs",
+        "tests/AgenticRoslynTool.Tests/CollisionNamingFlagTests.cs",
+        "tests/AgenticRoslynTool.Tests/CollisionNamingRecordedTests.cs",
+        "tests/AgenticRoslynTool.Tests/ContentHashPlanTests.cs",
+        "tests/AgenticRoslynTool.Tests/ContentHashRenamesTests.cs",
+        "tests/AgenticRoslynTool.Tests/ContentRetryTests.cs",
+        "tests/AgenticRoslynTool.Tests/FileNamingAgreementTests.cs",
+        "tests/AgenticRoslynTool.Tests/KeptRenameCollisionTests.cs",
+        "tests/AgenticRoslynTool.Tests/MetadataRenameTests.cs",
+        "tests/AgenticRoslynTool.Tests/NextStepWorkflowTests.cs",
+        "tests/AgenticRoslynTool.Tests/PlanPhaseTests.cs",
+        "tests/AgenticRoslynTool.Tests/RefusedRenameLocationTests.cs",
+        "tests/AgenticRoslynTool.Tests/RunReportTests.cs",
+        "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs"
+      ]
+    },
+    {
+      "path": "docs/decision-log.md",
+      "size_bytes": 95558,
+      "line_count": 1427,
+      "code_blocks": 0,
+      "referenced_symbols": [
+        "CollisionNamingContentTests",
+        "CollisionNamingRecordedTests",
+        "ContentHashCarryTests",
+        "ContentPhase_StillAcceptsAHandEditedFreePath",
+        "Diagnostics",
+        "FileLocalNameScanTests",
+        "FileLocalPremiseTests",
+        "Find",
+        "For",
+        "Git",
+        "ManifestPathTamperingTests",
+        "MetadataCollisionGuardTests",
+        "NestedNamespaceTests",
+        "PackagedAgentDocsTests",
+        "Parse",
+        "ParseRuleOwnershipTests",
+        "Prepare",
+        "Read",
+        "Run",
+        "SeamUnitTests",
+        "Skip",
+        "Split",
+        "ToCsv",
+        "Write"
+      ],
+      "mapped_source_files": [
+        "src/AgenticRoslynTool/BlankLineCollapser.cs",
+        "src/AgenticRoslynTool/CollisionNames.cs",
+        "src/AgenticRoslynTool/CollisionNaming.cs",
+        "src/AgenticRoslynTool/CollisionNamingFlag.cs",
+        "src/AgenticRoslynTool/ContentHash.cs",
+        "src/AgenticRoslynTool/CsvFieldReader.cs",
+        "src/AgenticRoslynTool/DirectiveAnalyzer.cs",
+        "src/AgenticRoslynTool/EncodedSource.cs",
+        "src/AgenticRoslynTool/FileLocalNames.cs",
+        "src/AgenticRoslynTool/FileResult.cs",
+        "src/AgenticRoslynTool/FileSplitter.cs",
+        "src/AgenticRoslynTool/InputSource.cs",
+        "src/AgenticRoslynTool/KeptRenameCollisions.cs",
+        "src/AgenticRoslynTool/ManifestCollisionNaming.cs",
+        "src/AgenticRoslynTool/ManifestWriter.cs",
+        "src/AgenticRoslynTool/NextStep.cs",
+        "src/AgenticRoslynTool/Options.cs",
+        "src/AgenticRoslynTool/OutputBuilder.cs",
+        "src/AgenticRoslynTool/OutputFile.cs",
+        "src/AgenticRoslynTool/OutputVerifier.cs",
+        "src/AgenticRoslynTool/Phase.cs",
+        "src/AgenticRoslynTool/Program.cs",
+        "src/AgenticRoslynTool/ReportFile.cs",
+        "src/AgenticRoslynTool/SourceParsing.cs",
+        "src/AgenticRoslynTool/SplitPlan.cs",
+        "src/AgenticRoslynTool/SplitPlanner.cs",
+        "src/AgenticRoslynTool/TopLevelType.cs",
+        "src/AgenticRoslynTool/WorkspaceWriter.cs",
+        "tests/AgenticRoslynTool.Tests/CollisionNamingContentTests.cs",
+        "tests/AgenticRoslynTool.Tests/CollisionNamingRecordedTests.cs",
+        "tests/AgenticRoslynTool.Tests/ContentHashCarryTests.cs",
+        "tests/AgenticRoslynTool.Tests/FileLocalNameScanTests.cs",
+        "tests/AgenticRoslynTool.Tests/FileLocalPremiseTests.cs",
+        "tests/AgenticRoslynTool.Tests/ManifestPathTamperingTests.cs",
+        "tests/AgenticRoslynTool.Tests/MetadataCollisionGuardTests.cs",
+        "tests/AgenticRoslynTool.Tests/NestedNamespaceTests.cs",
+        "tests/AgenticRoslynTool.Tests/PackagedAgentDocsTests.cs",
+        "tests/AgenticRoslynTool.Tests/ParseRuleOwnershipTests.cs",
+        "tests/AgenticRoslynTool.Tests/SeamUnitTests.cs"
+      ]
+    },
+    {
+      "path": "docs/fix-sa1402-whole-repo.md",
+      "size_bytes": 22614,
+      "line_count": 489,
+      "code_blocks": 32,
+      "referenced_symbols": [
+        "For",
+        "Git",
+        "Read",
+        "Run",
+        "Skip",
+        "Split",
+        "Write"
+      ],
+      "mapped_source_files": [
+        "src/AgenticRoslynTool/CollisionNaming.cs",
+        "src/AgenticRoslynTool/ContentHash.cs",
+        "src/AgenticRoslynTool/Options.cs",
+        "src/AgenticRoslynTool/Phase.cs",
+        "src/AgenticRoslynTool/Program.cs",
+        "src/AgenticRoslynTool/TopLevelType.cs"
+      ]
+    },
+    {
+      "path": "docs/one-type-per-file-without-resharper.md",
+      "size_bytes": 12710,
+      "line_count": 324,
+      "code_blocks": 26,
+      "referenced_symbols": [
+        "For",
+        "Run"
+      ],
+      "mapped_source_files": [
+        "src/AgenticRoslynTool/ContentHash.cs",
+        "src/AgenticRoslynTool/Options.cs",
+        "src/AgenticRoslynTool/Phase.cs",
+        "src/AgenticRoslynTool/Program.cs"
+      ]
+    },
+    {
+      "path": "docs/verification.md",
+      "size_bytes": 19689,
+      "line_count": 409,
+      "code_blocks": 20,
+      "referenced_symbols": [
+        "Compile",
+        "Diagnostics",
+        "For",
+        "Parse",
+        "Read",
+        "Run",
+        "Safe",
+        "Split",
+        "Write"
+      ],
+      "mapped_source_files": [
+        "src/AgenticRoslynTool/ContentHash.cs",
+        "src/AgenticRoslynTool/Options.cs",
+        "src/AgenticRoslynTool/OutputFile.cs",
+        "src/AgenticRoslynTool/Phase.cs",
+        "src/AgenticRoslynTool/Program.cs",
+        "src/AgenticRoslynTool/SourceParsing.cs"
+      ]
+    },
+    {
+      "path": "package/AGENTS.md",
+      "size_bytes": 6355,
+      "line_count": 30,
+      "code_blocks": 0,
+      "referenced_symbols": [
+        "Read",
+        "Run",
+        "Split"
+      ],
+      "mapped_source_files": [
+        "src/AgenticRoslynTool/ContentHash.cs",
+        "src/AgenticRoslynTool/FileNamingConvention.cs",
+        "src/AgenticRoslynTool/Phase.cs"
+      ]
+    },
+    {
+      "path": "package/skills/split-types/SKILL.md",
+      "size_bytes": 6470,
+      "line_count": 101,
+      "code_blocks": 0,
+      "referenced_symbols": [
+        "For",
+        "Read",
+        "Run",
+        "Split"
+      ],
+      "mapped_source_files": [
+        "src/AgenticRoslynTool/CollisionNaming.cs",
+        "src/AgenticRoslynTool/FileNamingConvention.cs",
+        "src/AgenticRoslynTool/Phase.cs"
+      ]
+    }
+  ],
+  "source_symbols": [
+    {
+      "name": "VisitToken",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/BlankLineCollapser.cs",
+      "line": 21,
+      "signature": "public override SyntaxToken VisitToken(SyntaxToken token)",
+      "visibility": "public"
+    },
+    {
+      "name": "Compute",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/ContentHash.cs",
+      "line": 27,
+      "signature": "public static string Compute(ReadOnlySpan<byte> bytes) => AlgorithmPrefix + Convert.ToHexStringLower(SHA256.HashData(bytes));",
+      "visibility": "public"
+    },
+    {
+      "name": "IsWellFormed",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/ContentHash.cs",
+      "line": 32,
+      "signature": "public static bool IsWellFormed(string? value)",
+      "visibility": "public"
+    },
+    {
+      "name": "DescribeMismatch",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/ContentHash.cs",
+      "line": 44,
+      "signature": "public static string? DescribeMismatch(string? planned, string actual)",
+      "visibility": "public"
+    },
+    {
+      "name": "ReadFields",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/CsvFieldReader.cs",
+      "line": 38,
+      "signature": "public string[]? ReadFields()",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/CsvFieldReader.cs",
+      "line": 127,
+      "signature": "public void Dispose()",
+      "visibility": "public"
+    },
+    {
+      "name": "Create",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/DirectiveInfo.cs",
+      "line": 22,
+      "signature": "public static DirectiveInfo Create(SyntaxTree tree, SyntaxTrivia trivia, TopLevelType? owner)",
+      "visibility": "public"
+    },
+    {
+      "name": "Safe",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/DirectiveSafety.cs",
+      "line": 14,
+      "signature": "public static DirectiveSafety Safe(string? note) => new(true, null, note);",
+      "visibility": "public"
+    },
+    {
+      "name": "Unsafe",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/DirectiveSafety.cs",
+      "line": 17,
+      "signature": "public static DirectiveSafety Unsafe(string reason) => new(false, reason, null);",
+      "visibility": "public"
+    },
+    {
+      "name": "FromBytes",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/EncodedSource.cs",
+      "line": 46,
+      "signature": "public static EncodedSource FromBytes(byte[] bytes)",
+      "visibility": "public"
+    },
+    {
+      "name": "Split",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/FileResult.cs",
+      "line": 33,
+      "signature": "public static FileResult Split(string originalPath, string keptPath, bool gitMove, string? note, IReadOnlyList<NewFileResult> newFiles) => new(originalPath, keptPath, gitMove, \"split\", null, note, newFiles);",
+      "visibility": "public"
+    },
+    {
+      "name": "Skip",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/FileResult.cs",
+      "line": 36,
+      "signature": "public static FileResult Skip(string originalPath, string keptPath, string reason) => new(originalPath, keptPath, false, \"skipped\", reason, null, Array.Empty<NewFileResult>());",
+      "visibility": "public"
+    },
+    {
+      "name": "StalePlan",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/FileResult.cs",
+      "line": 42,
+      "signature": "public static FileResult StalePlan(string originalPath, string keptPath, string reason, string? plannedHash) => Skip(originalPath, keptPath, reason) with { ContentHash = plannedHash };",
+      "visibility": "public"
+    },
+    {
+      "name": "Failed",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/FileResult.cs",
+      "line": 45,
+      "signature": "public static FileResult Failed(string originalPath, string keptPath, string reason) => new(originalPath, keptPath, false, \"failed\", reason, null, Array.Empty<NewFileResult>());",
+      "visibility": "public"
+    },
+    {
+      "name": "Run",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/FileSplitter.cs",
+      "line": 75,
+      "signature": "public IReadOnlyList<FileResult> Run() => Run(out _);",
+      "visibility": "public"
+    },
+    {
+      "name": "Run",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/FileSplitter.cs",
+      "line": 83,
+      "signature": "public IReadOnlyList<FileResult> Run(out CollisionNaming collisionNaming)",
+      "visibility": "public"
+    },
+    {
+      "name": "Read",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/ManifestCollisionNaming.cs",
+      "line": 29,
+      "signature": "public static CollisionNaming? Read(string path)",
+      "visibility": "public"
+    },
+    {
+      "name": "Write",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/ManifestWriter.cs",
+      "line": 22,
+      "signature": "public static void Write(IReadOnlyList<FileResult> results, string path, CollisionNaming collisionNaming)",
+      "visibility": "public"
+    },
+    {
+      "name": "Read",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/ManifestWriter.cs",
+      "line": 40,
+      "signature": "public static IReadOnlyList<FileResult> Read(string path, bool requireContentHash = false)",
+      "visibility": "public"
+    },
+    {
+      "name": "ToCsv",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/ManifestWriter.cs",
+      "line": 115,
+      "signature": "public static string ToCsv(IReadOnlyList<FileResult> results, CollisionNaming collisionNaming)",
+      "visibility": "public"
+    },
+    {
+      "name": "For",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/NextStep.cs",
+      "line": 50,
+      "signature": "public static IReadOnlyList<string>? For(Options options, IReadOnlyList<FileResult> reportRows, bool planOnDisk)",
+      "visibility": "public"
+    },
+    {
+      "name": "Describe",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/NextStep.cs",
+      "line": 115,
+      "signature": "public static string Describe(IReadOnlyList<string> args, Phase ranPhase)",
+      "visibility": "public"
+    },
+    {
+      "name": "Parse",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/Options.cs",
+      "line": 52,
+      "signature": "public static Options Parse(string[] args)",
+      "visibility": "public"
+    },
+    {
+      "name": "DefaultReportPath",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/Options.cs",
+      "line": 167,
+      "signature": "public static string DefaultReportPath(string manifestPath) => Path.ChangeExtension(manifestPath, \".report.csv\");",
+      "visibility": "public"
+    },
+    {
+      "name": "HasMetaOption",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/Options.cs",
+      "line": 187,
+      "signature": "public static bool HasMetaOption(string[] args, params string[] names)",
+      "visibility": "public"
+    },
+    {
+      "name": "Prepare",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/ReportFile.cs",
+      "line": 38,
+      "signature": "public static void Prepare(string reportPath, string manifestPath)",
+      "visibility": "public"
+    },
+    {
+      "name": "Write",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/ReportFile.cs",
+      "line": 88,
+      "signature": "public static string? Write(IReadOnlyList<FileResult> rows, string reportPath, string manifestPath, CollisionNaming collisionNaming)",
+      "visibility": "public"
+    },
+    {
+      "name": "Create",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/RunReport.cs",
+      "line": 40,
+      "signature": "public static RunReport Create(IReadOnlyList<FileResult> results, Phase phase, string manifestPath, string? reportPath, CollisionNaming collisionNaming, IReadOnlyList<string>? nextArgs)",
+      "visibility": "public"
+    },
+    {
+      "name": "ToJson",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/RunReport.cs",
+      "line": 57,
+      "signature": "public string ToJson() => JsonSerializer.Serialize(this, SerializerOptions);",
+      "visibility": "public"
+    },
+    {
+      "name": "ToSummaryLine",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/RunReport.cs",
+      "line": 60,
+      "signature": "public string ToSummaryLine() =>",
+      "visibility": "public"
+    },
+    {
+      "name": "Find",
+      "kind": "method",
+      "file": "src/AgenticRoslynTool/TopLevelType.cs",
+      "line": 59,
+      "signature": "public static IEnumerable<TopLevelType> Find(CompilationUnitSyntax root)",
+      "visibility": "public"
+    },
+    {
+      "name": "ByteOrderMarkRoundTripTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/ByteOrderMarkRoundTripTests.cs",
+      "line": 9,
+      "signature": "public sealed class ByteOrderMarkRoundTripTests : ContentHashTestBase",
+      "visibility": "public"
+    },
+    {
+      "name": "Marked",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ByteOrderMarkRoundTripTests.cs",
+      "line": 11,
+      "signature": "public static TheoryData<string> Marked() => [\"utf-8\", \"utf-16le\", \"utf-16be\"];",
+      "visibility": "public"
+    },
+    {
+      "name": "Unchanged",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ByteOrderMarkRoundTripTests.cs",
+      "line": 13,
+      "signature": "public static TheoryData<string> Unchanged() =>",
+      "visibility": "public"
+    },
+    {
+      "name": "ReadThenWrite_ReturnsTheSameBytes",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ByteOrderMarkRoundTripTests.cs",
+      "line": 18,
+      "signature": "public void ReadThenWrite_ReturnsTheSameBytes(string kind)",
+      "visibility": "public"
+    },
+    {
+      "name": "Split_KeepsTheMark_OnTheKeptFileAndTheNewFile",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ByteOrderMarkRoundTripTests.cs",
+      "line": 33,
+      "signature": "public void Split_KeepsTheMark_OnTheKeptFileAndTheNewFile(string kind)",
+      "visibility": "public"
+    },
+    {
+      "name": "Split_OfAFileWithNoMark_WritesNoMark",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ByteOrderMarkRoundTripTests.cs",
+      "line": 54,
+      "signature": "public void Split_OfAFileWithNoMark_WritesNoMark()",
+      "visibility": "public"
+    },
+    {
+      "name": "CliContractTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/CliContractTests.cs",
+      "line": 10,
+      "signature": "public sealed class CliContractTests",
+      "visibility": "public"
+    },
+    {
+      "name": "NoArguments_ReportsTheErrorOnStandardErrorAndExitsTwo",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CliContractTests.cs",
+      "line": 13,
+      "signature": "public void NoArguments_ReportsTheErrorOnStandardErrorAndExitsTwo()",
+      "visibility": "public"
+    },
+    {
+      "name": "UnknownCommand_KeepsUsageOffStandardOutput",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CliContractTests.cs",
+      "line": 23,
+      "signature": "public void UnknownCommand_KeepsUsageOffStandardOutput()",
+      "visibility": "public"
+    },
+    {
+      "name": "UnknownOption_KeepsUsageOffStandardOutput",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CliContractTests.cs",
+      "line": 34,
+      "signature": "public void UnknownOption_KeepsUsageOffStandardOutput()",
+      "visibility": "public"
+    },
+    {
+      "name": "MissingInput_ExitsTwoWithoutAStackTrace",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CliContractTests.cs",
+      "line": 44,
+      "signature": "public void MissingInput_ExitsTwoWithoutAStackTrace()",
+      "visibility": "public"
+    },
+    {
+      "name": "Help_GoesToStandardOutputAndExitsZero",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CliContractTests.cs",
+      "line": 54,
+      "signature": "public void Help_GoesToStandardOutputAndExitsZero()",
+      "visibility": "public"
+    },
+    {
+      "name": "MissingInputFile_ExitsThreeWithoutAStackTrace",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CliContractTests.cs",
+      "line": 68,
+      "signature": "public void MissingInputFile_ExitsThreeWithoutAStackTrace()",
+      "visibility": "public"
+    },
+    {
+      "name": "DryRunCombinedWithPhase_IsRejectedInEitherOrder",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CliContractTests.cs",
+      "line": 78,
+      "signature": "public void DryRunCombinedWithPhase_IsRejectedInEitherOrder()",
+      "visibility": "public"
+    },
+    {
+      "name": "Version_WorksAfterTheVerbAsWellAsBeforeIt",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CliContractTests.cs",
+      "line": 87,
+      "signature": "public void Version_WorksAfterTheVerbAsWellAsBeforeIt()",
+      "visibility": "public"
+    },
+    {
+      "name": "JsonRun_PutsOnlyTheReportOnStandardOutput",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CliContractTests.cs",
+      "line": 101,
+      "signature": "public void JsonRun_PutsOnlyTheReportOnStandardOutput()",
+      "visibility": "public"
+    },
+    {
+      "name": "BareHelpAfterOtherOptions_IsARejectedCommandLine",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CliContractTests.cs",
+      "line": 131,
+      "signature": "public void BareHelpAfterOtherOptions_IsARejectedCommandLine()",
+      "visibility": "public"
+    },
+    {
+      "name": "HelpInAValuePosition_IsTreatedAsAValue",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CliContractTests.cs",
+      "line": 144,
+      "signature": "public void HelpInAValuePosition_IsTreatedAsAValue()",
+      "visibility": "public"
+    },
+    {
+      "name": "UnexpectedRunFailure_StillReportsOneErrorLineAndExitsThree",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CliContractTests.cs",
+      "line": 156,
+      "signature": "public void UnexpectedRunFailure_StillReportsOneErrorLineAndExitsThree()",
+      "visibility": "public"
+    },
+    {
+      "name": "Run",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CliRunner.cs",
+      "line": 14,
+      "signature": "public static CliResult Run(params string[] args) => RunIn(Path.GetTempPath(), args);",
+      "visibility": "public"
+    },
+    {
+      "name": "RunIn",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CliRunner.cs",
+      "line": 16,
+      "signature": "public static CliResult RunIn(string workingDirectory, params string[] args)",
+      "visibility": "public"
+    },
+    {
+      "name": "WaitOrKill",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CliRunner.cs",
+      "line": 44,
+      "signature": "public static void WaitOrKill(Process process, string description)",
+      "visibility": "public"
+    },
+    {
+      "name": "CollisionNamingContentTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingContentTests.cs",
+      "line": 9,
+      "signature": "public sealed class CollisionNamingContentTests",
+      "visibility": "public"
+    },
+    {
+      "name": "TypeFirst_PutsTheTypeNameBeforeTheSourceFileName",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingContentTests.cs",
+      "line": 14,
+      "signature": "public void TypeFirst_PutsTheTypeNameBeforeTheSourceFileName()",
+      "visibility": "public"
+    },
+    {
+      "name": "TypeFirst_KeepsTheGenericPartOfTheFileName",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingContentTests.cs",
+      "line": 39,
+      "signature": "public void TypeFirst_KeepsTheGenericPartOfTheFileName()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentPhase_PerRowCheckCatchesAColumnEditedToTheOtherValue",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingContentTests.cs",
+      "line": 61,
+      "signature": "public void ContentPhase_PerRowCheckCatchesAColumnEditedToTheOtherValue(string plannedValue, string recordedValue)",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentPhase_StillAcceptsAHandEditedFreePath",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingContentTests.cs",
+      "line": 101,
+      "signature": "public void ContentPhase_StillAcceptsAHandEditedFreePath(string editedName)",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentPhase_AppliesAPlanWhoseTwoFormsAreOneName",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingContentTests.cs",
+      "line": 127,
+      "signature": "public void ContentPhase_AppliesAPlanWhoseTwoFormsAreOneName(string value)",
+      "visibility": "public"
+    },
+    {
+      "name": "TypeFirst_RefusesWhenTheQualifiedPathAlreadyExists",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingContentTests.cs",
+      "line": 150,
+      "signature": "public void TypeFirst_RefusesWhenTheQualifiedPathAlreadyExists()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentPhase_ReadsThePlanNoteToTellAPlanFromAHandEdit",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingContentTests.cs",
+      "line": 176,
+      "signature": "public void ContentPhase_ReadsThePlanNoteToTellAPlanFromAHandEdit(bool stripNote, string expectedStatus)",
+      "visibility": "public"
+    },
+    {
+      "name": "RunPhase",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingFixture.cs",
+      "line": 20,
+      "signature": "public static IReadOnlyList<FileResult> RunPhase(TempWorkspace ws, string listPath, string manifestPath, Phase phase, CollisionNaming? naming)",
+      "visibility": "public"
+    },
+    {
+      "name": "PlanAndRecord",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingFixture.cs",
+      "line": 27,
+      "signature": "public static IReadOnlyList<FileResult> PlanAndRecord(TempWorkspace ws, string listPath, string manifestPath, CollisionNaming? naming)",
+      "visibility": "public"
+    },
+    {
+      "name": "CsFiles",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingFixture.cs",
+      "line": 34,
+      "signature": "public static string[] CsFiles(TempWorkspace ws)",
+      "visibility": "public"
+    },
+    {
+      "name": "Split",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingFixture.cs",
+      "line": 39,
+      "signature": "public static FileResult Split(string original, string output)",
+      "visibility": "public"
+    },
+    {
+      "name": "CollisionNamingFlagTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingFlagTests.cs",
+      "line": 7,
+      "signature": "public sealed class CollisionNamingFlagTests",
+      "visibility": "public"
+    },
+    {
+      "name": "Plan_IgnoresAnExistingManifestsValue",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingFlagTests.cs",
+      "line": 10,
+      "signature": "public void Plan_IgnoresAnExistingManifestsValue()",
+      "visibility": "public"
+    },
+    {
+      "name": "Resolve_PrefersTheRecordedValue_ThenTheFlag_ThenFileFirst",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingFlagTests.cs",
+      "line": 31,
+      "signature": "public void Resolve_PrefersTheRecordedValue_ThenTheFlag_ThenFileFirst(string? given, string? recorded, string expected)",
+      "visibility": "public"
+    },
+    {
+      "name": "Resolve_RefusesAFlagThatContradictsThePlan",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingFlagTests.cs",
+      "line": 39,
+      "signature": "public void Resolve_RefusesAFlagThatContradictsThePlan(string given, string recorded)",
+      "visibility": "public"
+    },
+    {
+      "name": "CollisionNamingOptionTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingOptionTests.cs",
+      "line": 7,
+      "signature": "public sealed class CollisionNamingOptionTests",
+      "visibility": "public"
+    },
+    {
+      "name": "Parse_LeavesAnAbsentFlagNull_AndReadsBothValues",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingOptionTests.cs",
+      "line": 10,
+      "signature": "public void Parse_LeavesAnAbsentFlagNull_AndReadsBothValues()",
+      "visibility": "public"
+    },
+    {
+      "name": "Parse_RejectsAnUnknownOrMissingValue",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingOptionTests.cs",
+      "line": 20,
+      "signature": "public void Parse_RejectsAnUnknownOrMissingValue()",
+      "visibility": "public"
+    },
+    {
+      "name": "CollisionNamingPlanTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingPlanTests.cs",
+      "line": 9,
+      "signature": "public sealed class CollisionNamingPlanTests",
+      "visibility": "public"
+    },
+    {
+      "name": "QualifiedNameCollision_StillSkipsBothInputsUnderTypeFirst",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingPlanTests.cs",
+      "line": 12,
+      "signature": "public void QualifiedNameCollision_StillSkipsBothInputsUnderTypeFirst()",
+      "visibility": "public"
+    },
+    {
+      "name": "QualifiedNameCollision_IgnoresCaseUnderTypeFirst",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingPlanTests.cs",
+      "line": 32,
+      "signature": "public void QualifiedNameCollision_IgnoresCaseUnderTypeFirst()",
+      "visibility": "public"
+    },
+    {
+      "name": "TypeFirst_RefusesANameRoslynReadsAsGeneratedCode",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingPlanTests.cs",
+      "line": 55,
+      "signature": "public void TypeFirst_RefusesANameRoslynReadsAsGeneratedCode(string sourceName)",
+      "visibility": "public"
+    },
+    {
+      "name": "TypeFirst_NamesEveryRefusedOutputOfOneInput",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingPlanTests.cs",
+      "line": 84,
+      "signature": "public void TypeFirst_NamesEveryRefusedOutputOfOneInput()",
+      "visibility": "public"
+    },
+    {
+      "name": "CollisionNamingRecordedTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingRecordedTests.cs",
+      "line": 9,
+      "signature": "public sealed class CollisionNamingRecordedTests",
+      "visibility": "public"
+    },
+    {
+      "name": "PlanRecordsTypeFirst_AndRenamesAndContentReuseItWithoutTheFlag",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingRecordedTests.cs",
+      "line": 12,
+      "signature": "public void PlanRecordsTypeFirst_AndRenamesAndContentReuseItWithoutTheFlag()",
+      "visibility": "public"
+    },
+    {
+      "name": "AFlagThatContradictsThePlan_ExitsThreeAndTouchesNothing",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingRecordedTests.cs",
+      "line": 38,
+      "signature": "public void AFlagThatContradictsThePlan_ExitsThreeAndTouchesNothing(string phase)",
+      "visibility": "public"
+    },
+    {
+      "name": "AMatchingFlag_IsAccepted",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CollisionNamingRecordedTests.cs",
+      "line": 64,
+      "signature": "public void AMatchingFlag_IsAccepted()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentHashCarryTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashCarryTests.cs",
+      "line": 7,
+      "signature": "public sealed class ContentHashCarryTests : ContentHashTestBase",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentRowForAFileItNeverRead_KeepsThePlannedHash",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashCarryTests.cs",
+      "line": 10,
+      "signature": "public void ContentRowForAFileItNeverRead_KeepsThePlannedHash()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentReportRow_ForARefusedFileSuppliedByItsKeptPath_RepeatsTheManifestHash",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashCarryTests.cs",
+      "line": 29,
+      "signature": "public void ContentReportRow_ForARefusedFileSuppliedByItsKeptPath_RepeatsTheManifestHash()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentReportRows_RepeatTheManifestHash_ForInputsThatAreNotApplied",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashCarryTests.cs",
+      "line": 51,
+      "signature": "public void ContentReportRows_RepeatTheManifestHash_ForInputsThatAreNotApplied()",
+      "visibility": "public"
+    },
+    {
+      "name": "SecondContentRun_ReportsAnAlreadySplitFileAsAlreadyApplied",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashCarryTests.cs",
+      "line": 70,
+      "signature": "public void SecondContentRun_ReportsAnAlreadySplitFileAsAlreadyApplied()",
+      "visibility": "public"
+    },
+    {
+      "name": "BatchedContentRuns_KeepTheHashOfRowsNotYetApplied",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashCarryTests.cs",
+      "line": 89,
+      "signature": "public void BatchedContentRuns_KeepTheHashOfRowsNotYetApplied()",
+      "visibility": "public"
+    },
+    {
+      "name": "EditedManifestOverUnchangedSource_IsStillCaughtByTheStructuralCheck",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashCarryTests.cs",
+      "line": 107,
+      "signature": "public void EditedManifestOverUnchangedSource_IsStillCaughtByTheStructuralCheck()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentHashContentPhaseTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashContentPhaseTests.cs",
+      "line": 8,
+      "signature": "public sealed class ContentHashContentPhaseTests : ContentHashTestBase",
+      "visibility": "public"
+    },
+    {
+      "name": "UnchangedInput_IsApplied_AndTheRowKeepsThePlannedHash",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashContentPhaseTests.cs",
+      "line": 11,
+      "signature": "public void UnchangedInput_IsApplied_AndTheRowKeepsThePlannedHash()",
+      "visibility": "public"
+    },
+    {
+      "name": "BodyEditAfterPlan_IsRefused_AndNothingIsWritten",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashContentPhaseTests.cs",
+      "line": 24,
+      "signature": "public void BodyEditAfterPlan_IsRefused_AndNothingIsWritten()",
+      "visibility": "public"
+    },
+    {
+      "name": "ByteOnlyEdits",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashContentPhaseTests.cs",
+      "line": 43,
+      "signature": "public static TheoryData<string, byte[]> ByteOnlyEdits()",
+      "visibility": "public"
+    },
+    {
+      "name": "EditThatChangesOnlyBytes_IsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashContentPhaseTests.cs",
+      "line": 59,
+      "signature": "public void EditThatChangesOnlyBytes_IsRefused(string kind, byte[] editedBytes)",
+      "visibility": "public"
+    },
+    {
+      "name": "StaleFile_DoesNotStopTheOtherFilesInTheRun",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashContentPhaseTests.cs",
+      "line": 75,
+      "signature": "public void StaleFile_DoesNotStopTheOtherFilesInTheRun()",
+      "visibility": "public"
+    },
+    {
+      "name": "MovedFile_StillMatches_BecauseAMoveDoesNotChangeBytes",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashContentPhaseTests.cs",
+      "line": 92,
+      "signature": "public void MovedFile_StillMatches_BecauseAMoveDoesNotChangeBytes()",
+      "visibility": "public"
+    },
+    {
+      "name": "MovedThenEditedFile_IsRefusedAtItsKeptPath",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashContentPhaseTests.cs",
+      "line": 109,
+      "signature": "public void MovedThenEditedFile_IsRefusedAtItsKeptPath()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentHashManifestColumnTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashManifestColumnTests.cs",
+      "line": 7,
+      "signature": "public sealed class ContentHashManifestColumnTests : ContentHashTestBase",
+      "visibility": "public"
+    },
+    {
+      "name": "ManifestWithoutTheHashColumn_FailsTheContentRun_BeforeAnyFileIsTouched",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashManifestColumnTests.cs",
+      "line": 10,
+      "signature": "public void ManifestWithoutTheHashColumn_FailsTheContentRun_BeforeAnyFileIsTouched()",
+      "visibility": "public"
+    },
+    {
+      "name": "RenamesOverAManifestWithoutTheHashColumn_FailsTheRun_BeforeAnyRename",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashManifestColumnTests.cs",
+      "line": 35,
+      "signature": "public void RenamesOverAManifestWithoutTheHashColumn_FailsTheRun_BeforeAnyRename(string manifestText)",
+      "visibility": "public"
+    },
+    {
+      "name": "MissingOrMalformedHash_RefusesTheFile_AndDoesNotCrash",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashManifestColumnTests.cs",
+      "line": 58,
+      "signature": "public void MissingOrMalformedHash_RefusesTheFile_AndDoesNotCrash(string? hash)",
+      "visibility": "public"
+    },
+    {
+      "name": "Hash_SurvivesTheCsvRoundTrip_OnEveryRowShape",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashManifestColumnTests.cs",
+      "line": 81,
+      "signature": "public void Hash_SurvivesTheCsvRoundTrip_OnEveryRowShape()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentHashPlanTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashPlanTests.cs",
+      "line": 7,
+      "signature": "public sealed class ContentHashPlanTests : ContentHashTestBase",
+      "visibility": "public"
+    },
+    {
+      "name": "PlanRow_CarriesTheSha256OfTheRawInputBytes",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashPlanTests.cs",
+      "line": 10,
+      "signature": "public void PlanRow_CarriesTheSha256OfTheRawInputBytes()",
+      "visibility": "public"
+    },
+    {
+      "name": "PlanRow_CarriesAHashForASkippedFile_AndNoneForAFileNeverRead",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashPlanTests.cs",
+      "line": 23,
+      "signature": "public void PlanRow_CarriesAHashForASkippedFile_AndNoneForAFileNeverRead()",
+      "visibility": "public"
+    },
+    {
+      "name": "FailedPlanRow_CarriesTheHashOfTheBytesItCouldNotParse",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashPlanTests.cs",
+      "line": 37,
+      "signature": "public void FailedPlanRow_CarriesTheHashOfTheBytesItCouldNotParse()",
+      "visibility": "public"
+    },
+    {
+      "name": "CollisionQualifiedRow_KeepsItsHash_AndIsApplied",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashPlanTests.cs",
+      "line": 48,
+      "signature": "public void CollisionQualifiedRow_KeepsItsHash_AndIsApplied()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentHashRenamesStaleTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesStaleTests.cs",
+      "line": 7,
+      "signature": "public sealed class ContentHashRenamesStaleTests : ContentHashTestBase",
+      "visibility": "public"
+    },
+    {
+      "name": "StaleRefusal_StaysRefused_WhenRenamesRunsAfterIt",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesStaleTests.cs",
+      "line": 10,
+      "signature": "public void StaleRefusal_StaysRefused_WhenRenamesRunsAfterIt()",
+      "visibility": "public"
+    },
+    {
+      "name": "FileThePlanSkipped_ThenGainsAType_IsRefusedByRenames",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesStaleTests.cs",
+      "line": 43,
+      "signature": "public void FileThePlanSkipped_ThenGainsAType_IsRefusedByRenames()",
+      "visibility": "public"
+    },
+    {
+      "name": "EditedFileThatRenamesWouldSkipAnyway_IsReportedAsStale_AndStaysRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesStaleTests.cs",
+      "line": 64,
+      "signature": "public void EditedFileThatRenamesWouldSkipAnyway_IsReportedAsStale_AndStaysRefused()",
+      "visibility": "public"
+    },
+    {
+      "name": "EditedFileThatNoLongerSplits_IsReportedAsStale_NotAsNothingToSplit",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesStaleTests.cs",
+      "line": 92,
+      "signature": "public void EditedFileThatNoLongerSplits_IsReportedAsStale_NotAsNothingToSplit()",
+      "visibility": "public"
+    },
+    {
+      "name": "UnchangedFileThatRenamesSkips_KeepsItsReasonAndHash_AndThePlanStillHolds",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesStaleTests.cs",
+      "line": 107,
+      "signature": "public void UnchangedFileThatRenamesSkips_KeepsItsReasonAndHash_AndThePlanStillHolds()",
+      "visibility": "public"
+    },
+    {
+      "name": "FileThePlanRefused_IsNotSplitByRenames_OnceTheObstacleIsGone",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesStaleTests.cs",
+      "line": 130,
+      "signature": "public void FileThePlanRefused_IsNotSplitByRenames_OnceTheObstacleIsGone()",
+      "visibility": "public"
+    },
+    {
+      "name": "StaleFileInRenames_LeavesTheOtherInputOnItsReviewedPath",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesStaleTests.cs",
+      "line": 150,
+      "signature": "public void StaleFileInRenames_LeavesTheOtherInputOnItsReviewedPath()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentHashRenamesTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesTests.cs",
+      "line": 7,
+      "signature": "public sealed class ContentHashRenamesTests : ContentHashTestBase",
+      "visibility": "public"
+    },
+    {
+      "name": "RealRenamesPhase_ThenContent_AppliesTheSplit",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesTests.cs",
+      "line": 20,
+      "signature": "public void RealRenamesPhase_ThenContent_AppliesTheSplit()",
+      "visibility": "public"
+    },
+    {
+      "name": "EditBetweenPlanAndRenames_IsRefusedByRenames_NotLaunderedIntoANewPlan",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesTests.cs",
+      "line": 41,
+      "signature": "public void EditBetweenPlanAndRenames_IsRefusedByRenames_NotLaunderedIntoANewPlan()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentBeforeRenames_KeepsThePlannedHash_SoRenamesStillRefusesAnEdit",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesTests.cs",
+      "line": 69,
+      "signature": "public void ContentBeforeRenames_KeepsThePlannedHash_SoRenamesStillRefusesAnEdit()",
+      "visibility": "public"
+    },
+    {
+      "name": "RenamesHandedTheKeptPath_StillHoldsTheFileToItsPlan",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesTests.cs",
+      "line": 92,
+      "signature": "public void RenamesHandedTheKeptPath_StillHoldsTheFileToItsPlan()",
+      "visibility": "public"
+    },
+    {
+      "name": "CopyAtThePlannedKeptPath_IsNotTakenForTheRenamedFile",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesTests.cs",
+      "line": 111,
+      "signature": "public void CopyAtThePlannedKeptPath_IsNotTakenForTheRenamedFile()",
+      "visibility": "public"
+    },
+    {
+      "name": "RenamesWithNoManifest_PlansAfresh",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesTests.cs",
+      "line": 129,
+      "signature": "public void RenamesWithNoManifest_PlansAfresh()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentHashRenamesUnplannedTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesUnplannedTests.cs",
+      "line": 7,
+      "signature": "public sealed class ContentHashRenamesUnplannedTests : ContentHashTestBase",
+      "visibility": "public"
+    },
+    {
+      "name": "RenamesRowForAnUnplannedFileItWouldNotSplit_RecordsNoHash",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesUnplannedTests.cs",
+      "line": 10,
+      "signature": "public void RenamesRowForAnUnplannedFileItWouldNotSplit_RecordsNoHash()",
+      "visibility": "public"
+    },
+    {
+      "name": "RenamesRowForAPlannedFileItCannotRead_KeepsItsReasonAndThePlannedHash",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesUnplannedTests.cs",
+      "line": 25,
+      "signature": "public void RenamesRowForAPlannedFileItCannotRead_KeepsItsReasonAndThePlannedHash()",
+      "visibility": "public"
+    },
+    {
+      "name": "RenamesRunTwice_OverAnUnchangedUnplannedFile_DoesNotCallItStale",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesUnplannedTests.cs",
+      "line": 46,
+      "signature": "public void RenamesRunTwice_OverAnUnchangedUnplannedFile_DoesNotCallItStale()",
+      "visibility": "public"
+    },
+    {
+      "name": "UnplannedFileThatGainsATypeBetweenRenamesRuns_IsRefusedForHavingNoPlanRow",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesUnplannedTests.cs",
+      "line": 65,
+      "signature": "public void UnplannedFileThatGainsATypeBetweenRenamesRuns_IsRefusedForHavingNoPlanRow()",
+      "visibility": "public"
+    },
+    {
+      "name": "RenamesRefusesAMalformedRecordedHash_EvenOnAFileItWouldNotSplit",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesUnplannedTests.cs",
+      "line": 85,
+      "signature": "public void RenamesRefusesAMalformedRecordedHash_EvenOnAFileItWouldNotSplit()",
+      "visibility": "public"
+    },
+    {
+      "name": "RenamesRefusesAFileTheManifestHasNoRowFor",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRenamesUnplannedTests.cs",
+      "line": 101,
+      "signature": "public void RenamesRefusesAFileTheManifestHasNoRowFor()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentHashRowTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRowTests.cs",
+      "line": 7,
+      "signature": "public sealed class ContentHashRowTests",
+      "visibility": "public"
+    },
+    {
+      "name": "QualifiedCollisionSkip_KeepsTheHash",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRowTests.cs",
+      "line": 10,
+      "signature": "public void QualifiedCollisionSkip_KeepsTheHash()",
+      "visibility": "public"
+    },
+    {
+      "name": "RefusedCollisionName_KeepsTheHash",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRowTests.cs",
+      "line": 29,
+      "signature": "public void RefusedCollisionName_KeepsTheHash()",
+      "visibility": "public"
+    },
+    {
+      "name": "OversizedMalformedHash_IsQuotedShortInTheReason",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRowTests.cs",
+      "line": 47,
+      "signature": "public void OversizedMalformedHash_IsQuotedShortInTheReason()",
+      "visibility": "public"
+    },
+    {
+      "name": "JsonReport_CarriesTheHash_AndNullWhereThereIsNone",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashRowTests.cs",
+      "line": 56,
+      "signature": "public void JsonReport_CarriesTheHash_AndNullWhereThereIsNone()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentHashTestBase",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashTestBase.cs",
+      "line": 8,
+      "signature": "public abstract class ContentHashTestBase : IDisposable",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentHashTestBase.cs",
+      "line": 19,
+      "signature": "public void Dispose()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentPhaseRunIntegrityTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/ContentPhaseRunIntegrityTests.cs",
+      "line": 13,
+      "signature": "public sealed class ContentPhaseRunIntegrityTests",
+      "visibility": "public"
+    },
+    {
+      "name": "InconsistentRenameState_IsAFailedRowRatherThanAnAbortedRun",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentPhaseRunIntegrityTests.cs",
+      "line": 16,
+      "signature": "public void InconsistentRenameState_IsAFailedRowRatherThanAnAbortedRun()",
+      "visibility": "public"
+    },
+    {
+      "name": "ManifestWithDuplicateTypeRows_IsAFailedRowRatherThanAnAbortedRun",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentPhaseRunIntegrityTests.cs",
+      "line": 45,
+      "signature": "public void ManifestWithDuplicateTypeRows_IsAFailedRowRatherThanAnAbortedRun()",
+      "visibility": "public"
+    },
+    {
+      "name": "WriteFailureMidRun_RestoresTheOriginalFileAndLeavesNoSiblings",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentPhaseRunIntegrityTests.cs",
+      "line": 82,
+      "signature": "public void WriteFailureMidRun_RestoresTheOriginalFileAndLeavesNoSiblings()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentFailureAfterARename_KeepsThePlannedLocationInTheRow",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentPhaseRunIntegrityTests.cs",
+      "line": 106,
+      "signature": "public void ContentFailureAfterARename_KeepsThePlannedLocationInTheRow()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentRefusalAfterARename_KeepsThePlannedLocationInTheRow",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentPhaseRunIntegrityTests.cs",
+      "line": 135,
+      "signature": "public void ContentRefusalAfterARename_KeepsThePlannedLocationInTheRow()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentBeforeRenames_ReportsWhereTheFileIs_NotWhereThePlanWantsIt",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentPhaseRunIntegrityTests.cs",
+      "line": 161,
+      "signature": "public void ContentBeforeRenames_ReportsWhereTheFileIs_NotWhereThePlanWantsIt()",
+      "visibility": "public"
+    },
+    {
+      "name": "PlanBuildFailureAfterARename_ReportsTheRenamedLocation",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentPhaseRunIntegrityTests.cs",
+      "line": 184,
+      "signature": "public void PlanBuildFailureAfterARename_ReportsTheRenamedLocation()",
+      "visibility": "public"
+    },
+    {
+      "name": "UndecodableInputAfterARename_ReportsTheRenamedLocation",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentPhaseRunIntegrityTests.cs",
+      "line": 211,
+      "signature": "public void UndecodableInputAfterARename_ReportsTheRenamedLocation()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentPhaseSkipTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/ContentPhaseSkipTests.cs",
+      "line": 8,
+      "signature": "public sealed class ContentPhaseSkipTests",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentPhase_SkipsInputsThatPlanDidNotMarkSplit_AndReportsNoFailures",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentPhaseSkipTests.cs",
+      "line": 11,
+      "signature": "public void ContentPhase_SkipsInputsThatPlanDidNotMarkSplit_AndReportsNoFailures()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentPhase_NeverReportsARefusedPlanRowAsUnappliedWork",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentPhaseSkipTests.cs",
+      "line": 47,
+      "signature": "public void ContentPhase_NeverReportsARefusedPlanRowAsUnappliedWork()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentRetryTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/ContentRetryTests.cs",
+      "line": 9,
+      "signature": "public sealed class ContentRetryTests",
+      "visibility": "public"
+    },
+    {
+      "name": "SecondContentRun_SkipsAnAppliedRowWithoutWriting",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentRetryTests.cs",
+      "line": 14,
+      "signature": "public void SecondContentRun_SkipsAnAppliedRowWithoutWriting()",
+      "visibility": "public"
+    },
+    {
+      "name": "SecondContentRun_SkipsAnAppliedRowThatWasRenamed",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentRetryTests.cs",
+      "line": 36,
+      "signature": "public void SecondContentRun_SkipsAnAppliedRowThatWasRenamed()",
+      "visibility": "public"
+    },
+    {
+      "name": "ExistingOutputBesideAnUnsplitSource_IsStillRefusedAndNeverOverwritten",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentRetryTests.cs",
+      "line": 67,
+      "signature": "public void ExistingOutputBesideAnUnsplitSource_IsStillRefusedAndNeverOverwritten()",
+      "visibility": "public"
+    },
+    {
+      "name": "SourceLeftWithNoTypes_IsNotCalledAlreadyApplied",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentRetryTests.cs",
+      "line": 89,
+      "signature": "public void SourceLeftWithNoTypes_IsNotCalledAlreadyApplied()",
+      "visibility": "public"
+    },
+    {
+      "name": "OneOfTwoOutputsMissing_IsNotCalledAlreadyApplied",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentRetryTests.cs",
+      "line": 110,
+      "signature": "public void OneOfTwoOutputsMissing_IsNotCalledAlreadyApplied()",
+      "visibility": "public"
+    },
+    {
+      "name": "AppliedFileThatNoLongerParses_IsStaleNotAlreadyApplied",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentRetryTests.cs",
+      "line": 128,
+      "signature": "public void AppliedFileThatNoLongerParses_IsStaleNotAlreadyApplied()",
+      "visibility": "public"
+    },
+    {
+      "name": "EditedSourceThatStillDeclaresAPlannedType_IsStaleNotAlreadyApplied",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentRetryTests.cs",
+      "line": 147,
+      "signature": "public void EditedSourceThatStillDeclaresAPlannedType_IsStaleNotAlreadyApplied()",
+      "visibility": "public"
+    },
+    {
+      "name": "AppliedFileThatNoLongerDecodes_IsStaleNotAlreadyApplied",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentRetryTests.cs",
+      "line": 171,
+      "signature": "public void AppliedFileThatNoLongerDecodes_IsStaleNotAlreadyApplied()",
+      "visibility": "public"
+    },
+    {
+      "name": "MissingOutputAfterAnAppliedSplit_IsNotCalledAlreadyApplied",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ContentRetryTests.cs",
+      "line": 188,
+      "signature": "public void MissingOutputAfterAnAppliedSplit_IsNotCalledAlreadyApplied()",
+      "visibility": "public"
+    },
+    {
+      "name": "CsvFieldReaderTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/CsvFieldReaderTests.cs",
+      "line": 10,
+      "signature": "public sealed class CsvFieldReaderTests",
+      "visibility": "public"
+    },
+    {
+      "name": "ReadsSimpleUnquotedFields",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CsvFieldReaderTests.cs",
+      "line": 13,
+      "signature": "public void ReadsSimpleUnquotedFields()",
+      "visibility": "public"
+    },
+    {
+      "name": "QuotedFieldContainingComma_IsOneField",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CsvFieldReaderTests.cs",
+      "line": 20,
+      "signature": "public void QuotedFieldContainingComma_IsOneField()",
+      "visibility": "public"
+    },
+    {
+      "name": "DoubledQuote_InsideQuotedField_DecodesToSingleQuote",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CsvFieldReaderTests.cs",
+      "line": 27,
+      "signature": "public void DoubledQuote_InsideQuotedField_DecodesToSingleQuote()",
+      "visibility": "public"
+    },
+    {
+      "name": "EmbeddedNewline_InsideQuotedField_StaysInTheField",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CsvFieldReaderTests.cs",
+      "line": 34,
+      "signature": "public void EmbeddedNewline_InsideQuotedField_StaysInTheField()",
+      "visibility": "public"
+    },
+    {
+      "name": "EmbeddedCarriageReturnLf_InsideQuotedField_StaysInTheField",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CsvFieldReaderTests.cs",
+      "line": 41,
+      "signature": "public void EmbeddedCarriageReturnLf_InsideQuotedField_StaysInTheField()",
+      "visibility": "public"
+    },
+    {
+      "name": "MultipleRecords_AreReturnedInOrder",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CsvFieldReaderTests.cs",
+      "line": 48,
+      "signature": "public void MultipleRecords_AreReturnedInOrder()",
+      "visibility": "public"
+    },
+    {
+      "name": "EmptyFile_ReturnsNullOnFirstRead",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/CsvFieldReaderTests.cs",
+      "line": 59,
+      "signature": "public void EmptyFile_ReturnsNullOnFirstRead()",
+      "visibility": "public"
+    },
+    {
+      "name": "DefaultPhaseTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/DefaultPhaseTests.cs",
+      "line": 7,
+      "signature": "public sealed class DefaultPhaseTests",
+      "visibility": "public"
+    },
+    {
+      "name": "NoPhase_ParsesAsPlan",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/DefaultPhaseTests.cs",
+      "line": 10,
+      "signature": "public void NoPhase_ParsesAsPlan()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportWithNoPhase_IsABadCommandLine",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/DefaultPhaseTests.cs",
+      "line": 18,
+      "signature": "public void ReportWithNoPhase_IsABadCommandLine()",
+      "visibility": "public"
+    },
+    {
+      "name": "NoPhase_PlansAndLeavesSourceUntouched",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/DefaultPhaseTests.cs",
+      "line": 29,
+      "signature": "public void NoPhase_PlansAndLeavesSourceUntouched()",
+      "visibility": "public"
+    },
+    {
+      "name": "NoPhaseNoJson_PrintsTheManifestCsvAndANextLine",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/DefaultPhaseTests.cs",
+      "line": 57,
+      "signature": "public void NoPhaseNoJson_PrintsTheManifestCsvAndANextLine()",
+      "visibility": "public"
+    },
+    {
+      "name": "Help_ShowsThePlanDefaultAndTheWorkflow",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/DefaultPhaseTests.cs",
+      "line": 73,
+      "signature": "public void Help_ShowsThePlanDefaultAndTheWorkflow()",
+      "visibility": "public"
+    },
+    {
+      "name": "DirectiveSafetyTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/DirectiveSafetyTests.cs",
+      "line": 7,
+      "signature": "public sealed class DirectiveSafetyTests",
+      "visibility": "public"
+    },
+    {
+      "name": "RegionDirective_SpanningTwoTopLevelTypes_IsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/DirectiveSafetyTests.cs",
+      "line": 10,
+      "signature": "public void RegionDirective_SpanningTwoTopLevelTypes_IsRefused()",
+      "visibility": "public"
+    },
+    {
+      "name": "IfDirective_ContainedWithinOneType_IsAllowed",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/DirectiveSafetyTests.cs",
+      "line": 46,
+      "signature": "public void IfDirective_ContainedWithinOneType_IsAllowed()",
+      "visibility": "public"
+    },
+    {
+      "name": "DirectoryInputContentPhaseTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/DirectoryInputContentPhaseTests.cs",
+      "line": 11,
+      "signature": "public sealed class DirectoryInputContentPhaseTests",
+      "visibility": "public"
+    },
+    {
+      "name": "DirectoryInput_SplitsARenamedFile_InTheContentPhase",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/DirectoryInputContentPhaseTests.cs",
+      "line": 16,
+      "signature": "public void DirectoryInput_SplitsARenamedFile_InTheContentPhase()",
+      "visibility": "public"
+    },
+    {
+      "name": "InputNamingBothOriginalAndKeptPath_IsProcessedOnce",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/DirectoryInputContentPhaseTests.cs",
+      "line": 45,
+      "signature": "public void InputNamingBothOriginalAndKeptPath_IsProcessedOnce()",
+      "visibility": "public"
+    },
+    {
+      "name": "IndexByInputPath_MapsAUniqueRenamedKeptPathToItsRow",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/DirectoryInputContentPhaseTests.cs",
+      "line": 68,
+      "signature": "public void IndexByInputPath_MapsAUniqueRenamedKeptPathToItsRow()",
+      "visibility": "public"
+    },
+    {
+      "name": "IndexByInputPath_RefusesAKeptPathTwoRowsClaim",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/DirectoryInputContentPhaseTests.cs",
+      "line": 78,
+      "signature": "public void IndexByInputPath_RefusesAKeptPathTwoRowsClaim()",
+      "visibility": "public"
+    },
+    {
+      "name": "IndexByInputPath_PrefersTheRowWhoseOriginalPathMatches",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/DirectoryInputContentPhaseTests.cs",
+      "line": 91,
+      "signature": "public void IndexByInputPath_PrefersTheRowWhoseOriginalPathMatches()",
+      "visibility": "public"
+    },
+    {
+      "name": "IndexByInputPath_IgnoresTheKeptPathOfARowWithNoRename",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/DirectoryInputContentPhaseTests.cs",
+      "line": 104,
+      "signature": "public void IndexByInputPath_IgnoresTheKeptPathOfARowWithNoRename()",
+      "visibility": "public"
+    },
+    {
+      "name": "ErrorDirectiveTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/ErrorDirectiveTests.cs",
+      "line": 11,
+      "signature": "public sealed class ErrorDirectiveTests",
+      "visibility": "public"
+    },
+    {
+      "name": "ErrorDirective_InsideAConditional_Splits",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ErrorDirectiveTests.cs",
+      "line": 30,
+      "signature": "public void ErrorDirective_InsideAConditional_Splits()",
+      "visibility": "public"
+    },
+    {
+      "name": "ErrorDirective_OutsideAnyConditional_StillFails",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ErrorDirectiveTests.cs",
+      "line": 45,
+      "signature": "public void ErrorDirective_OutsideAnyConditional_StillFails()",
+      "visibility": "public"
+    },
+    {
+      "name": "Errors_IgnoresOnlyTheConditionalErrorDirective",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ErrorDirectiveTests.cs",
+      "line": 65,
+      "signature": "public void Errors_IgnoresOnlyTheConditionalErrorDirective()",
+      "visibility": "public"
+    },
+    {
+      "name": "ExcludeTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/ExcludeTests.cs",
+      "line": 9,
+      "signature": "public sealed class ExcludeTests",
+      "visibility": "public"
+    },
+    {
+      "name": "Parse_CollectsRepeatedExcludePatterns",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ExcludeTests.cs",
+      "line": 12,
+      "signature": "public void Parse_CollectsRepeatedExcludePatterns()",
+      "visibility": "public"
+    },
+    {
+      "name": "Parse_DefaultsToNoExcludes",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ExcludeTests.cs",
+      "line": 20,
+      "signature": "public void Parse_DefaultsToNoExcludes()",
+      "visibility": "public"
+    },
+    {
+      "name": "ExcludedFile_IsSkippedWithTheMatchingPatternAndIsLeftUntouched",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ExcludeTests.cs",
+      "line": 28,
+      "signature": "public void ExcludedFile_IsSkippedWithTheMatchingPatternAndIsLeftUntouched()",
+      "visibility": "public"
+    },
+    {
+      "name": "ExcludePattern_MatchesRegardlessOfSeparatorStyleAndCase",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ExcludeTests.cs",
+      "line": 49,
+      "signature": "public void ExcludePattern_MatchesRegardlessOfSeparatorStyleAndCase()",
+      "visibility": "public"
+    },
+    {
+      "name": "PathsTheToolOnceHardcoded_AreEligibleWhenNoExcludeIsGiven",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ExcludeTests.cs",
+      "line": 67,
+      "signature": "public void PathsTheToolOnceHardcoded_AreEligibleWhenNoExcludeIsGiven()",
+      "visibility": "public"
+    },
+    {
+      "name": "NonMatchingExclude_LeavesTheFileEligibleForSplitting",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ExcludeTests.cs",
+      "line": 95,
+      "signature": "public void NonMatchingExclude_LeavesTheFileEligibleForSplitting()",
+      "visibility": "public"
+    },
+    {
+      "name": "FileBasedProgramTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/FileBasedProgramTests.cs",
+      "line": 10,
+      "signature": "public sealed class FileBasedProgramTests",
+      "visibility": "public"
+    },
+    {
+      "name": "PackageDirective_WithTopLevelStatements_IsSkippedNotFailed",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileBasedProgramTests.cs",
+      "line": 13,
+      "signature": "public void PackageDirective_WithTopLevelStatements_IsSkippedNotFailed()",
+      "visibility": "public"
+    },
+    {
+      "name": "ShebangOnly_IsSkippedNotFailed",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileBasedProgramTests.cs",
+      "line": 32,
+      "signature": "public void ShebangOnly_IsSkippedNotFailed()",
+      "visibility": "public"
+    },
+    {
+      "name": "FileBasedProgram_WithoutTopLevelStatements_IsNotSplit",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileBasedProgramTests.cs",
+      "line": 49,
+      "signature": "public void FileBasedProgram_WithoutTopLevelStatements_IsNotSplit()",
+      "visibility": "public"
+    },
+    {
+      "name": "OrdinaryFile_StillSplits",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileBasedProgramTests.cs",
+      "line": 77,
+      "signature": "public void OrdinaryFile_StillSplits()",
+      "visibility": "public"
+    },
+    {
+      "name": "CompileDirectory",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalCompiler.cs",
+      "line": 27,
+      "signature": "public static CSharpCompilation CompileDirectory(string root, params string[] symbols)",
+      "visibility": "public"
+    },
+    {
+      "name": "Compile",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalCompiler.cs",
+      "line": 33,
+      "signature": "public static CSharpCompilation Compile((string Path, string Text)[] files, params string[] symbols)",
+      "visibility": "public"
+    },
+    {
+      "name": "Diagnostics",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalCompiler.cs",
+      "line": 44,
+      "signature": "public static string[] Diagnostics(CSharpCompilation compilation)",
+      "visibility": "public"
+    },
+    {
+      "name": "MetadataName",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalCompiler.cs",
+      "line": 54,
+      "signature": "public static string MetadataName(CSharpCompilation compilation, string typeName)",
+      "visibility": "public"
+    },
+    {
+      "name": "CountDeclared",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalCompiler.cs",
+      "line": 60,
+      "signature": "public static int CountDeclared(CSharpCompilation compilation, string typeName)",
+      "visibility": "public"
+    },
+    {
+      "name": "BoundType",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalCompiler.cs",
+      "line": 67,
+      "signature": "public static string BoundType(CSharpCompilation compilation, string inType, string identifier)",
+      "visibility": "public"
+    },
+    {
+      "name": "BoundMemberOwner",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalCompiler.cs",
+      "line": 81,
+      "signature": "public static string BoundMemberOwner(CSharpCompilation compilation, string inType, string identifier)",
+      "visibility": "public"
+    },
+    {
+      "name": "LocalType",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalCompiler.cs",
+      "line": 93,
+      "signature": "public static string LocalType(CSharpCompilation compilation, string inType, string local)",
+      "visibility": "public"
+    },
+    {
+      "name": "MappedFile",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalCompiler.cs",
+      "line": 105,
+      "signature": "public static string MappedFile(CSharpCompilation compilation, string typeName)",
+      "visibility": "public"
+    },
+    {
+      "name": "CountMembers",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalCompiler.cs",
+      "line": 115,
+      "signature": "public static int CountMembers(CSharpCompilation compilation, string typeName, string memberName)",
+      "visibility": "public"
+    },
+    {
+      "name": "FileLocalKeptFileRefusalTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptFileRefusalTests.cs",
+      "line": 8,
+      "signature": "public sealed class FileLocalKeptFileRefusalTests : FileLocalTestBase",
+      "visibility": "public"
+    },
+    {
+      "name": "GlobalUsingAlias_WouldBeDeclaredInTwoFiles_SoTheInputIsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptFileRefusalTests.cs",
+      "line": 19,
+      "signature": "public void GlobalUsingAlias_WouldBeDeclaredInTwoFiles_SoTheInputIsRefused()",
+      "visibility": "public"
+    },
+    {
+      "name": "LineDirectiveAboveAMovedType_WouldLeaveTheKeptFile_SoTheInputIsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptFileRefusalTests.cs",
+      "line": 33,
+      "signature": "public void LineDirectiveAboveAMovedType_WouldLeaveTheKeptFile_SoTheInputIsRefused(string directive)",
+      "visibility": "public"
+    },
+    {
+      "name": "NullableDirective_WhereverASplitWouldDropIt_RefusesTheInput",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptFileRefusalTests.cs",
+      "line": 52,
+      "signature": "public void NullableDirective_WhereverASplitWouldDropIt_RefusesTheInput(string source, int line)",
+      "visibility": "public"
+    },
+    {
+      "name": "PragmaAboveAMovedType_WouldLeaveTheKeptFile_SoTheInputIsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptFileRefusalTests.cs",
+      "line": 65,
+      "signature": "public void PragmaAboveAMovedType_WouldLeaveTheKeptFile_SoTheInputIsRefused()",
+      "visibility": "public"
+    },
+    {
+      "name": "DefineOnAnAssemblyAttribute_WouldLeaveEveryMovedFile_SoTheInputIsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptFileRefusalTests.cs",
+      "line": 75,
+      "signature": "public void DefineOnAnAssemblyAttribute_WouldLeaveEveryMovedFile_SoTheInputIsRefused()",
+      "visibility": "public"
+    },
+    {
+      "name": "UndefOnAnAssemblyAttribute_WouldLeaveEveryMovedFile_SoTheInputIsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptFileRefusalTests.cs",
+      "line": 88,
+      "signature": "public void UndefOnAnAssemblyAttribute_WouldLeaveEveryMovedFile_SoTheInputIsRefused()",
+      "visibility": "public"
+    },
+    {
+      "name": "GuardedDefineOrUndefOnAType_WouldLoseItsGuard_SoTheInputIsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptFileRefusalTests.cs",
+      "line": 106,
+      "signature": "public void GuardedDefineOrUndefOnAType_WouldLoseItsGuard_SoTheInputIsRefused(string directive, string condition)",
+      "visibility": "public"
+    },
+    {
+      "name": "ChecksumPragmaOnAType_IsRefusedWithTheRestOfItsFamily",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptFileRefusalTests.cs",
+      "line": 126,
+      "signature": "public void ChecksumPragmaOnAType_IsRefusedWithTheRestOfItsFamily()",
+      "visibility": "public"
+    },
+    {
+      "name": "StateDirectiveAboveTheNamespace_ReachesEveryOutput_SoTheInputSplits",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptFileRefusalTests.cs",
+      "line": 136,
+      "signature": "public void StateDirectiveAboveTheNamespace_ReachesEveryOutput_SoTheInputSplits()",
+      "visibility": "public"
+    },
+    {
+      "name": "FileLocalKeptTypeTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptTypeTests.cs",
+      "line": 7,
+      "signature": "public sealed class FileLocalKeptTypeTests : FileLocalTestBase",
+      "visibility": "public"
+    },
+    {
+      "name": "NoTypeNamedForTheFile_TheFileIsNotRenamedInAnyPhase",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptTypeTests.cs",
+      "line": 14,
+      "signature": "public void NoTypeNamedForTheFile_TheFileIsNotRenamedInAnyPhase()",
+      "visibility": "public"
+    },
+    {
+      "name": "GenericTypeInAPlainNamedFile_IsNotRenamedUnderMetadataNaming",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptTypeTests.cs",
+      "line": 35,
+      "signature": "public void GenericTypeInAPlainNamedFile_IsNotRenamedUnderMetadataNaming()",
+      "visibility": "public"
+    },
+    {
+      "name": "NoTypeNamedForTheFile_TheOneTypeThatNamesAFileLocalTypeIsKept",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptTypeTests.cs",
+      "line": 55,
+      "signature": "public void NoTypeNamedForTheFile_TheOneTypeThatNamesAFileLocalTypeIsKept()",
+      "visibility": "public"
+    },
+    {
+      "name": "NoTypeNamedForTheFile_AndNoTypeNamesAFileLocalType_TheFirstOrdinaryTypeIsKept",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptTypeTests.cs",
+      "line": 71,
+      "signature": "public void NoTypeNamedForTheFile_AndNoTypeNamesAFileLocalType_TheFirstOrdinaryTypeIsKept()",
+      "visibility": "public"
+    },
+    {
+      "name": "TwoTypesThatNameAFileLocalType_CannotBothStay_SoTheInputIsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptTypeTests.cs",
+      "line": 84,
+      "signature": "public void TwoTypesThatNameAFileLocalType_CannotBothStay_SoTheInputIsRefused()",
+      "visibility": "public"
+    },
+    {
+      "name": "GenericTypeNamedForTheFile_IsKeptUnderMetadataNaming_EvenWhenAnotherTypeNamesTheFileLocalType",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptTypeTests.cs",
+      "line": 93,
+      "signature": "public void GenericTypeNamedForTheFile_IsKeptUnderMetadataNaming_EvenWhenAnotherTypeNamesTheFileLocalType()",
+      "visibility": "public"
+    },
+    {
+      "name": "FileAlreadyNamedAsTheKeepRuleWouldNameIt_DoesNotClaimAWithheldRename",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptTypeTests.cs",
+      "line": 105,
+      "signature": "public void FileAlreadyNamedAsTheKeepRuleWouldNameIt_DoesNotClaimAWithheldRename()",
+      "visibility": "public"
+    },
+    {
+      "name": "FileNamedForAGenericTypeInBraceForm_KeepsThatType",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptTypeTests.cs",
+      "line": 117,
+      "signature": "public void FileNamedForAGenericTypeInBraceForm_KeepsThatType()",
+      "visibility": "public"
+    },
+    {
+      "name": "KeptTypeChosenBecauseItNamesAFileLocalType_GetsTheNoteForItsOwnName",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptTypeTests.cs",
+      "line": 128,
+      "signature": "public void KeptTypeChosenBecauseItNamesAFileLocalType_GetsTheNoteForItsOwnName()",
+      "visibility": "public"
+    },
+    {
+      "name": "BuildPlan_CalledAlone_StillRefusesWhatTheSplitterRefusesFirst",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptTypeTests.cs",
+      "line": 141,
+      "signature": "public void BuildPlan_CalledAlone_StillRefusesWhatTheSplitterRefusesFirst()",
+      "visibility": "public"
+    },
+    {
+      "name": "TypeNamedForTheFile_IsKept_EvenWhenAnotherTypeNamesTheFileLocalType",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalKeptTypeTests.cs",
+      "line": 157,
+      "signature": "public void TypeNamedForTheFile_IsKept_EvenWhenAnotherTypeNamesTheFileLocalType()",
+      "visibility": "public"
+    },
+    {
+      "name": "FileLocalNameScanTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalNameScanTests.cs",
+      "line": 7,
+      "signature": "public sealed class FileLocalNameScanTests : FileLocalTestBase",
+      "visibility": "public"
+    },
+    {
+      "name": "MovedTypeThatNamesAFileLocalType_IsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalNameScanTests.cs",
+      "line": 21,
+      "signature": "public void MovedTypeThatNamesAFileLocalType_IsRefused(string expression)",
+      "visibility": "public"
+    },
+    {
+      "name": "AttributeWrittenWithoutItsSuffix_StillNamesTheFileLocalType",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalNameScanTests.cs",
+      "line": 31,
+      "signature": "public void AttributeWrittenWithoutItsSuffix_StillNamesTheFileLocalType()",
+      "visibility": "public"
+    },
+    {
+      "name": "CrefInADocumentationComment_StillNamesTheFileLocalType",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalNameScanTests.cs",
+      "line": 41,
+      "signature": "public void CrefInADocumentationComment_StillNamesTheFileLocalType()",
+      "visibility": "public"
+    },
+    {
+      "name": "SameNamedTypeInAnotherNamespace_WouldBeBoundInstead_SoTheInputIsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalNameScanTests.cs",
+      "line": 53,
+      "signature": "public void SameNamedTypeInAnotherNamespace_WouldBeBoundInstead_SoTheInputIsRefused()",
+      "visibility": "public"
+    },
+    {
+      "name": "TypeThatNamesNoFileLocalType_StillMoves",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalNameScanTests.cs",
+      "line": 72,
+      "signature": "public void TypeThatNamesNoFileLocalType_StillMoves()",
+      "visibility": "public"
+    },
+    {
+      "name": "FileLocalNamespaceTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalNamespaceTests.cs",
+      "line": 7,
+      "signature": "public sealed class FileLocalNamespaceTests : FileLocalTestBase",
+      "visibility": "public"
+    },
+    {
+      "name": "FileLocalTypeInANestedNamespace_StaysAndIsNotCopied",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalNamespaceTests.cs",
+      "line": 12,
+      "signature": "public void FileLocalTypeInANestedNamespace_StaysAndIsNotCopied()",
+      "visibility": "public"
+    },
+    {
+      "name": "OrdinaryTypeInANestedNamespace_MovesOut_WhenItNamesNoFileLocalType",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalNamespaceTests.cs",
+      "line": 31,
+      "signature": "public void OrdinaryTypeInANestedNamespace_MovesOut_WhenItNamesNoFileLocalType()",
+      "visibility": "public"
+    },
+    {
+      "name": "OrdinaryTypeInANestedNamespace_ThatNamesAFileLocalType_RefusesTheInput",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalNamespaceTests.cs",
+      "line": 46,
+      "signature": "public void OrdinaryTypeInANestedNamespace_ThatNamesAFileLocalType_RefusesTheInput()",
+      "visibility": "public"
+    },
+    {
+      "name": "TwoFileLocalTypesWrittenTheSameWay_BothStay",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalNamespaceTests.cs",
+      "line": 58,
+      "signature": "public void TwoFileLocalTypesWrittenTheSameWay_BothStay()",
+      "visibility": "public"
+    },
+    {
+      "name": "OneDeclarationsTextInsideAnothers_StillSplits",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalNamespaceTests.cs",
+      "line": 80,
+      "signature": "public void OneDeclarationsTextInsideAnothers_StillSplits(string fileName, string source)",
+      "visibility": "public"
+    },
+    {
+      "name": "FileLocalOutrightRefusalTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalOutrightRefusalTests.cs",
+      "line": 7,
+      "signature": "public sealed class FileLocalOutrightRefusalTests : FileLocalTestBase",
+      "visibility": "public"
+    },
+    {
+      "name": "ExtensionMethod_BindsWithoutNamingItsClass_SoTheInputIsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalOutrightRefusalTests.cs",
+      "line": 12,
+      "signature": "public void ExtensionMethod_BindsWithoutNamingItsClass_SoTheInputIsRefused()",
+      "visibility": "public"
+    },
+    {
+      "name": "ExtensionBlock_IsRefusedTheSameWay",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalOutrightRefusalTests.cs",
+      "line": 25,
+      "signature": "public void ExtensionBlock_IsRefusedTheSameWay()",
+      "visibility": "public"
+    },
+    {
+      "name": "UsingAlias_NamesAFileLocalType_SoTheInputIsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalOutrightRefusalTests.cs",
+      "line": 37,
+      "signature": "public void UsingAlias_NamesAFileLocalType_SoTheInputIsRefused()",
+      "visibility": "public"
+    },
+    {
+      "name": "UsingStatic_NamesAFileLocalType_SoTheInputIsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalOutrightRefusalTests.cs",
+      "line": 50,
+      "signature": "public void UsingStatic_NamesAFileLocalType_SoTheInputIsRefused()",
+      "visibility": "public"
+    },
+    {
+      "name": "UsingDirectiveInsideANamespaceBlock_IsScannedToo",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalOutrightRefusalTests.cs",
+      "line": 63,
+      "signature": "public void UsingDirectiveInsideANamespaceBlock_IsScannedToo(string directive, string expression, string diagnostic)",
+      "visibility": "public"
+    },
+    {
+      "name": "ConditionallyExcludedText_CannotBeScanned_SoTheInputIsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalOutrightRefusalTests.cs",
+      "line": 77,
+      "signature": "public void ConditionallyExcludedText_CannotBeScanned_SoTheInputIsRefused()",
+      "visibility": "public"
+    },
+    {
+      "name": "AtMostOneOrdinaryType_LeavesNothingToMove",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalOutrightRefusalTests.cs",
+      "line": 94,
+      "signature": "public void AtMostOneOrdinaryType_LeavesNothingToMove(string types)",
+      "visibility": "public"
+    },
+    {
+      "name": "FileLocalPhaseTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalPhaseTests.cs",
+      "line": 7,
+      "signature": "public sealed class FileLocalPhaseTests : FileLocalTestBase",
+      "visibility": "public"
+    },
+    {
+      "name": "InputEditedAfterThePlan_IsStillRefusedAsAStalePlan",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalPhaseTests.cs",
+      "line": 12,
+      "signature": "public void InputEditedAfterThePlan_IsStillRefusedAsAStalePlan()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentRetry_ReportsTheRowAsAlreadyApplied",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalPhaseTests.cs",
+      "line": 26,
+      "signature": "public void ContentRetry_ReportsTheRowAsAlreadyApplied()",
+      "visibility": "public"
+    },
+    {
+      "name": "ManifestEditedToPlanARename_IsRefused_EvenWhenTheFileWasRenamedByHand",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalPhaseTests.cs",
+      "line": 42,
+      "signature": "public void ManifestEditedToPlanARename_IsRefused_EvenWhenTheFileWasRenamedByHand()",
+      "visibility": "public"
+    },
+    {
+      "name": "MovedGenericType_TakesItsMetadataName_AndTheKeptFileKeepsItsOwn",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalPhaseTests.cs",
+      "line": 60,
+      "signature": "public void MovedGenericType_TakesItsMetadataName_AndTheKeptFileKeepsItsOwn()",
+      "visibility": "public"
+    },
+    {
+      "name": "PlanMadeUnderOneFileNaming_IsRefusedUnderTheOther",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalPhaseTests.cs",
+      "line": 74,
+      "signature": "public void PlanMadeUnderOneFileNaming_IsRefusedUnderTheOther()",
+      "visibility": "public"
+    },
+    {
+      "name": "CollisionName_AndTheStayNote_ShareOneRow",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalPhaseTests.cs",
+      "line": 90,
+      "signature": "public void CollisionName_AndTheStayNote_ShareOneRow(string value, string fromA, string fromB)",
+      "visibility": "public"
+    },
+    {
+      "name": "CollisionName_PlannedUnderOneValue_IsRefusedWhenTheManifestSaysTheOther",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalPhaseTests.cs",
+      "line": 107,
+      "signature": "public void CollisionName_PlannedUnderOneValue_IsRefusedWhenTheManifestSaysTheOther()",
+      "visibility": "public"
+    },
+    {
+      "name": "RealRun_WritesTheStayNoteToTheManifestAndToTheReport",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalPhaseTests.cs",
+      "line": 121,
+      "signature": "public void RealRun_WritesTheStayNoteToTheManifestAndToTheReport()",
+      "visibility": "public"
+    },
+    {
+      "name": "RequiredHeaderThatIsADirective_IsNotMistakenForALostOne",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalPhaseTests.cs",
+      "line": 140,
+      "signature": "public void RequiredHeaderThatIsADirective_IsNotMistakenForALostOne()",
+      "visibility": "public"
+    },
+    {
+      "name": "FileLocalPremiseTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalPremiseTests.cs",
+      "line": 9,
+      "signature": "public sealed class FileLocalPremiseTests : FileLocalTestBase",
+      "visibility": "public"
+    },
+    {
+      "name": "Compiler_ForbidsTheRoutesANameScanCannotSee",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalPremiseTests.cs",
+      "line": 21,
+      "signature": "public void Compiler_ForbidsTheRoutesANameScanCannotSee(string diagnostic, string types)",
+      "visibility": "public"
+    },
+    {
+      "name": "BindingThroughASymbol_StillWorksFromTheMovedFile",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalPremiseTests.cs",
+      "line": 34,
+      "signature": "public void BindingThroughASymbol_StillWorksFromTheMovedFile()",
+      "visibility": "public"
+    },
+    {
+      "name": "InferenceThroughAnInterfaceList_WouldRebindACall_SoTheInputIsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalPremiseTests.cs",
+      "line": 57,
+      "signature": "public void InferenceThroughAnInterfaceList_WouldRebindACall_SoTheInputIsRefused()",
+      "visibility": "public"
+    },
+    {
+      "name": "EveryBaseListThatNamesAFileLocalType_IsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalPremiseTests.cs",
+      "line": 85,
+      "signature": "public void EveryBaseListThatNamesAFileLocalType_IsRefused(string alphaType, string argument, string inferred)",
+      "visibility": "public"
+    },
+    {
+      "name": "FileLocalSplitTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalSplitTests.cs",
+      "line": 7,
+      "signature": "public sealed class FileLocalSplitTests : FileLocalTestBase",
+      "visibility": "public"
+    },
+    {
+      "name": "OrdinaryTypeMovesOut_AndTheFileLocalTypeStays",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalSplitTests.cs",
+      "line": 10,
+      "signature": "public void OrdinaryTypeMovesOut_AndTheFileLocalTypeStays()",
+      "visibility": "public"
+    },
+    {
+      "name": "BeforeAndAfter_BothCompileWithNoDiagnostics",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalSplitTests.cs",
+      "line": 26,
+      "signature": "public void BeforeAndAfter_BothCompileWithNoDiagnostics()",
+      "visibility": "public"
+    },
+    {
+      "name": "MetadataName_IsTheSameBeforeAndAfterTheContentPhase",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalSplitTests.cs",
+      "line": 39,
+      "signature": "public void MetadataName_IsTheSameBeforeAndAfterTheContentPhase()",
+      "visibility": "public"
+    },
+    {
+      "name": "RenamingTheFile_WouldChangeTheMetadataName",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalSplitTests.cs",
+      "line": 56,
+      "signature": "public void RenamingTheFile_WouldChangeTheMetadataName()",
+      "visibility": "public"
+    },
+    {
+      "name": "SplitRow_SaysTheTypeStayedAndThatSa1402StillFlagsTheFile",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalSplitTests.cs",
+      "line": 67,
+      "signature": "public void SplitRow_SaysTheTypeStayedAndThatSa1402StillFlagsTheFile()",
+      "visibility": "public"
+    },
+    {
+      "name": "Note_SaysWhereSa1402StillFlagsTheFile",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalSplitTests.cs",
+      "line": 84,
+      "signature": "public void Note_SaysWhereSa1402StillFlagsTheFile(string fileLocal, string expected)",
+      "visibility": "public"
+    },
+    {
+      "name": "EveryKindOfFileLocalType_Stays_WhereverItIsDeclared",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalSplitTests.cs",
+      "line": 97,
+      "signature": "public void EveryKindOfFileLocalType_Stays_WhereverItIsDeclared()",
+      "visibility": "public"
+    },
+    {
+      "name": "FileLocalTestBase",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalTestBase.cs",
+      "line": 9,
+      "signature": "public abstract class FileLocalTestBase : IDisposable",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalTestBase.cs",
+      "line": 23,
+      "signature": "public void Dispose()",
+      "visibility": "public"
+    },
+    {
+      "name": "FileLocalVerifierTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalVerifierTests.cs",
+      "line": 9,
+      "signature": "public sealed class FileLocalVerifierTests",
+      "visibility": "public"
+    },
+    {
+      "name": "KeptFileWithItsFileLocalType_AndACleanMovedFile_Pass",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalVerifierTests.cs",
+      "line": 22,
+      "signature": "public void KeptFileWithItsFileLocalType_AndACleanMovedFile_Pass()",
+      "visibility": "public"
+    },
+    {
+      "name": "MovedOutputThatNamesAFileLocalType_FailsTheRow",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalVerifierTests.cs",
+      "line": 32,
+      "signature": "public void MovedOutputThatNamesAFileLocalType_FailsTheRow(string moved)",
+      "visibility": "public"
+    },
+    {
+      "name": "FileLocalTypeInAMovedOutput_FailsTheRow",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalVerifierTests.cs",
+      "line": 39,
+      "signature": "public void FileLocalTypeInAMovedOutput_FailsTheRow()",
+      "visibility": "public"
+    },
+    {
+      "name": "KeptOutputUnderAnotherPath_FailsTheRow",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalVerifierTests.cs",
+      "line": 47,
+      "signature": "public void KeptOutputUnderAnotherPath_FailsTheRow()",
+      "visibility": "public"
+    },
+    {
+      "name": "OutputWithOtherStateDirectivesThanTheInput_FailsTheRow",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalVerifierTests.cs",
+      "line": 56,
+      "signature": "public void OutputWithOtherStateDirectivesThanTheInput_FailsTheRow(string keptPrefix, string movedPrefix, string failing)",
+      "visibility": "public"
+    },
+    {
+      "name": "VerifyOutputs_RunsTheCheck_OnAnOtherwiseFaithfulSplit",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalVerifierTests.cs",
+      "line": 73,
+      "signature": "public void VerifyOutputs_RunsTheCheck_OnAnOtherwiseFaithfulSplit()",
+      "visibility": "public"
+    },
+    {
+      "name": "InputWithNoFileLocalType_IsNotHeldToTheReadPath",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileLocalVerifierTests.cs",
+      "line": 89,
+      "signature": "public void InputWithNoFileLocalType_IsNotHeldToTheReadPath()",
+      "visibility": "public"
+    },
+    {
+      "name": "FileNamingAgreementTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingAgreementTests.cs",
+      "line": 9,
+      "signature": "public sealed class FileNamingAgreementTests",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentPhase_RefusesAPlanMadeUnderTheOtherConvention",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingAgreementTests.cs",
+      "line": 19,
+      "signature": "public void ContentPhase_RefusesAPlanMadeUnderTheOtherConvention(string planValue, string contentValue, string manifestName, string computedName)",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentPhase_NamesBothKeptPathsWhenTheConventionMovesTheKeptFile",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingAgreementTests.cs",
+      "line": 46,
+      "signature": "public void ContentPhase_NamesBothKeptPathsWhenTheConventionMovesTheKeptFile()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentPhase_NamesTheLandedRenameWhenTheFlagIsDroppedAfterRenames",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingAgreementTests.cs",
+      "line": 64,
+      "signature": "public void ContentPhase_NamesTheLandedRenameWhenTheFlagIsDroppedAfterRenames()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentPhase_StillAppliesAHandEditedFreePath",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingAgreementTests.cs",
+      "line": 89,
+      "signature": "public void ContentPhase_StillAppliesAHandEditedFreePath()",
+      "visibility": "public"
+    },
+    {
+      "name": "RenamesPhase_UnderAnotherConvention_ReportsItsOwnNamesAndLeavesThePlan",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingAgreementTests.cs",
+      "line": 112,
+      "signature": "public void RenamesPhase_UnderAnotherConvention_ReportsItsOwnNamesAndLeavesThePlan()",
+      "visibility": "public"
+    },
+    {
+      "name": "RenamesPhase_UnderAnotherConvention_DoesNotRenameAFileThePlanLeftInPlace",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingAgreementTests.cs",
+      "line": 139,
+      "signature": "public void RenamesPhase_UnderAnotherConvention_DoesNotRenameAFileThePlanLeftInPlace()",
+      "visibility": "public"
+    },
+    {
+      "name": "RenamesPhase_UnderAnotherConvention_DoesNotRenameToAnotherTarget",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingAgreementTests.cs",
+      "line": 166,
+      "signature": "public void RenamesPhase_UnderAnotherConvention_DoesNotRenameToAnotherTarget(string planValue, string otherValue, string plannedName, string otherName)",
+      "visibility": "public"
+    },
+    {
+      "name": "RenamesPhase_UnderAnotherConvention_DoesNotMoveALandedRenameBack",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingAgreementTests.cs",
+      "line": 202,
+      "signature": "public void RenamesPhase_UnderAnotherConvention_DoesNotMoveALandedRenameBack()",
+      "visibility": "public"
+    },
+    {
+      "name": "RenamesPhase_UnderAnotherConvention_CanLeaveOutAPlannedRename",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingAgreementTests.cs",
+      "line": 236,
+      "signature": "public void RenamesPhase_UnderAnotherConvention_CanLeaveOutAPlannedRename()",
+      "visibility": "public"
+    },
+    {
+      "name": "FileNamingOptionTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingOptionTests.cs",
+      "line": 8,
+      "signature": "public sealed class FileNamingOptionTests",
+      "visibility": "public"
+    },
+    {
+      "name": "Parse_DefaultsToStyleCop",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingOptionTests.cs",
+      "line": 11,
+      "signature": "public void Parse_DefaultsToStyleCop()",
+      "visibility": "public"
+    },
+    {
+      "name": "Parse_ReadsTheConvention",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingOptionTests.cs",
+      "line": 22,
+      "signature": "public void Parse_ReadsTheConvention(string value, object expected)",
+      "visibility": "public"
+    },
+    {
+      "name": "Parse_RejectsAnUnknownConvention",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingOptionTests.cs",
+      "line": 30,
+      "signature": "public void Parse_RejectsAnUnknownConvention()",
+      "visibility": "public"
+    },
+    {
+      "name": "HasMetaOption_TreatsTheConventionValueAsAValue",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingOptionTests.cs",
+      "line": 38,
+      "signature": "public void HasMetaOption_TreatsTheConventionValueAsAValue()",
+      "visibility": "public"
+    },
+    {
+      "name": "CommandLine_RejectsAnUnknownMissingOrEmptyConvention",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingOptionTests.cs",
+      "line": 44,
+      "signature": "public void CommandLine_RejectsAnUnknownMissingOrEmptyConvention()",
+      "visibility": "public"
+    },
+    {
+      "name": "CommandLine_Metadata_PlansAnArityFileName",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingOptionTests.cs",
+      "line": 60,
+      "signature": "public void CommandLine_Metadata_PlansAnArityFileName()",
+      "visibility": "public"
+    },
+    {
+      "name": "CsFiles",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingRuns.cs",
+      "line": 14,
+      "signature": "public static string[] CsFiles(TempWorkspace ws)",
+      "visibility": "public"
+    },
+    {
+      "name": "RunPlanThenContent",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingRuns.cs",
+      "line": 19,
+      "signature": "public static FileResult[] RunPlanThenContent(TempWorkspace ws, string listPath, string manifestPath, FileNamingConvention planNaming, FileNamingConvention contentNaming)",
+      "visibility": "public"
+    },
+    {
+      "name": "RunPhase",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingRuns.cs",
+      "line": 28,
+      "signature": "public static FileResult[] RunPhase(TempWorkspace ws, string listPath, string manifestPath, Phase phase, FileNamingConvention naming, CollisionNaming? collisionNaming = null, CollisionNaming? recordAs = null)",
+      "visibility": "public"
+    },
+    {
+      "name": "Git",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingRuns.cs",
+      "line": 40,
+      "signature": "public static string Git(string workingDirectory, params string[] args)",
+      "visibility": "public"
+    },
+    {
+      "name": "RunTool",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FileNamingRuns.cs",
+      "line": 48,
+      "signature": "public static CliResult RunTool(params string[] args)",
+      "visibility": "public"
+    },
+    {
+      "name": "FilenameCollisionTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/FilenameCollisionTests.cs",
+      "line": 8,
+      "signature": "public sealed class FilenameCollisionTests",
+      "visibility": "public"
+    },
+    {
+      "name": "SameSimpleName_InDifferentNamespaces_ProducesQualifiedFileNames",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FilenameCollisionTests.cs",
+      "line": 11,
+      "signature": "public void SameSimpleName_InDifferentNamespaces_ProducesQualifiedFileNames()",
+      "visibility": "public"
+    },
+    {
+      "name": "TwoSourcesDifferingOnlyByCase_FollowThePlatformDefinitionOfOneFile",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FilenameCollisionTests.cs",
+      "line": 45,
+      "signature": "public void TwoSourcesDifferingOnlyByCase_FollowThePlatformDefinitionOfOneFile()",
+      "visibility": "public"
+    },
+    {
+      "name": "PartialParts_InTheirNamedFile_AreSkippedAsCollision",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/FilenameCollisionTests.cs",
+      "line": 86,
+      "signature": "public void PartialParts_InTheirNamedFile_AreSkippedAsCollision(string types)",
+      "visibility": "public"
+    },
+    {
+      "name": "InitAndTrack",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/GitFixture.cs",
+      "line": 10,
+      "signature": "public static void InitAndTrack(string root, params string[] trackedFiles)",
+      "visibility": "public"
+    },
+    {
+      "name": "HeaderBehaviorTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/HeaderBehaviorTests.cs",
+      "line": 7,
+      "signature": "public sealed class HeaderBehaviorTests",
+      "visibility": "public"
+    },
+    {
+      "name": "NoRequiredHeader_HeaderlessSource_SplitsWithoutLeadingBlankLine_AndFirstTypeBlockCommentStaysAttached",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/HeaderBehaviorTests.cs",
+      "line": 10,
+      "signature": "public void NoRequiredHeader_HeaderlessSource_SplitsWithoutLeadingBlankLine_AndFirstTypeBlockCommentStaysAttached()",
+      "visibility": "public"
+    },
+    {
+      "name": "RequiredHeader_IsPrependedToEveryOutput_WithOneBlankLine_AndPassesLineConservation",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/HeaderBehaviorTests.cs",
+      "line": 51,
+      "signature": "public void RequiredHeader_IsPrependedToEveryOutput_WithOneBlankLine_AndPassesLineConservation()",
+      "visibility": "public"
+    },
+    {
+      "name": "RequiredHeader_MatchesSourceFileNewlineStyle_Crlf",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/HeaderBehaviorTests.cs",
+      "line": 86,
+      "signature": "public void RequiredHeader_MatchesSourceFileNewlineStyle_Crlf()",
+      "visibility": "public"
+    },
+    {
+      "name": "RequiredHeader_MatchesSourceFileNewlineStyle_Lf",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/HeaderBehaviorTests.cs",
+      "line": 117,
+      "signature": "public void RequiredHeader_MatchesSourceFileNewlineStyle_Lf()",
+      "visibility": "public"
+    },
+    {
+      "name": "RequiredHeader_AlreadyPresentInSource_IsNotDoubled",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/HeaderBehaviorTests.cs",
+      "line": 144,
+      "signature": "public void RequiredHeader_AlreadyPresentInSource_IsNotDoubled()",
+      "visibility": "public"
+    },
+    {
+      "name": "RequiredHeader_SourceStartsWithLongerCommentSharingThePrefix_StillGetsTheBanner",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/HeaderBehaviorTests.cs",
+      "line": 175,
+      "signature": "public void RequiredHeader_SourceStartsWithLongerCommentSharingThePrefix_StillGetsTheBanner()",
+      "visibility": "public"
+    },
+    {
+      "name": "RequiredHeader_SourceStartsWithBlankLineBeforeTheBanner_SplitsInsteadOfFailingVerification",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/HeaderBehaviorTests.cs",
+      "line": 207,
+      "signature": "public void RequiredHeader_SourceStartsWithBlankLineBeforeTheBanner_SplitsInsteadOfFailingVerification()",
+      "visibility": "public"
+    },
+    {
+      "name": "RequiredHeader_SourceBannerHasTrailingSpaces_IsStillTheSameBanner",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/HeaderBehaviorTests.cs",
+      "line": 244,
+      "signature": "public void RequiredHeader_SourceBannerHasTrailingSpaces_IsStillTheSameBanner()",
+      "visibility": "public"
+    },
+    {
+      "name": "RequiredHeader_SuppliedWithLeadingWhitespace_StillVerifies",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/HeaderBehaviorTests.cs",
+      "line": 275,
+      "signature": "public void RequiredHeader_SuppliedWithLeadingWhitespace_StillVerifies()",
+      "visibility": "public"
+    },
+    {
+      "name": "InputSourceTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/InputSourceTests.cs",
+      "line": 11,
+      "signature": "public sealed class InputSourceTests",
+      "visibility": "public"
+    },
+    {
+      "name": "DirectoryInput_DiscoversSourceFilesRecursively",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/InputSourceTests.cs",
+      "line": 16,
+      "signature": "public void DirectoryInput_DiscoversSourceFilesRecursively()",
+      "visibility": "public"
+    },
+    {
+      "name": "DirectoryInput_SkipsBinAndObjBecauseTheBuildOwnsThem",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/InputSourceTests.cs",
+      "line": 29,
+      "signature": "public void DirectoryInput_SkipsBinAndObjBecauseTheBuildOwnsThem()",
+      "visibility": "public"
+    },
+    {
+      "name": "DirectoryInput_IgnoresNonSourceFiles",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/InputSourceTests.cs",
+      "line": 43,
+      "signature": "public void DirectoryInput_IgnoresNonSourceFiles()",
+      "visibility": "public"
+    },
+    {
+      "name": "DirectoryInput_DefaultsTheManifestOutsideTheScannedTree",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/InputSourceTests.cs",
+      "line": 54,
+      "signature": "public void DirectoryInput_DefaultsTheManifestOutsideTheScannedTree()",
+      "visibility": "public"
+    },
+    {
+      "name": "StdinInput_ReadsOnePathPerLine",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/InputSourceTests.cs",
+      "line": 66,
+      "signature": "public void StdinInput_ReadsOnePathPerLine()",
+      "visibility": "public"
+    },
+    {
+      "name": "StdinInput_IsNotResolvedAsAFilePath",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/InputSourceTests.cs",
+      "line": 85,
+      "signature": "public void StdinInput_IsNotResolvedAsAFilePath()",
+      "visibility": "public"
+    },
+    {
+      "name": "NonUtf8Input_IsSkippedRatherThanEndingTheRun",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/InputSourceTests.cs",
+      "line": 94,
+      "signature": "public void NonUtf8Input_IsSkippedRatherThanEndingTheRun()",
+      "visibility": "public"
+    },
+    {
+      "name": "DuplicateInputPaths_ProduceOneRow",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/InputSourceTests.cs",
+      "line": 111,
+      "signature": "public void DuplicateInputPaths_ProduceOneRow()",
+      "visibility": "public"
+    },
+    {
+      "name": "DuplicateInputPathsInDifferentTextualForms_ProduceOneRow",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/InputSourceTests.cs",
+      "line": 124,
+      "signature": "public void DuplicateInputPathsInDifferentTextualForms_ProduceOneRow()",
+      "visibility": "public"
+    },
+    {
+      "name": "SingleSourceFileInput_IsTheFileToSplitNotAListOfPaths",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/InputSourceTests.cs",
+      "line": 139,
+      "signature": "public void SingleSourceFileInput_IsTheFileToSplitNotAListOfPaths()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentPhase_ReportsAPlannedFileTheInputNeverSupplied",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/InputSourceTests.cs",
+      "line": 153,
+      "signature": "public void ContentPhase_ReportsAPlannedFileTheInputNeverSupplied()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentPhase_ReportsAnUnplannedInputAsNotPlanned",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/InputSourceTests.cs",
+      "line": 174,
+      "signature": "public void ContentPhase_ReportsAnUnplannedInputAsNotPlanned()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentPhase_KeepsAnUnappliedPlanRowUsableByALaterBatch",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/InputSourceTests.cs",
+      "line": 196,
+      "signature": "public void ContentPhase_KeepsAnUnappliedPlanRowUsableByALaterBatch()",
+      "visibility": "public"
+    },
+    {
+      "name": "DirectoryScan_IncludesASymlinkWhoseTargetIsOutsideTheScannedTree",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/InputSourceTests.cs",
+      "line": 224,
+      "signature": "public void DirectoryScan_IncludesASymlinkWhoseTargetIsOutsideTheScannedTree()",
+      "visibility": "public"
+    },
+    {
+      "name": "DirectoryScan_KeepsTheRealPathWhenASymlinkAndItsTargetAreBothScanned",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/InputSourceTests.cs",
+      "line": 242,
+      "signature": "public void DirectoryScan_KeepsTheRealPathWhenASymlinkAndItsTargetAreBothScanned()",
+      "visibility": "public"
+    },
+    {
+      "name": "UnreadableInput_IsAFailedRowRatherThanAnAbortedRun",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/InputSourceTests.cs",
+      "line": 281,
+      "signature": "public void UnreadableInput_IsAFailedRowRatherThanAnAbortedRun()",
+      "visibility": "public"
+    },
+    {
+      "name": "KeptRenameCollisionTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/KeptRenameCollisionTests.cs",
+      "line": 8,
+      "signature": "public sealed class KeptRenameCollisionTests",
+      "visibility": "public"
+    },
+    {
+      "name": "Metadata_TwoPartsOfOneGenericType_RenameOnceAndBothSplit",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/KeptRenameCollisionTests.cs",
+      "line": 14,
+      "signature": "public void Metadata_TwoPartsOfOneGenericType_RenameOnceAndBothSplit()",
+      "visibility": "public"
+    },
+    {
+      "name": "Default_TwoInputsWithOneRenameTarget_PlanOneRename",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/KeptRenameCollisionTests.cs",
+      "line": 53,
+      "signature": "public void Default_TwoInputsWithOneRenameTarget_PlanOneRename()",
+      "visibility": "public"
+    },
+    {
+      "name": "ClaimantThePlanSkips_DoesNotTakeTheTarget",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/KeptRenameCollisionTests.cs",
+      "line": 73,
+      "signature": "public void ClaimantThePlanSkips_DoesNotTakeTheTarget()",
+      "visibility": "public"
+    },
+    {
+      "name": "WinnerTheRenamesPhaseRefuses_LeavesTheOtherInputAsPlanned",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/KeptRenameCollisionTests.cs",
+      "line": 101,
+      "signature": "public void WinnerTheRenamesPhaseRefuses_LeavesTheOtherInputAsPlanned()",
+      "visibility": "public"
+    },
+    {
+      "name": "TargetsThatDifferOnlyByCase_FollowTheDisk",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/KeptRenameCollisionTests.cs",
+      "line": 148,
+      "signature": "public void TargetsThatDifferOnlyByCase_FollowTheDisk()",
+      "visibility": "public"
+    },
+    {
+      "name": "ManifestCollisionNamingTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/ManifestCollisionNamingTests.cs",
+      "line": 7,
+      "signature": "public sealed class ManifestCollisionNamingTests",
+      "visibility": "public"
+    },
+    {
+      "name": "Write_RecordsTheValueOnEveryRow_AndReadGivesItBack",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ManifestCollisionNamingTests.cs",
+      "line": 12,
+      "signature": "public void Write_RecordsTheValueOnEveryRow_AndReadGivesItBack()",
+      "visibility": "public"
+    },
+    {
+      "name": "Read_ReturnsNullForAManifestWithNoRows",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ManifestCollisionNamingTests.cs",
+      "line": 32,
+      "signature": "public void Read_ReturnsNullForAManifestWithNoRows()",
+      "visibility": "public"
+    },
+    {
+      "name": "Read_SkipsATrailingBlankLine",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ManifestCollisionNamingTests.cs",
+      "line": 42,
+      "signature": "public void Read_SkipsATrailingBlankLine()",
+      "visibility": "public"
+    },
+    {
+      "name": "Read_RefusesAManifestWithNoColumn",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ManifestCollisionNamingTests.cs",
+      "line": 52,
+      "signature": "public void Read_RefusesAManifestWithNoColumn()",
+      "visibility": "public"
+    },
+    {
+      "name": "Read_RefusesABlankUnknownOrMixedValue",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ManifestCollisionNamingTests.cs",
+      "line": 66,
+      "signature": "public void Read_RefusesABlankUnknownOrMixedValue(string secondRowValue, string expected)",
+      "visibility": "public"
+    },
+    {
+      "name": "Read_CountsDataRowsNotLines_WhenANoteSpansLines",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ManifestCollisionNamingTests.cs",
+      "line": 81,
+      "signature": "public void Read_CountsDataRowsNotLines_WhenANoteSpansLines()",
+      "visibility": "public"
+    },
+    {
+      "name": "ManifestPathTamperingTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/ManifestPathTamperingTests.cs",
+      "line": 11,
+      "signature": "public sealed class ManifestPathTamperingTests",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentPhase_RefusesWhenManifestPathTargetsAnExistingFile",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ManifestPathTamperingTests.cs",
+      "line": 14,
+      "signature": "public void ContentPhase_RefusesWhenManifestPathTargetsAnExistingFile()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentPhase_RefusesWhenTwoManifestPathsCollide",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ManifestPathTamperingTests.cs",
+      "line": 50,
+      "signature": "public void ContentPhase_RefusesWhenTwoManifestPathsCollide()",
+      "visibility": "public"
+    },
+    {
+      "name": "MetadataCollisionGuardTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataCollisionGuardTests.cs",
+      "line": 7,
+      "signature": "public sealed class MetadataCollisionGuardTests : IDisposable",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataCollisionGuardTests.cs",
+      "line": 22,
+      "signature": "public void Dispose() => _ws.Dispose();",
+      "visibility": "public"
+    },
+    {
+      "name": "AContradictingCollisionFlag_EndsTheRunBeforeAnyWrite",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataCollisionGuardTests.cs",
+      "line": 25,
+      "signature": "public void AContradictingCollisionFlag_EndsTheRunBeforeAnyWrite()",
+      "visibility": "public"
+    },
+    {
+      "name": "AnEditedCollisionColumn_IsStillRefusedPerRow",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataCollisionGuardTests.cs",
+      "line": 37,
+      "signature": "public void AnEditedCollisionColumn_IsStillRefusedPerRow()",
+      "visibility": "public"
+    },
+    {
+      "name": "MetadataCollisionTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataCollisionTests.cs",
+      "line": 7,
+      "signature": "public sealed class MetadataCollisionTests",
+      "visibility": "public"
+    },
+    {
+      "name": "Metadata_SameNameAndArityInOneFile_IsRefusedAsCollision",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataCollisionTests.cs",
+      "line": 10,
+      "signature": "public void Metadata_SameNameAndArityInOneFile_IsRefusedAsCollision()",
+      "visibility": "public"
+    },
+    {
+      "name": "Metadata_CrossFileCollision_QualifiesTheBacktickNameAndWritesIt",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataCollisionTests.cs",
+      "line": 31,
+      "signature": "public void Metadata_CrossFileCollision_QualifiesTheBacktickNameAndWritesIt()",
+      "visibility": "public"
+    },
+    {
+      "name": "MetadataWithTypeFirst_CrossFileCollision_PutsTheArityNameFirstAndWritesIt",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataCollisionTests.cs",
+      "line": 56,
+      "signature": "public void MetadataWithTypeFirst_CrossFileCollision_PutsTheArityNameFirstAndWritesIt()",
+      "visibility": "public"
+    },
+    {
+      "name": "MetadataQualifiedName_ContentUnderOtherFileNaming_IsRefusedAndWritesNothing",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataCollisionTests.cs",
+      "line": 86,
+      "signature": "public void MetadataQualifiedName_ContentUnderOtherFileNaming_IsRefusedAndWritesNothing(string planCollision, string contentNaming, string contentCollision, string plannedName, string expectedNote)",
+      "visibility": "public"
+    },
+    {
+      "name": "MetadataFileNameTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataFileNameTests.cs",
+      "line": 8,
+      "signature": "public sealed class MetadataFileNameTests",
+      "visibility": "public"
+    },
+    {
+      "name": "GetFileName_Metadata_UsesArityForGenericTypesOnly",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataFileNameTests.cs",
+      "line": 20,
+      "signature": "public void GetFileName_Metadata_UsesArityForGenericTypesOnly(string declaration, string expected)",
+      "visibility": "public"
+    },
+    {
+      "name": "Metadata_NamesAMovedGenericTypeByArity",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataFileNameTests.cs",
+      "line": 28,
+      "signature": "public void Metadata_NamesAMovedGenericTypeByArity()",
+      "visibility": "public"
+    },
+    {
+      "name": "Default_StillNamesALoneGenericTypeWithoutArity",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataFileNameTests.cs",
+      "line": 44,
+      "signature": "public void Default_StillNamesALoneGenericTypeWithoutArity()",
+      "visibility": "public"
+    },
+    {
+      "name": "MetadataKeptTypeTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataKeptTypeTests.cs",
+      "line": 7,
+      "signature": "public sealed class MetadataKeptTypeTests",
+      "visibility": "public"
+    },
+    {
+      "name": "Metadata_KeepsTheTypeWhoseArityMatchesTheFileName",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataKeptTypeTests.cs",
+      "line": 10,
+      "signature": "public void Metadata_KeepsTheTypeWhoseArityMatchesTheFileName()",
+      "visibility": "public"
+    },
+    {
+      "name": "Metadata_KeepsTheNonGenericTypeInItsPlainNamedFile",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataKeptTypeTests.cs",
+      "line": 32,
+      "signature": "public void Metadata_KeepsTheNonGenericTypeInItsPlainNamedFile()",
+      "visibility": "public"
+    },
+    {
+      "name": "Metadata_KeepsTheOriginalNameWhenTheArityNameIsTaken",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataKeptTypeTests.cs",
+      "line": 47,
+      "signature": "public void Metadata_KeepsTheOriginalNameWhenTheArityNameIsTaken()",
+      "visibility": "public"
+    },
+    {
+      "name": "MetadataRenameTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataRenameTests.cs",
+      "line": 7,
+      "signature": "public sealed class MetadataRenameTests",
+      "visibility": "public"
+    },
+    {
+      "name": "Metadata_RenamesAGenericKeptFileThroughGitMvThenSplits",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/MetadataRenameTests.cs",
+      "line": 10,
+      "signature": "public void Metadata_RenamesAGenericKeptFileThroughGitMvThenSplits()",
+      "visibility": "public"
+    },
+    {
+      "name": "NamespaceShapeTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/NamespaceShapeTests.cs",
+      "line": 6,
+      "signature": "public sealed class NamespaceShapeTests",
+      "visibility": "public"
+    },
+    {
+      "name": "FileScopedNamespace_Splits",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NamespaceShapeTests.cs",
+      "line": 9,
+      "signature": "public void FileScopedNamespace_Splits()",
+      "visibility": "public"
+    },
+    {
+      "name": "BlockScopedNamespace_Splits",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NamespaceShapeTests.cs",
+      "line": 25,
+      "signature": "public void BlockScopedNamespace_Splits()",
+      "visibility": "public"
+    },
+    {
+      "name": "NoNamespace_Splits",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NamespaceShapeTests.cs",
+      "line": 44,
+      "signature": "public void NoNamespace_Splits()",
+      "visibility": "public"
+    },
+    {
+      "name": "NestedNamespaceTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/NestedNamespaceTests.cs",
+      "line": 16,
+      "signature": "public sealed class NestedNamespaceTests",
+      "visibility": "public"
+    },
+    {
+      "name": "Find_TypeInNestedNamespace_IsFoundInDocumentOrder",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NestedNamespaceTests.cs",
+      "line": 38,
+      "signature": "public void Find_TypeInNestedNamespace_IsFoundInDocumentOrder()",
+      "visibility": "public"
+    },
+    {
+      "name": "Split_TypeInNestedNamespace_IsWrittenExactlyOnce",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NestedNamespaceTests.cs",
+      "line": 48,
+      "signature": "public void Split_TypeInNestedNamespace_IsWrittenExactlyOnce()",
+      "visibility": "public"
+    },
+    {
+      "name": "VerifyOutputs_NestedTypeCopiedIntoTwoOutputs_Throws",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NestedNamespaceTests.cs",
+      "line": 64,
+      "signature": "public void VerifyOutputs_NestedTypeCopiedIntoTwoOutputs_Throws()",
+      "visibility": "public"
+    },
+    {
+      "name": "Split_KeptTypeInsideNestedNamespace_MovesOuterTypeOut",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NestedNamespaceTests.cs",
+      "line": 83,
+      "signature": "public void Split_KeptTypeInsideNestedNamespace_MovesOuterTypeOut()",
+      "visibility": "public"
+    },
+    {
+      "name": "Split_SameNameDifferentArityAtTwoDepths_Splits",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NestedNamespaceTests.cs",
+      "line": 107,
+      "signature": "public void Split_SameNameDifferentArityAtTwoDepths_Splits()",
+      "visibility": "public"
+    },
+    {
+      "name": "Plan_SameArityDifferentTypeParameterNames_SplitsUnderStyleCop",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NestedNamespaceTests.cs",
+      "line": 129,
+      "signature": "public void Plan_SameArityDifferentTypeParameterNames_SplitsUnderStyleCop()",
+      "visibility": "public"
+    },
+    {
+      "name": "Plan_SameArityDifferentTypeParameterNames_CollidesUnderMetadata",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NestedNamespaceTests.cs",
+      "line": 140,
+      "signature": "public void Plan_SameArityDifferentTypeParameterNames_CollidesUnderMetadata()",
+      "visibility": "public"
+    },
+    {
+      "name": "Split_DocCommentOnNestedType_TravelsWithIt",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NestedNamespaceTests.cs",
+      "line": 152,
+      "signature": "public void Split_DocCommentOnNestedType_TravelsWithIt()",
+      "visibility": "public"
+    },
+    {
+      "name": "Plan_RegionSpanningTwoNestedTypes_IsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NestedNamespaceTests.cs",
+      "line": 175,
+      "signature": "public void Plan_RegionSpanningTwoNestedTypes_IsRefused()",
+      "visibility": "public"
+    },
+    {
+      "name": "Split_OneOuterTypeAndOneNestedType_Splits",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NestedNamespaceTests.cs",
+      "line": 204,
+      "signature": "public void Split_OneOuterTypeAndOneNestedType_Splits()",
+      "visibility": "public"
+    },
+    {
+      "name": "Split_TwoTypesOnlyInNestedNamespace_Splits",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NestedNamespaceTests.cs",
+      "line": 227,
+      "signature": "public void Split_TwoTypesOnlyInNestedNamespace_Splits()",
+      "visibility": "public"
+    },
+    {
+      "name": "Split_TypeThreeNamespacesDown_IsWrittenExactlyOnce",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NestedNamespaceTests.cs",
+      "line": 250,
+      "signature": "public void Split_TypeThreeNamespacesDown_IsWrittenExactlyOnce()",
+      "visibility": "public"
+    },
+    {
+      "name": "Split_SameNameAtTwoDepths_IsSkippedAndChangesNothing",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NestedNamespaceTests.cs",
+      "line": 276,
+      "signature": "public void Split_SameNameAtTwoDepths_IsSkippedAndChangesNothing()",
+      "visibility": "public"
+    },
+    {
+      "name": "NextStepDescribeTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/NextStepDescribeTests.cs",
+      "line": 6,
+      "signature": "public sealed class NextStepDescribeTests",
+      "visibility": "public"
+    },
+    {
+      "name": "Describe_SingleQuotesSpacesAndBackslashes_AndSaysToCommitAfterRenames",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NextStepDescribeTests.cs",
+      "line": 9,
+      "signature": "public void Describe_SingleQuotesSpacesAndBackslashes_AndSaysToCommitAfterRenames()",
+      "visibility": "public"
+    },
+    {
+      "name": "Describe_FallsBackToASentence_WhenNoQuotingIsSafe",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NextStepDescribeTests.cs",
+      "line": 28,
+      "signature": "public void Describe_FallsBackToASentence_WhenNoQuotingIsSafe(string header)",
+      "visibility": "public"
+    },
+    {
+      "name": "NextStepTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/NextStepTests.cs",
+      "line": 7,
+      "signature": "public sealed class NextStepTests",
+      "visibility": "public"
+    },
+    {
+      "name": "Plan_WithARename_PointsAtRenames_AndCarriesEveryOption",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NextStepTests.cs",
+      "line": 16,
+      "signature": "public void Plan_WithARename_PointsAtRenames_AndCarriesEveryOption()",
+      "visibility": "public"
+    },
+    {
+      "name": "Plan_WithNoRename_SkipsStraightToContent",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NextStepTests.cs",
+      "line": 32,
+      "signature": "public void Plan_WithNoRename_SkipsStraightToContent()",
+      "visibility": "public"
+    },
+    {
+      "name": "Renames_PointsAtContent_EvenWhenARowWasRenamed",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NextStepTests.cs",
+      "line": 40,
+      "signature": "public void Renames_PointsAtContent_EvenWhenARowWasRenamed()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReturnsNull_WhenThereIsNoSafeNextPhase",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NextStepTests.cs",
+      "line": 52,
+      "signature": "public void ReturnsNull_WhenThereIsNoSafeNextPhase(string because)",
+      "visibility": "public"
+    },
+    {
+      "name": "ReturnsNull_ForStandardInput",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NextStepTests.cs",
+      "line": 66,
+      "signature": "public void ReturnsNull_ForStandardInput()",
+      "visibility": "public"
+    },
+    {
+      "name": "Renames_CarriesAChosenReportPath_ButNotTheDefault",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NextStepTests.cs",
+      "line": 75,
+      "signature": "public void Renames_CarriesAChosenReportPath_ButNotTheDefault()",
+      "visibility": "public"
+    },
+    {
+      "name": "FileNaming_IsCarriedWhenItIsNotTheDefault",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NextStepTests.cs",
+      "line": 88,
+      "signature": "public void FileNaming_IsCarriedWhenItIsNotTheDefault()",
+      "visibility": "public"
+    },
+    {
+      "name": "Renames_WithNoPlanOnDisk_SuggestsNothing",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NextStepTests.cs",
+      "line": 98,
+      "signature": "public void Renames_WithNoPlanOnDisk_SuggestsNothing()",
+      "visibility": "public"
+    },
+    {
+      "name": "NextStepWorkflowTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/NextStepWorkflowTests.cs",
+      "line": 7,
+      "signature": "public sealed class NextStepWorkflowTests",
+      "visibility": "public"
+    },
+    {
+      "name": "FollowingNextArgs_RunsTheWholeWorkflow",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/NextStepWorkflowTests.cs",
+      "line": 11,
+      "signature": "public void FollowingNextArgs_RunsTheWholeWorkflow()",
+      "visibility": "public"
+    },
+    {
+      "name": "OwnedTriviaTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/OwnedTriviaTests.cs",
+      "line": 6,
+      "signature": "public sealed class OwnedTriviaTests",
+      "visibility": "public"
+    },
+    {
+      "name": "XmlDoc_Attribute_And_LineComment_MoveWithNonPrimaryType",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/OwnedTriviaTests.cs",
+      "line": 9,
+      "signature": "public void XmlDoc_Attribute_And_LineComment_MoveWithNonPrimaryType()",
+      "visibility": "public"
+    },
+    {
+      "name": "BlockCommentContainingBlankLines_SurvivesByteForByte",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/OwnedTriviaTests.cs",
+      "line": 42,
+      "signature": "public void BlockCommentContainingBlankLines_SurvivesByteForByte()",
+      "visibility": "public"
+    },
+    {
+      "name": "PackagedAgentDocsTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/PackagedAgentDocsTests.cs",
+      "line": 9,
+      "signature": "public sealed partial class PackagedAgentDocsTests",
+      "visibility": "public"
+    },
+    {
+      "name": "EverySkill_FollowsTheAgentSkillsSpecification",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/PackagedAgentDocsTests.cs",
+      "line": 14,
+      "signature": "public void EverySkill_FollowsTheAgentSkillsSpecification()",
+      "visibility": "public"
+    },
+    {
+      "name": "EveryDocumentedCommand_ParsesUnderTheCurrentOptions",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/PackagedAgentDocsTests.cs",
+      "line": 38,
+      "signature": "public void EveryDocumentedCommand_ParsesUnderTheCurrentOptions(string relativePath)",
+      "visibility": "public"
+    },
+    {
+      "name": "EveryDocumentedFlagFragment_ParsesUnderTheCurrentOptions",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/PackagedAgentDocsTests.cs",
+      "line": 57,
+      "signature": "public void EveryDocumentedFlagFragment_ParsesUnderTheCurrentOptions(string relativePath)",
+      "visibility": "public"
+    },
+    {
+      "name": "TheDoneRule_QuotesTheToolsOwnReasons",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/PackagedAgentDocsTests.cs",
+      "line": 90,
+      "signature": "public void TheDoneRule_QuotesTheToolsOwnReasons(string relativePath)",
+      "visibility": "public"
+    },
+    {
+      "name": "TheFileLocalRule_QuotesTheNotePrefixTheToolWrites",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/PackagedAgentDocsTests.cs",
+      "line": 110,
+      "signature": "public void TheFileLocalRule_QuotesTheNotePrefixTheToolWrites(string relativePath)",
+      "visibility": "public"
+    },
+    {
+      "name": "AgentsMd_PointsAtTheSkillItShipsWith",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/PackagedAgentDocsTests.cs",
+      "line": 122,
+      "signature": "public void AgentsMd_PointsAtTheSkillItShipsWith()",
+      "visibility": "public"
+    },
+    {
+      "name": "ParseRuleOwnershipTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/ParseRuleOwnershipTests.cs",
+      "line": 10,
+      "signature": "public sealed class ParseRuleOwnershipTests",
+      "visibility": "public"
+    },
+    {
+      "name": "OnlySourceParsing_DefinesTheParseRule",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ParseRuleOwnershipTests.cs",
+      "line": 21,
+      "signature": "public void OnlySourceParsing_DefinesTheParseRule(string token)",
+      "visibility": "public"
+    },
+    {
+      "name": "EveryParse_UsesSourceParsingOptions",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ParseRuleOwnershipTests.cs",
+      "line": 33,
+      "signature": "public void EveryParse_UsesSourceParsingOptions()",
+      "visibility": "public"
+    },
+    {
+      "name": "PlanMismatchReasonTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/PlanMismatchReasonTests.cs",
+      "line": 8,
+      "signature": "public sealed class PlanMismatchReasonTests",
+      "visibility": "public"
+    },
+    {
+      "name": "RenameTheManifestDoesNotPlan_SaysWhichSidePlansIt",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/PlanMismatchReasonTests.cs",
+      "line": 13,
+      "signature": "public void RenameTheManifestDoesNotPlan_SaysWhichSidePlansIt()",
+      "visibility": "public"
+    },
+    {
+      "name": "NewFileOnlyInTheManifest_IsNamed",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/PlanMismatchReasonTests.cs",
+      "line": 28,
+      "signature": "public void NewFileOnlyInTheManifest_IsNamed()",
+      "visibility": "public"
+    },
+    {
+      "name": "NewFileOnlyInThisRun_IsNamed",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/PlanMismatchReasonTests.cs",
+      "line": 41,
+      "signature": "public void NewFileOnlyInThisRun_IsNamed()",
+      "visibility": "public"
+    },
+    {
+      "name": "NewFilePathListedTwiceInTheManifest_IsNamed",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/PlanMismatchReasonTests.cs",
+      "line": 53,
+      "signature": "public void NewFilePathListedTwiceInTheManifest_IsNamed()",
+      "visibility": "public"
+    },
+    {
+      "name": "PlanPhaseTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/PlanPhaseTests.cs",
+      "line": 7,
+      "signature": "public sealed class PlanPhaseTests",
+      "visibility": "public"
+    },
+    {
+      "name": "PlanPhase_WritesManifest_ButChangesNoSourceFiles",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/PlanPhaseTests.cs",
+      "line": 10,
+      "signature": "public void PlanPhase_WritesManifest_ButChangesNoSourceFiles()",
+      "visibility": "public"
+    },
+    {
+      "name": "Apply",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ReadBlock.cs",
+      "line": 33,
+      "signature": "public static ReadBlock Apply(string path)",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/ReadBlock.cs",
+      "line": 59,
+      "signature": "public void Dispose()",
+      "visibility": "public"
+    },
+    {
+      "name": "RefusedRenameLocationTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/RefusedRenameLocationTests.cs",
+      "line": 7,
+      "signature": "public sealed class RefusedRenameLocationTests : IDisposable",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/RefusedRenameLocationTests.cs",
+      "line": 14,
+      "signature": "public void Dispose() => _workspace.Dispose();",
+      "visibility": "public"
+    },
+    {
+      "name": "PlanSkip_TargetPathAlreadyExists_ReportsTheOriginalPath",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/RefusedRenameLocationTests.cs",
+      "line": 17,
+      "signature": "public void PlanSkip_TargetPathAlreadyExists_ReportsTheOriginalPath()",
+      "visibility": "public"
+    },
+    {
+      "name": "PlanSkip_EmptyDirectiveShell_ReportsTheOriginalPath",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/RefusedRenameLocationTests.cs",
+      "line": 30,
+      "signature": "public void PlanSkip_EmptyDirectiveShell_ReportsTheOriginalPath()",
+      "visibility": "public"
+    },
+    {
+      "name": "PlanFailure_OutputVerificationThrows_ReportsTheOriginalPath",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/RefusedRenameLocationTests.cs",
+      "line": 42,
+      "signature": "public void PlanFailure_OutputVerificationThrows_ReportsTheOriginalPath()",
+      "visibility": "public"
+    },
+    {
+      "name": "CollisionSkip_QualifiedCollision_ReportsTheOriginalPath",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/RefusedRenameLocationTests.cs",
+      "line": 55,
+      "signature": "public void CollisionSkip_QualifiedCollision_ReportsTheOriginalPath()",
+      "visibility": "public"
+    },
+    {
+      "name": "CollisionSkip_RefusedGeneratedName_ReportsTheOriginalPath",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/RefusedRenameLocationTests.cs",
+      "line": 73,
+      "signature": "public void CollisionSkip_RefusedGeneratedName_ReportsTheOriginalPath()",
+      "visibility": "public"
+    },
+    {
+      "name": "PlanSplit_StillReportsTheRenameTarget",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/RefusedRenameLocationTests.cs",
+      "line": 91,
+      "signature": "public void PlanSplit_StillReportsTheRenameTarget()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentSkip_RunComputesAnUnplannedRename_ReportsTheOriginalPath",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/RefusedRenameLocationTests.cs",
+      "line": 104,
+      "signature": "public void ContentSkip_RunComputesAnUnplannedRename_ReportsTheOriginalPath()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentSkip_AfterALandedRename_ReportsTheRenamedPath",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/RefusedRenameLocationTests.cs",
+      "line": 119,
+      "signature": "public void ContentSkip_AfterALandedRename_ReportsTheRenamedPath()",
+      "visibility": "public"
+    },
+    {
+      "name": "RunReportTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/RunReportTests.cs",
+      "line": 10,
+      "signature": "public sealed class RunReportTests",
+      "visibility": "public"
+    },
+    {
+      "name": "Parse_DefaultsToCsvOutput",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/RunReportTests.cs",
+      "line": 15,
+      "signature": "public void Parse_DefaultsToCsvOutput()",
+      "visibility": "public"
+    },
+    {
+      "name": "Report_CountsEachStatusAndTheFilesCreated",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/RunReportTests.cs",
+      "line": 22,
+      "signature": "public void Report_CountsEachStatusAndTheFilesCreated()",
+      "visibility": "public"
+    },
+    {
+      "name": "Json_UsesTheSameFieldNamesAndStatusVocabularyAsTheManifest",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/RunReportTests.cs",
+      "line": 43,
+      "signature": "public void Json_UsesTheSameFieldNamesAndStatusVocabularyAsTheManifest()",
+      "visibility": "public"
+    },
+    {
+      "name": "SummaryLine_NamesThePhaseAndEveryCount",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/RunReportTests.cs",
+      "line": 73,
+      "signature": "public void SummaryLine_NamesThePhaseAndEveryCount()",
+      "visibility": "public"
+    },
+    {
+      "name": "SeamUnitTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/SeamUnitTests.cs",
+      "line": 22,
+      "signature": "public sealed class SeamUnitTests",
+      "visibility": "public"
+    },
+    {
+      "name": "AnalyzeDirectiveSafety_RegionSpanningTwoTypes_IsUnsafe",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeamUnitTests.cs",
+      "line": 31,
+      "signature": "public void AnalyzeDirectiveSafety_RegionSpanningTwoTypes_IsUnsafe()",
+      "visibility": "public"
+    },
+    {
+      "name": "AnalyzeDirectiveSafety_RegionInsideOneType_IsSafe",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeamUnitTests.cs",
+      "line": 43,
+      "signature": "public void AnalyzeDirectiveSafety_RegionInsideOneType_IsSafe()",
+      "visibility": "public"
+    },
+    {
+      "name": "VerifyLineConservation_OutputMissingATypesLine_Throws",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeamUnitTests.cs",
+      "line": 55,
+      "signature": "public void VerifyLineConservation_OutputMissingATypesLine_Throws()",
+      "visibility": "public"
+    },
+    {
+      "name": "VerifyLineConservation_OutputsCoveringEveryLine_DoesNotThrow",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeamUnitTests.cs",
+      "line": 69,
+      "signature": "public void VerifyLineConservation_OutputsCoveringEveryLine_DoesNotThrow()",
+      "visibility": "public"
+    },
+    {
+      "name": "GetFileName_TwoTypesDifferingOnlyByArity_AreDisambiguated",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeamUnitTests.cs",
+      "line": 80,
+      "signature": "public void GetFileName_TwoTypesDifferingOnlyByArity_AreDisambiguated()",
+      "visibility": "public"
+    },
+    {
+      "name": "SeparateRunReportTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 11,
+      "signature": "public sealed class SeparateRunReportTests",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentSuccess_LeavesThePlanByteIdenticalAndWritesTheReport",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 18,
+      "signature": "public void ContentSuccess_LeavesThePlanByteIdenticalAndWritesTheReport()",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentFailure_LeavesThePlanByteIdenticalAndReportsTheFailure",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 41,
+      "signature": "public void ContentFailure_LeavesThePlanByteIdenticalAndReportsTheFailure()",
+      "visibility": "public"
+    },
+    {
+      "name": "FailedRow_IsAppliedByARetryOfTheSamePlan",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 69,
+      "signature": "public void FailedRow_IsAppliedByARetryOfTheSamePlan()",
+      "visibility": "public"
+    },
+    {
+      "name": "MixedRetry_SkipsTheAppliedRowAndAppliesTheFailedOne",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 94,
+      "signature": "public void MixedRetry_SkipsTheAppliedRowAndAppliesTheFailedOne()",
+      "visibility": "public"
+    },
+    {
+      "name": "ForgottenCollisionNamingFlag_UsesThePlansValue_AndLeavesThePlanAlone",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 146,
+      "signature": "public void ForgottenCollisionNamingFlag_UsesThePlansValue_AndLeavesThePlanAlone()",
+      "visibility": "public"
+    },
+    {
+      "name": "Renames_WritesTheReportAndNeverTheManifest",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 169,
+      "signature": "public void Renames_WritesTheReportAndNeverTheManifest()",
+      "visibility": "public"
+    },
+    {
+      "name": "RenameFailure_IsAFailedRowInTheReport",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 192,
+      "signature": "public void RenameFailure_IsAFailedRowInTheReport()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportFlag_ChoosesWhereTheReportGoes",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 220,
+      "signature": "public void ReportFlag_ChoosesWhereTheReportGoes()",
+      "visibility": "public"
+    },
+    {
+      "name": "PlanJson_CarriesANullReport",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 241,
+      "signature": "public void PlanJson_CarriesANullReport()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportAtTheManifestPath_IsARejectedCommandLine",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 258,
+      "signature": "public void ReportAtTheManifestPath_IsARejectedCommandLine()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportDifferingFromTheManifestOnlyByCase_IsARejectedCommandLine",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 277,
+      "signature": "public void ReportDifferingFromTheManifestOnlyByCase_IsARejectedCommandLine()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportReachingTheManifestThroughALink_StopsTheRunBeforeAnyWrite",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 294,
+      "signature": "public void ReportReachingTheManifestThroughALink_StopsTheRunBeforeAnyWrite()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportNamingAnExistingFileThatIsNotAReport_StopsTheRunBeforeAnyWrite",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 322,
+      "signature": "public void ReportNamingAnExistingFileThatIsNotAReport_StopsTheRunBeforeAnyWrite()",
+      "visibility": "public"
+    },
+    {
+      "name": "UnwritableReportPath_StopsTheRunBeforeAnySourceIsRewritten",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 350,
+      "signature": "public void UnwritableReportPath_StopsTheRunBeforeAnySourceIsRewritten()",
+      "visibility": "public"
+    },
+    {
+      "name": "AbortedRun_ChangesNothingAtTheReportPath",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 379,
+      "signature": "public void AbortedRun_ChangesNothingAtTheReportPath()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportAtAPathTheRunWritesASourceFileTo_KeepsTheSourceAndPrintsTheRows",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 402,
+      "signature": "public void ReportAtAPathTheRunWritesASourceFileTo_KeepsTheSourceAndPrintsTheRows()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportNotWritten_PrintsTheRowsAsCsvWithoutJson",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 427,
+      "signature": "public void ReportNotWritten_PrintsTheRowsAsCsvWithoutJson()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportThatIsAHardLinkToThePlan_LeavesThePlanIntact",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 448,
+      "signature": "public void ReportThatIsAHardLinkToThePlan_LeavesThePlanIntact()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportReachingThePlanThroughALinkedDirectory_StopsTheRunBeforeAnyWrite",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 476,
+      "signature": "public void ReportReachingThePlanThroughALinkedDirectory_StopsTheRunBeforeAnyWrite()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportReachingThePlanThroughALinkWhoseTargetCrossesALinkedDirectory_IsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 507,
+      "signature": "public void ReportReachingThePlanThroughALinkWhoseTargetCrossesALinkedDirectory_IsRefused(bool swapRoles)",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportReachingThePlanThroughALinkTargetThatClimbsOutOfALink_IsRefused",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 544,
+      "signature": "public void ReportReachingThePlanThroughALinkTargetThatClimbsOutOfALink_IsRefused()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportBesideThePlanInALinkedDirectory_IsAllowed",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 583,
+      "signature": "public void ReportBesideThePlanInALinkedDirectory_IsAllowed()",
+      "visibility": "public"
+    },
+    {
+      "name": "ManifestThatIsASymbolicLink_IsRefusedAndThePlanIsKept",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 617,
+      "signature": "public void ManifestThatIsASymbolicLink_IsRefusedAndThePlanIsKept(bool linkedParent)",
+      "visibility": "public"
+    },
+    {
+      "name": "WriteToAnAliasOfTheManifest_IsRefusedAndTheStagedFileIsRemoved",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 673,
+      "signature": "public void WriteToAnAliasOfTheManifest_IsRefusedAndTheStagedFileIsRemoved()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportWithTheManifestsNameInAnotherDirectory_IsAllowed",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 707,
+      "signature": "public void ReportWithTheManifestsNameInAnotherDirectory_IsAllowed()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportWithAVeryLongName_IsWritten",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 725,
+      "signature": "public void ReportWithAVeryLongName_IsWritten()",
+      "visibility": "public"
+    },
+    {
+      "name": "RelativeReportPath_ResolvesAgainstTheWorkingDirectory",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 742,
+      "signature": "public void RelativeReportPath_ResolvesAgainstTheWorkingDirectory()",
+      "visibility": "public"
+    },
+    {
+      "name": "ManifestDirectoryTooLongToLookUp_FailsClosedAndThePlanIsKept",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 750,
+      "signature": "public void ManifestDirectoryTooLongToLookUp_FailsClosedAndThePlanIsKept()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportNameTheFileSystemRejects_StopsTheRunBeforeAnyWrite",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 798,
+      "signature": "public void ReportNameTheFileSystemRejects_StopsTheRunBeforeAnyWrite()",
+      "visibility": "public"
+    },
+    {
+      "name": "ManifestPathEndingInASeparator_IsRejectedAndThePlanIsKept",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 818,
+      "signature": "public void ManifestPathEndingInASeparator_IsRejectedAndThePlanIsKept()",
+      "visibility": "public"
+    },
+    {
+      "name": "ManifestPathThatIsADirectory_IsRefusedBeforeAnyWork",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 849,
+      "signature": "public void ManifestPathThatIsADirectory_IsRefusedBeforeAnyWork()",
+      "visibility": "public"
+    },
+    {
+      "name": "WriteThatThrowsAnythingAtAll_ReturnsAReason",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 864,
+      "signature": "public void WriteThatThrowsAnythingAtAll_ReturnsAReason()",
+      "visibility": "public"
+    },
+    {
+      "name": "PathThatCannotBeExamined_IsRefusedNotTreatedAsAbsent",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 879,
+      "signature": "public void PathThatCannotBeExamined_IsRefusedNotTreatedAsAbsent()",
+      "visibility": "public"
+    },
+    {
+      "name": "RenameOntoADirectory_IsAFailedRowAndTheFileStaysPut",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 898,
+      "signature": "public void RenameOntoADirectory_IsAFailedRowAndTheFileStaysPut()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportPathEndingInASeparator_StopsTheRunBeforeAnyWrite",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 921,
+      "signature": "public void ReportPathEndingInASeparator_StopsTheRunBeforeAnyWrite()",
+      "visibility": "public"
+    },
+    {
+      "name": "EmptyExistingFileAtTheReportPath_IsNotAReportAndIsKept",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 939,
+      "signature": "public void EmptyExistingFileAtTheReportPath_IsNotAReportAndIsKept()",
+      "visibility": "public"
+    },
+    {
+      "name": "WriteThatCannotStage_ReturnsTheReasonAndCreatesNothing",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 957,
+      "signature": "public void WriteThatCannotStage_ReturnsTheReasonAndCreatesNothing()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportThatIsALinkToAnEarlierReport_IsRefusedAndTheTargetIsKept",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 974,
+      "signature": "public void ReportThatIsALinkToAnEarlierReport_IsRefusedAndTheTargetIsKept()",
+      "visibility": "public"
+    },
+    {
+      "name": "SecondRun_ReplacesTheEarlierReportAndLeavesNoStagingFile",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 1003,
+      "signature": "public void SecondRun_ReplacesTheEarlierReportAndLeavesNoStagingFile()",
+      "visibility": "public"
+    },
+    {
+      "name": "DefaultReportPath_IsBesideTheManifestAndNeverTheManifest",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 1025,
+      "signature": "public void DefaultReportPath_IsBesideTheManifestAndNeverTheManifest(string manifestName, string reportName)",
+      "visibility": "public"
+    },
+    {
+      "name": "ReportWithThePlanPhase_IsARejectedCommandLine",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 1037,
+      "signature": "public void ReportWithThePlanPhase_IsARejectedCommandLine()",
+      "visibility": "public"
+    },
+    {
+      "name": "HelpAfterReport_IsTreatedAsAValue",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SeparateRunReportTests.cs",
+      "line": 1060,
+      "signature": "public void HelpAfterReport_IsTreatedAsAValue()",
+      "visibility": "public"
+    },
+    {
+      "name": "Holds",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SkillDoneRule.cs",
+      "line": 9,
+      "signature": "public static bool Holds(JsonElement report) =>",
+      "visibility": "public"
+    },
+    {
+      "name": "SkillDoneRuleTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/SkillDoneRuleTests.cs",
+      "line": 9,
+      "signature": "public sealed class SkillDoneRuleTests",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentGivenPartOfThePlan_IsNotDone",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SkillDoneRuleTests.cs",
+      "line": 12,
+      "signature": "public void ContentGivenPartOfThePlan_IsNotDone()",
+      "visibility": "public"
+    },
+    {
+      "name": "RenamesWithNoPlanOnDisk_SuggestsNothing_AndWritesNoManifest",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SkillDoneRuleTests.cs",
+      "line": 32,
+      "signature": "public void RenamesWithNoPlanOnDisk_SuggestsNothing_AndWritesNoManifest()",
+      "visibility": "public"
+    },
+    {
+      "name": "SplitTypesHappyPathTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/SplitTypesHappyPathTests.cs",
+      "line": 7,
+      "signature": "public sealed class SplitTypesHappyPathTests",
+      "visibility": "public"
+    },
+    {
+      "name": "ThreeTypes_SplitIntoThreeFiles_PrimaryStays",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/SplitTypesHappyPathTests.cs",
+      "line": 10,
+      "signature": "public void ThreeTypes_SplitIntoThreeFiles_PrimaryStays()",
+      "visibility": "public"
+    },
+    {
+      "name": "WriteFile",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/TempWorkspace.cs",
+      "line": 19,
+      "signature": "public string WriteFile(string relativePath, string contents)",
+      "visibility": "public"
+    },
+    {
+      "name": "WriteInputList",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/TempWorkspace.cs",
+      "line": 28,
+      "signature": "public string WriteInputList(params string[] filePaths)",
+      "visibility": "public"
+    },
+    {
+      "name": "RunPlanThenContent",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/TempWorkspace.cs",
+      "line": 37,
+      "signature": "public IReadOnlyList<FileResult> RunPlanThenContent(string listPath, string manifestPath)",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/TempWorkspace.cs",
+      "line": 47,
+      "signature": "public void Dispose()",
+      "visibility": "public"
+    },
+    {
+      "name": "UsingsNotPrunedTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/UsingsNotPrunedTests.cs",
+      "line": 6,
+      "signature": "public sealed class UsingsNotPrunedTests",
+      "visibility": "public"
+    },
+    {
+      "name": "UnusedLookingUsing_SurvivesIntoEveryEmittedFile",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/UsingsNotPrunedTests.cs",
+      "line": 9,
+      "signature": "public void UnusedLookingUsing_SurvivesIntoEveryEmittedFile()",
+      "visibility": "public"
+    },
+    {
+      "name": "WorkspaceWriterGitTests",
+      "kind": "class",
+      "file": "tests/AgenticRoslynTool.Tests/WorkspaceWriterGitTests.cs",
+      "line": 8,
+      "signature": "public sealed class WorkspaceWriterGitTests : IDisposable",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/WorkspaceWriterGitTests.cs",
+      "line": 14,
+      "signature": "public void Dispose() => _workspace.Dispose();",
+      "visibility": "public"
+    },
+    {
+      "name": "RunGitMove_PathWithDoubleQuote_MovesTheFile",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/WorkspaceWriterGitTests.cs",
+      "line": 17,
+      "signature": "public void RunGitMove_PathWithDoubleQuote_MovesTheFile()",
+      "visibility": "public"
+    },
+    {
+      "name": "RunGitMove_PathWithSpaces_MovesTheFile",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/WorkspaceWriterGitTests.cs",
+      "line": 36,
+      "signature": "public void RunGitMove_PathWithSpaces_MovesTheFile()",
+      "visibility": "public"
+    },
+    {
+      "name": "RunGitMove_GitHangs_KillsGitAndThrowsATimeout",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/WorkspaceWriterGitTests.cs",
+      "line": 49,
+      "signature": "public async Task RunGitMove_GitHangs_KillsGitAndThrowsATimeout()",
+      "visibility": "public"
+    },
+    {
+      "name": "DescribeTimeout_SaysWhetherGitWasStopped",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/WorkspaceWriterGitTests.cs",
+      "line": 85,
+      "signature": "public void DescribeTimeout_SaysWhetherGitWasStopped(bool stopped, string expected)",
+      "visibility": "public"
+    },
+    {
+      "name": "RunGitMove_GitFails_ReportsTheExitCodeAndWhatGitSaid",
+      "kind": "method",
+      "file": "tests/AgenticRoslynTool.Tests/WorkspaceWriterGitTests.cs",
+      "line": 95,
+      "signature": "public void RunGitMove_GitFails_ReportsTheExitCodeAndWhatGitSaid()",
+      "visibility": "public"
+    }
+  ],
+  "benchmark_files": [],
+  "coverage_summary": {
+    "public_symbols": 508,
+    "documented_symbols": 55,
+    "coverage_pct": 10.8
+  },
+  "changed_files": [
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "README.md",
+    "docs/behavior-contracts.md",
+    "docs/decision-log.md",
+    "docs/fix-sa1402-whole-repo.md",
+    "docs/one-type-per-file-without-resharper.md",
+    "docs/verification.md",
+    "package/AGENTS.md",
+    "package/skills/split-types/SKILL.md",
+    "src/AgenticRoslynTool/FileSplitter.cs",
+    "src/AgenticRoslynTool/OutputVerifier.cs",
+    "src/AgenticRoslynTool/SourceParsing.cs",
+    "tests/AgenticRoslynTool.Tests/ErrorDirectiveTests.cs",
+    "tests/AgenticRoslynTool.Tests/FileBasedProgramTests.cs",
+    "tests/AgenticRoslynTool.Tests/ParseRuleOwnershipTests.cs"
+  ],
+  "changed_lines": {
+    "AGENTS.md": [
+      [
+        27,
+        28
+      ],
+      [
+        52,
+        52
+      ],
+      [
+        96,
+        96
+      ],
+      [
+        208,
+        215
+      ],
+      [
+        232,
+        249
+      ]
+    ],
+    "CONTRIBUTING.md": [
+      [
+        13,
+        13
+      ]
+    ],
+    "README.md": [
+      [
+        323,
+        325
+      ]
+    ],
+    "docs/behavior-contracts.md": [
+      [
+        512,
+        513
+      ]
+    ],
+    "docs/decision-log.md": [
+      [
+        1382,
+        1420
+      ]
+    ],
+    "docs/fix-sa1402-whole-repo.md": [
+      [
+        266,
+        272
+      ]
+    ],
+    "docs/one-type-per-file-without-resharper.md": [
+      [
+        249,
+        252
+      ]
+    ],
+    "docs/verification.md": [
+      [
+        30,
+        34
+      ]
+    ],
+    "package/AGENTS.md": [
+      [
+        14,
+        14
+      ],
+      [
+        16,
+        16
+      ],
+      [
+        22,
+        22
+      ]
+    ],
+    "package/skills/split-types/SKILL.md": [
+      [
+        36,
+        37
+      ],
+      [
+        48,
+        54
+      ]
+    ]
+  }
+}

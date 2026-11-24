@@ -1379,13 +1379,14 @@ parses with the preview language version, so new syntax parses with no error. A 
 bind to a type with no name at the use site needs a new refusal here. Extension blocks in
 C# 14 were one.
 
-### Decision 33. One parse rule, and a valid file is never `failed`
+### Decision 33. One parse rule, and a valid file is not `failed`
 
 **Context.** Version 0.2.0 passed 469 tests and was then run over ten public
 repositories. It marked 30 files `failed` that their own builds compile:
 
-- 21 .NET 10 file-based programs in aspire, Humanizer, and Polly. Their `#:` and `#!`
-  lines raise CS9298 and CS9314 unless the parse enables the `FileBasedProgram` feature.
+- 21 .NET 10 file-based programs: 18 in aspire, 2 in Humanizer, 1 in Polly. Their `#:`
+  and `#!` lines raise CS9298 and CS9314 unless the parse enables the `FileBasedProgram`
+  feature.
 - 9 files in xunit and Humanizer with `#error Unknown target framework` in the `#else`
   branch of a framework check. The tool defines no preprocessor symbols, so that branch
   is live here and raised CS1029. The real build never takes it.
@@ -1395,28 +1396,64 @@ Each such row made the run exit 1. The packaged skill told an agent to fix the c
 options and the error filter were written inline at three call sites, so the input and
 the outputs were checked by copies of one rule.
 
-**Decision.** `SourceParsing` owns the whole rule. It parses with the preview language
-version and the `FileBasedProgram` feature. It drops CS1029 when the `#error` sits inside
-an `#if` group, and keeps every other error. A bare `#error` still fails, because every
-build of that file fails. A file with a `#:` or `#!` directive is skipped with its own
-reason, before the top-level statement check. A file-based program compiles alone, even
-when it declares `Main` in a class, so a type moved out of it leaves the program. The
-input and every output go through the same class. `ParseRuleOwnershipTests` fails the
-build if parse options or an error filter appear anywhere else. The skill and the package
-`AGENTS.md` now tell an agent never to edit a file to get past `input has syntax errors`.
+**Decision.** `SourceParsing` owns the whole rule:
+
+- It parses with the preview language version and the `FileBasedProgram` feature.
+- It excuses the diagnostics of an `#error` whose branch depends on a preprocessor
+  symbol, matched by location, so `#error version` (CS8304) is covered with CS1029. An
+  `#elif` or `#else` branch depends on every condition before it in its group. An
+  `#error` under `#if true`, or under no `#if`, still counts: every build of that file
+  fails.
+- When a file still has errors, it re-parses with every symbol the file's `#if` and
+  `#elif` conditions name. A file that parses then is skipped with its own reason. It is
+  never split, because the symbol-defined tree may not be the one the build compiles.
+- A file with a `#:` or `#!` directive is skipped with its own reason, before the
+  top-level statement check. A file-based program compiles alone, even when it declares
+  `Main` in a class, so a type moved out of it leaves the program.
+
+The input and every output go through the same class, and no method takes parse options
+as a parameter. `ParseRuleOwnershipTests` fails the build if parse options, a diagnostic
+filter, or a `ParseText` call without `SourceParsing.Options` appears anywhere else. The
+skill, the package `AGENTS.md`, and the user guides now say never to edit a source file
+to get past the tool, and to report a `failed` row on a file the build compiles.
 
 `dotnet new` template sources stay `failed`. Lines such as `#if (UseXunit)` are not C#
-until the template engine runs. Accepting them would mean guessing at a file the compiler
-rejects. The documented answer is `--exclude` for the template folder.
+until the template engine runs, and they fail with and without symbols. The documented
+answer is `--exclude` for the template folder.
 
-**Consequences.** Over the same ten repositories, the only `failed` rows left are three
-aspire template files. The 21 file-based programs are skipped with a reason that says why.
+**Alternatives rejected.**
 
-> **Warning.** Do not widen the CS1029 exception to a bare `#error`, and do not drop
-> other diagnostic IDs to make a file pass. Either one marks a file the compiler rejects
-> as safe to split. Do not move the file-based program check after the top-level
-> statement check: a program that declares `Main` in a class would then be split, and
-> its moved types would vanish from the program with no error in the tool.
+- *Report every parse failure as `skipped`.* It ends false failures, but it also hides a
+  broken file behind exit 0, and an agent stops reading rows once the run passes.
+- *Read `DefineConstants` from the project and parse once per target framework.* It is
+  the precise answer, but it needs MSBuild evaluation, which decision 1 rules out, and it
+  multiplies parse time by the number of frameworks.
+- *Skip, rather than split, a file whose only error is an excused `#error`.* That would
+  leave every file with a framework guard inside a type unsplit. The `#error` is copied
+  unchanged with the type that holds it, so the real build still reports it if it fires.
+
+**Evidence.** Over the ten repositories that exposed the bugs, the `failed` rows drop
+from 30 to 3, all aspire template files. The rule was then run over six repositories that
+played no part in finding them: Newtonsoft.Json `52fa3ae`, nodatime `6e024dd`, Dapper
+`1880947`, nunit `da9d5b6`, MassTransit `d9f61f7`, and BenchmarkDotNet `a9cac82`. That run
+found the symbol case above (BenchmarkDotNet `HardwareIntrinsics.cs`), which the first
+fix missed. After the retry, the only `failed` rows in the six are two BenchmarkDotNet
+template files, and one Dapper file that fails an output check for an unrelated reason
+fixed separately. The repository commits for the ten are pinned in the real-repository
+check of decision 34, which makes this result rerunnable.
+
+**Consequences.** "Never `failed`" cannot be proved for every file, because the tool does
+not know the build's symbols. A file that is broken with no symbols and with all of them,
+yet compiles under some other set, is still `failed`. Rule 17 says what to do when a real
+repository shows one. The code change is easy to reverse. The release that carries it is
+not: a published version is immutable.
+
+> **Warning.** Do not excuse an `#error` by ID, or under a branch that names no symbol.
+> Do not drop other diagnostic IDs to make a file pass. Either one marks a file the
+> compiler rejects as safe to split. Do not split the symbol-defined tree. Do not move the
+> file-based program check after the top-level statement check: a program that declares
+> `Main` in a class would then be split, and its moved types would vanish from the
+> program with no error in the tool.
 
 ## Credit
 

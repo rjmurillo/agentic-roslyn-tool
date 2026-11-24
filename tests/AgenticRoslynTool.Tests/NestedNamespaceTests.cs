@@ -74,7 +74,7 @@ public sealed class NestedNamespaceTests
         };
 
         var ex = Assert.Throws<InvalidOperationException>(
-            () => OutputVerifier.VerifyOutputs("Outer.cs", types, outputs, CSharpParseOptions.Default, null));
+            () => OutputVerifier.VerifyOutputs("Outer.cs", types, outputs, null));
 
         Assert.Contains("Deep appears 2 times", ex.Message, StringComparison.Ordinal);
     }

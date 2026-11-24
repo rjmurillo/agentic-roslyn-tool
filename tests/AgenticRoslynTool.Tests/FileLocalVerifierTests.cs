@@ -16,7 +16,7 @@ public sealed class FileLocalVerifierTests
 
     private const string NamesIt = "/work/Caller.cs names file-local type AlphaHelper, which stays in /work/Alpha.cs";
 
-    private static readonly CSharpParseOptions ParseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
+    private static readonly CSharpParseOptions ParseOptions = SourceParsing.Options;
 
     [Fact]
     public void KeptFileWithItsFileLocalType_AndACleanMovedFile_Pass()
@@ -64,7 +64,7 @@ public sealed class FileLocalVerifierTests
         var kept = new OutputFile(ReadPath, input[0], keptText, keptText);
         var moved = new OutputFile("/work/Caller.cs", input[0], movedText, movedText);
 
-        var violation = FileLocalTypes.DescribeViolation(ReadPath, input, [kept, moved], ParseOptions);
+        var violation = FileLocalTypes.DescribeViolation(ReadPath, input, [kept, moved]);
 
         Assert.Equal(failing + " would not hold the same #line, #nullable, #pragma, #define, and #undef directives as /work/Alpha.cs", violation);
     }
@@ -78,7 +78,7 @@ public sealed class FileLocalVerifierTests
             ReadPath,
             Prologue + "internal class Alpha\n{\n}\n\ninternal class Caller\n{\n    public object Make() => new AlphaHelper();\n}\n\nfile class AlphaHelper\n{\n}\n");
 
-        var error = Assert.Throws<InvalidOperationException>(() => OutputVerifier.VerifyOutputs(ReadPath, types, outputs, ParseOptions, null));
+        var error = Assert.Throws<InvalidOperationException>(() => OutputVerifier.VerifyOutputs(ReadPath, types, outputs, null));
 
         // The moved path comes from Path.Combine, so its separators follow the platform.
         var moved = Assert.Single(outputs, output => output.Path != ReadPath).Path;
@@ -91,7 +91,7 @@ public sealed class FileLocalVerifierTests
         var input = TopLevelType.Find(CSharpSyntaxTree.ParseText(Prologue + "internal class Alpha\n{\n}\n\ninternal class Beta\n{\n}\n", ParseOptions).GetCompilationUnitRoot()).ToArray();
         var renamed = new OutputFile("/work/AlphaRenamed.cs", input[0], Prologue + "internal class Alpha\n{\n}\n", string.Empty);
 
-        Assert.Null(FileLocalTypes.DescribeViolation(ReadPath, input, [renamed], ParseOptions));
+        Assert.Null(FileLocalTypes.DescribeViolation(ReadPath, input, [renamed]));
     }
 
     // Asks the check about outputs written for an input that declares Alpha and the
@@ -100,6 +100,6 @@ public sealed class FileLocalVerifierTests
     {
         var input = TopLevelType.Find(CSharpSyntaxTree.ParseText(Kept, ParseOptions, path: ReadPath).GetCompilationUnitRoot()).ToArray();
         var files = outputs.Select(output => new OutputFile(output.Path, input[0], output.Text, output.Text)).ToArray();
-        return FileLocalTypes.DescribeViolation(ReadPath, input, files, ParseOptions);
+        return FileLocalTypes.DescribeViolation(ReadPath, input, files);
     }
 }

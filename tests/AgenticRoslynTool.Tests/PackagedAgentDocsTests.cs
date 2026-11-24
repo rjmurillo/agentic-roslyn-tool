@@ -8,7 +8,7 @@ namespace AgenticRoslynTool.Tests;
 // can drift from the command line. These tests fail the build when one does. Decision 28.
 public sealed partial class PackagedAgentDocsTests
 {
-    private static readonly string PackageDir = Path.Combine(RepositoryRoot(), "package");
+    private static readonly string PackageDir = Path.Combine(RepositoryPaths.Root(), "package");
 
     [Fact]
     public void EverySkill_FollowsTheAgentSkillsSpecification()
@@ -160,16 +160,6 @@ public sealed partial class PackagedAgentDocsTests
         return fields;
     }
 
-    private static string RepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "AgenticRoslynTool.slnx")))
-        {
-            directory = directory.Parent;
-        }
-
-        return directory?.FullName ?? throw new InvalidOperationException("AgenticRoslynTool.slnx not found above the test output directory");
-    }
 
     [GeneratedRegex("^[a-z0-9]+(-[a-z0-9]+)*$")]
     private static partial Regex SkillName();
