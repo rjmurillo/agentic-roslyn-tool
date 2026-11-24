@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 46 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 545 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 548 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -50,7 +50,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `OutputBuilder.cs` | Renders the text of every output file: name, carved source, required header, trailing newline. |
 | `OutputVerifier.cs` | The correctness checks, run against in-memory outputs before anything is written. A failure here means nothing reaches disk. |
 | `NullableDirectives.cs` | Folds `#nullable` directives into the context at a point, restates a kept type's source context in an output that lost it, and checks each output's context before any write. Read decision 31 first. |
-| `NullableGuard.cs` | Refuses a file whose movable `#nullable` shares it with an `#if`, or comes before a `using`, where the restated context could be wrong. Returns a verdict, never acts on one. |
+| `NullableGuard.cs` | Refuses a file whose movable `#nullable` shares it with an `#if`, comes before a `using`, or sits in a generated file, where the restated context could be wrong. Returns a verdict, never acts on one. |
 | `SourceDirectives.cs` | Lists a tree's preprocessor directives once and caches the list on the root, so a split walks the source tree once, not once per type. |
 | `WorkspaceWriter.cs` | The only place the tool touches the working tree. Every rename runs through `git mv`; every write preserves encoding and byte order mark. |
 | `GitCommand.cs` | Runs one git command with a time limit. Passes each argument on its own, reads both streams, and kills git and its children on expiry. |
@@ -95,7 +95,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 545 passed, 0 failed
+dotnet test  -c Release      # must be 548 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -535,8 +535,10 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   applies to them instead. `NullableDirectives` treats "no directive" as the same default
   on both sides, so it does not add a `#nullable disable` for this. The other way round
   happens too. A type named `TemporaryGeneratedFile_Beta` lands in a file Roslyn reads as
-  generated. A type that read the project default in the source gets no restated line, and
-  with no directive that file reads disabled.
+  generated. So does a manifest row whose output path was edited to a name like `Beta.g.cs`.
+  A type that read the project default in the source gets no restated line, and with no
+  directive that file reads disabled. A restated `#nullable restore` there means the
+  project default, which a generated file does not otherwise get.
 
 - A `#warning` or `#error` directive above the namespace is copied into every output, so
   a build reports it once for each new file. This is true with or without a `file` type.
