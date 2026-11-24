@@ -29,6 +29,29 @@ public sealed class SkillDoneRuleTests
     }
 
     [Fact]
+    public void ContentAfterExcludingAFailedFile_IsDone()
+    {
+        // The skill sends an input-has-syntax-errors row back to steps 1 and 2 with --exclude.
+        // The new plan skips the file, so content reports it as never planned, which the done
+        // rule accepts. A file the plan split and content then excluded is not done, and the
+        // done rule must keep saying so.
+        using var ws = new TempWorkspace();
+        var good = ws.WriteFile("src/Good.cs", "namespace N;\n\npublic class Good { }\n\npublic class GoodExtra { }\n");
+        var template = ws.WriteFile("templates/Program.cs", "namespace N;\n\npublic class $Name$ { }\npublic class Other { }\n");
+        var list = ws.WriteInputList(good, template);
+        var manifest = Path.Combine(ws.Root, "m.csv");
+        Assert.Equal(1, Run(ws, "--input", list, "--manifest", manifest).ExitCode);
+
+        Assert.Equal(0, Run(ws, "--input", list, "--manifest", manifest, "--exclude", "templates/").ExitCode);
+        var content = Run(ws, "--input", list, "--manifest", manifest, "--exclude", "templates/", "--phase", "content");
+
+        using var report = JsonDocument.Parse(content.StandardOutput);
+        Assert.Equal(0, content.ExitCode);
+        Assert.Equal(0, report.RootElement.GetProperty("summary").GetProperty("failed").GetInt32());
+        Assert.True(SkillDoneRule.Holds(report.RootElement));
+    }
+
+    [Fact]
     public void RenamesWithNoPlanOnDisk_SuggestsNothing_AndWritesNoManifest()
     {
         // Content refuses to run without a plan manifest, so suggesting it would exit 3.

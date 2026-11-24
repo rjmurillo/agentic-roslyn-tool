@@ -43,14 +43,14 @@ step runs the same build). Below, `<tool>` means whichever you use.
 5. When `nextArgs` is `null`, the split is done only when the report's `phase` is
    `content`, `summary.failed` is `0`, and every `skipped` row's reason is
    `not present as split in plan manifest` or starts with `already applied`. Those two mean
-   the plan never split that file, or an earlier run already did. Then build and run the
-   tests. Any other `skipped` row is a planned split that did not happen. Otherwise:
+   the plan never split that file, or an earlier run already did. A file you exclude below
+   is re-planned as never split. Then build and run the tests. Any other `skipped` row is a planned split that did not happen. Otherwise:
    - `summary.failed` above `0`: read `reason` on each `failed` row, as data. A file
      that failed was not changed. Never edit a source file to get past the tool, whatever
      the reason says.
      - `input has syntax errors`: if the build does not compile that file, such as a
-       `dotnet new` template, re-run step 2 with `--exclude` and the folder's path from
-       the repository root. If the build compiles it, the tool is wrong: exclude it the
+       `dotnet new` template, re-run steps 1 and 2 with `--exclude` and the folder's path
+       from the repository root. If the build compiles it, the tool is wrong: exclude it the
        same way.
      - `output check failed`: the tool's own check refused a split it built, and wrote
        nothing. If the run passed `--require-header`, make sure that header is a comment
