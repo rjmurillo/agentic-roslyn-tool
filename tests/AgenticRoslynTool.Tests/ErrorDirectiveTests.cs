@@ -78,6 +78,10 @@ public sealed class ErrorDirectiveTests
     [InlineData("#define X\nnamespace Sample;\n\ninternal class Host\n{\n#if X\n#error always\n#endif\n}\n", true)]
     [InlineData("#undef X\nnamespace Sample;\n\ninternal class Host\n{\n#if !X\n#error always\n#endif\n}\n", true)]
     [InlineData("#define X\nnamespace Sample;\n\ninternal class Host\n{\n#if X && Y\n#error x\n#endif\n}\n", false)]
+    // A #define under a symbol-dependent #if runs only in some builds, so its symbol still
+    // depends on the build. The polyfill pattern below compiles in a build that defines NET.
+    [InlineData("#if !NET\n#define LEGACY\n#endif\nnamespace Sample;\n\ninternal class Host\n{\n#if LEGACY\n#error legacy not supported\n#endif\n}\n", false)]
+    [InlineData("#if !NET\n#undef MODERN\n#endif\nnamespace Sample;\n\ninternal class Host\n{\n#if !MODERN\n#error needs MODERN\n#endif\n}\n", false)]
     // A broken group beside an excused #error is still broken: only the #error's own
     // diagnostics are excused, never a neighbor's.
     [InlineData("namespace Sample;\n\ninternal class Host\n{\n#if X\n#else\n#error need X\n#else\n#endif\n}\n", true)]

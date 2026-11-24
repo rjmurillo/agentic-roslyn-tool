@@ -1403,7 +1403,9 @@ the outputs were checked by copies of one rule.
   symbol the build sets. Only the IDs an `#error` raises are excused, CS1029 and CS8304
   for `#error version`, and only on the directive itself. An `#elif` or `#else` branch
   depends on every condition before it in its group. A symbol the file sets with
-  `#define` or `#undef` has the same value in every build, so it does not count. An
+  `#define` or `#undef` outside any symbol-dependent branch has the same value in every
+  build, so it does not count. One set inside `#if !NET` runs only in some builds, so it
+  still counts as a build symbol. An
   `#error` under `#if true`, under such a symbol, or under no `#if`, still counts: every
   build of that file fails.
 - When a file still has errors, it re-parses with every symbol the file's `#if` and
@@ -1451,13 +1453,20 @@ fix missed. After the retry, the only `failed` rows in the six are two Benchmark
 template files, and one Dapper file that fails an output check for an unrelated reason
 fixed separately. Review then found two more ways the first `#error` rule went wrong: it
 ignored symbols the file sets itself, and matching by location alone excused a broken
-`#else` beside an `#error`. Both now fail, as the base version did.
+`#else` beside an `#error`. Both now fail, as the base version did. A fourth round found
+that a `#define` inside `#if !NET` was taken as set in every build, which failed a valid
+polyfill file. It now counts as a build symbol. The six repositories informed the symbol
+retry, so their result is no longer independent evidence for it. Confirming it needs
+repositories that played no part in tuning it.
 
 **Consequences.** "Never `failed`" cannot be proved for every file, because the tool does
 not know the build's symbols. A file that is broken with no symbols and with all of them,
 yet compiles under some other set, is still `failed`. An output check can also refuse a
 valid file when the tool builds a bad split. That row says `output check failed`, and the
-agent instructions route it to exclude and report. Rule 17 says what to do when a real
+agent instructions route it to exclude and report. The symbol retry has the opposite
+cost: a file broken in every real build, but parsing with all its symbols defined, is
+skipped and the run can exit 0. That is safe, because a skipped file is never changed,
+and the skip reason names the cause. Rule 17 says what to do when a real
 repository shows one. The code change is easy to reverse. The release that carries it is
 not: a published version is immutable.
 

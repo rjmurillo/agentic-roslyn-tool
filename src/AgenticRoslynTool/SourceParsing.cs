@@ -53,7 +53,7 @@ internal static class SourceParsing
     /// <c>#error text</c> and CS8304 for <c>#error version</c>, and sits on that directive.
     /// A broken neighbor, such as a second <c>#else</c>, is never excused. A branch whose
     /// conditions name no symbol, or only symbols the file sets itself with <c>#define</c>
-    /// or <c>#undef</c>, has the same value in every build, so its <c>#error</c> still
+    /// or <c>#undef</c> outside any symbol-dependent branch, has the same value in every build, so its <c>#error</c> still
     /// counts, as does one outside any <c>#if</c>.
     /// </remarks>
     internal static Diagnostic[] Errors(SyntaxTree tree)
@@ -112,7 +112,9 @@ internal static class SourceParsing
     private static List<ErrorDirectiveTriviaSyntax> SymbolDependentErrorDirectives(CompilationUnitSyntax root)
     {
         var excused = new List<ErrorDirectiveTriviaSyntax>();
-        // Symbols the file sets itself. They have the same value in every build.
+        // Symbols the file sets itself, outside any branch that depends on a build symbol.
+        // Only those have the same value in every build: a #define under #if !NET runs in
+        // some builds and not in others.
         var setByFile = new HashSet<string>(StringComparer.Ordinal);
         // One entry per open #if group: whether any condition seen so far in it names a symbol
         // the build sets.
@@ -121,10 +123,10 @@ internal static class SourceParsing
         {
             switch (directive)
             {
-                case DefineDirectiveTriviaSyntax define when define.IsActive:
+                case DefineDirectiveTriviaSyntax define when define.IsActive && !groups.Any(dependsOnSymbol => dependsOnSymbol):
                     setByFile.Add(define.Name.ValueText);
                     break;
-                case UndefDirectiveTriviaSyntax undef when undef.IsActive:
+                case UndefDirectiveTriviaSyntax undef when undef.IsActive && !groups.Any(dependsOnSymbol => dependsOnSymbol):
                     setByFile.Add(undef.Name.ValueText);
                     break;
                 case IfDirectiveTriviaSyntax ifDirective:
