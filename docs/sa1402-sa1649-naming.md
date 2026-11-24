@@ -209,6 +209,13 @@ The collision check ignores case, so `Shared.cs` and `shared.cs` count as the sa
 If the qualified names collide as well, both inputs are skipped with
 `qualified output path collision requires manual handling`.
 
+A renamed kept file counts as an output too. Say `P.cs` keeps a type `A` and renames to
+`A.cs`, and `Q.cs` moves its own `A` out. Qualifying `Q.cs`'s file would not help: once
+`A.cs` exists, the content phase refuses the simple name. So the plan skips `Q.cs` with
+`planned output path collision with another input requires manual handling`, and the
+`note` names `A.cs` and `P.cs`. The same reason covers a qualified name that lands on
+another input's file. Split `Q.cs` by hand, or rename one of the types.
+
 SA1402 is now satisfied, but SA1649 flags both new files. It reads `A.Shared.cs` as `A`,
 and the first type in that file is `Shared`.
 

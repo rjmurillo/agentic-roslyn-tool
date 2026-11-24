@@ -281,6 +281,20 @@ Promises:
   note, even when the winner is refused or missing. The content phase reads the kept path
   the manifest holds, so the two files then wait for a new plan.
   `KeptRenameCollisionTests` pins all of it.
+- No `split` row plans a new file on a path another input owns. That covers another
+  row's rename target, another row's new file, and an input that stays where it is.
+  Paths are compared ignoring case. The row with the new file is skipped with
+  `planned output path collision with another input requires manual handling`. Its
+  `note` reads `output <path> is also claimed by <input>`, once per path and input. In a
+  rename against new file conflict, the new file's row is the one skipped. A new file
+  is checked against rename targets under its computed simple name, before any
+  qualified name is chosen, because the content phase probes that name too. A
+  qualified name is checked after it is chosen against every row's original path,
+  rename target, and new files. A row that plans a rename still claims its original
+  path, because the rename can be dropped later. Two renames to one target follow
+  the rule above, not this one. A plan with no such collision is unchanged.
+  `RenameTargetCollisionTests` and `QualifiedClaimCollisionTests` pin it. See
+  decision 32.
 - Every row for a file the run read carries that file's `contentHash`. Verified by
   `ContentHashPlanTests`.
 - Every row carries the run's `collisionNaming`: the flag's value, or `file-first` when
@@ -772,8 +786,11 @@ The things that would surprise a reader who only skimmed the signatures.
    passes SA1649. Under either value, when the qualified names collide too, the tool gives
    up and skips every input involved with
    `qualified output path collision requires manual handling`. The plan does not probe the
-   disk for a qualified name. The content phase does, and refuses with
-   `target path already exists`. Under `type-first`, an input whose qualified name would
+   disk for a qualified name. It does check one against the paths the plan owns: other
+   inputs, rename targets, and new files. A hit skips the input with
+   `planned output path collision with another input requires manual handling`. The
+   content phase probes the disk, and refuses with `target path already exists`. Under
+   `type-first`, an input whose qualified name would
    end in `.g`, `.g.i`, `.designer`, or `.generated` is skipped with
    `qualified output name would be read as generated code; manual handling required`.
 6. **The tool trusts the plan manifest as a review artifact**, and refuses to proceed when
