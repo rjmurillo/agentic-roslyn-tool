@@ -184,18 +184,18 @@ them so line conservation does not count them. Then this check parses each outpu
 again and compares the type's context with the source. A mismatch fails the file with
 `<input path>: nullable context for <type> is ... in <output path>, but ... in the source`.
 
-Expect these added lines in the content commit. Each sits directly above a type, a doc
-comment, or an attribute, and reads `#nullable enable`, `disable`, or `restore`, with an
-optional `annotations` or `warnings`. Deleting one brings back the context the split lost.
+Expect these added lines in the content commit, in the kept file or a new one. Each sits
+directly above a type or its first comment, doc comment, or attribute, and reads
+`#nullable enable`, `disable`, or `restore`, with an optional `annotations` or `warnings`.
+Deleting one brings back the loss of context the split caused.
 
 The check reads the same fold the tool used to add the lines, so it catches a misplaced
 line, not a wrong fold. The plan refuses the files where the fold could be wrong: a
-`#nullable` a split can move, in a file with any `#if`, or above a `using` in a later
-namespace. See [decision-log.md, decision 31](decision-log.md#decision-31-the-split-restates-the-sources-nullable-context).
+`#nullable` a split can move, in a file with any `#if`, or above any `using` directive. See [decision-log.md, decision 31](decision-log.md#decision-31-the-split-restates-the-sources-nullable-context).
 
 ## Before the checks: the input must be the one that was planned
 
-The five checks above prove a split is faithful to the file the tool read. They cannot
+The six checks above prove a split is faithful to the file the tool read. They cannot
 prove that file is the one you reviewed. The plan manifest closes that gap. Each row
 records `contentHash`, the SHA-256 of the input's raw bytes. The renames phase hashes each
 file it reads again before it renames anything. The content phase hashes each file the
@@ -384,7 +384,8 @@ repository is closed source, so this result cannot be reproduced from here.
 2. Confirm the renames are in their own commit. Then `git log --follow` on a renamed file
    shows its history from before the rename.
 3. Confirm the content commit holds only splits, with no unrelated edits. The one
-   addition to expect is a `#nullable` line above a moved type (check 6).
+   addition to expect is a `#nullable` line above a type, in the kept file or a new one
+   (check 6).
 4. Run `git show --check <content-commit>` to catch whitespace errors.
 5. Build with warnings as errors, and run the tests.
 6. Run the before/after scan and confirm the diff is empty.

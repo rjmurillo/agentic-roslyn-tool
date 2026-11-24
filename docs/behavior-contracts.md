@@ -288,7 +288,7 @@ Promises:
   plan starts afresh. Verified by `CollisionNamingFlagTests` and `CollisionNamingRecordedTests`.
 - A `skipped` or `failed` row names the file's original path as `keptPath`, with
   `gitMove` false. A refusal never renames. That holds for a `BuildPlan` refusal, an
-  empty directive shell, a conditional `#nullable` before a type, a verification failure, and a
+  empty directive shell, a `NullableGuard` refusal, a verification failure, and a
   collision refusal, even when the
   plan first chose a rename target. Only a `split` row names a planned rename target.
   `RefusedRenameLocationTests` pins it.
@@ -705,18 +705,22 @@ this for the type each output is named for. A kept file can also hold `file` typ
   target.
 - No line when the contexts already match, so a file with no movable `#nullable`
   directive splits byte for byte as before. A movable directive starts at or after the
-  first span a split can remove: a type, or an `[assembly: ...]` attribute list. A
-  `#nullable` above the namespace is movable only when such an attribute follows it; the
-  attribute stays only in the kept file, so the other new files gain the restated line.
+  start of the first span a split can remove: a type with its leading trivia, or an
+  `[assembly: ...]` attribute list. That includes a `#nullable` above such an attribute,
+  which stays only in the kept file, so the other new files gain the restated line. It
+  also includes a `#nullable` between the attribute and the namespace, which every file
+  keeps; the guard over-refuses that one.
 - The lines go above the type's first comment, doc comment, or attribute, at the start of
   a line, ending in the source file's newline.
 - The tool parses with no preprocessor symbols. A file with no `#if` has one build, so
   the fold is exact there. A file that holds a movable `#nullable` and any `#if` is skipped
   with `a #nullable directive a split can move shares the file with an #if directive or comes before a using directive; manual split required`.
-  So is a file whose movable `#nullable` comes before a `using` directive, which sits in a
-  later namespace above the type the restated line goes on. `NullableGuard.Refuses`
-  decides this from the source, before any output is built. It does not read conditions,
-  so `#if false` and an `#if DEBUG` around one statement count.
+  So is a file whose movable `#nullable` comes before any `using` directive, which sits
+  above the type the restated line goes on. `NullableGuard.Refuses` decides this from the
+  source, before any output is built. It does not read conditions, so `#if false` and an
+  `#if DEBUG` around one statement count. With an `#if` in the file, it reads movable
+  `#nullable` lines from the text, not the parse: a comment or string opened under `#if`
+  can hide a directive from the parse that another build reads.
 - `#pragma` directives are not restated. A `#pragma warning` does not change the nullable
   context; it suppresses warnings, and that suppression is lost the same way.
 - `VerifyOutputs` checks each output with the same fold, so it catches a misplaced line,

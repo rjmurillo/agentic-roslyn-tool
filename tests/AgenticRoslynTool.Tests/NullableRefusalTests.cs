@@ -38,10 +38,24 @@ public sealed class NullableRefusalTests
         Assert.Equal(FileSplitter.NullableGuardReason, PlanRow(source).Reason);
     }
 
-    [Fact]
-    public void NullableBeforeAUsingInALaterNamespace_RefusesThePlan()
+    [Theory]
+    [InlineData(UsingAfterNullable)]
+    [InlineData(UsingAfterAssemblyAttribute)]
+    public void NullableBeforeAUsing_RefusesThePlan(string source)
     {
-        Assert.Equal(FileSplitter.NullableGuardReason, PlanRow(UsingAfterNullable).Reason);
+        // The second row's #nullable sits above an [assembly:] attribute, which only the kept
+        // file keeps, so the using alias in Beta's file would lose it.
+        Assert.Equal(FileSplitter.NullableGuardReason, PlanRow(source).Reason);
+    }
+
+    [Theory]
+    [InlineData(HiddenInAComment)]
+    [InlineData(HiddenInARawString)]
+    public void NullableThatOnlySomeBuildsSee_RefusesThePlan(string source)
+    {
+        // With no symbols the #nullable line is inside a comment or a string, so the parse
+        // the tool reads holds no #nullable. With X defined it is a live directive above Beta.
+        Assert.Equal(FileSplitter.NullableGuardReason, PlanRow(source).Reason);
     }
 
     [Theory]
@@ -49,6 +63,8 @@ public sealed class NullableRefusalTests
     [InlineData(LostAboveAType)]
     [InlineData(DefineUnderIf)]
     [InlineData(TypeUnderElse)]
+    [InlineData(HiddenInAComment)]
+    [InlineData(HiddenInARawString)]
     public void Oracle_SeesWhatTheUncheckedSplitGetsWrongInABuildWithASymbol(string source)
     {
         var outputs = FileLocalCompiler.SplitUnchecked("/work/Alpha.cs", source).Select(output => output.Text).ToArray();
@@ -96,6 +112,12 @@ public sealed class NullableRefusalTests
     private const string DefineUnderIf = "#if !X\n#define EXTRA\n[System.Serializable]\n#endif\n#nullable enable\npublic class Alpha { }\n\npublic class Beta\n{\n#if EXTRA\n#nullable disable\n#endif\n    public string? S;\n}\n";
 
     private const string TypeUnderElse = "namespace N;\n#nullable enable\n#if !NETFRAMEWORK\npublic class Alpha { public string? Name { get; init; } }\n#else\npublic class Alpha { public string? Name { get; set; } }\n#endif\n#nullable disable\npublic class Beta { }\n";
+
+    private const string UsingAfterAssemblyAttribute = "#nullable enable\n[assembly: System.CLSCompliant(false)]\n\nnamespace N\n{\n    using L = System.Collections.Generic.List<string?>;\n\n    public class Alpha { public L? A; }\n\n    public class Beta { public L? B; }\n}\n";
+
+    private const string HiddenInAComment = "namespace N;\n\npublic class Alpha\n{\n#if !X\n/*\n#endif\n#nullable enable\n#if !X\n*/\n#endif\n    public string? F;\n}\n\npublic class Beta\n{\n    public string? G;\n}\n";
+
+    private const string HiddenInARawString = "public class Alpha\n{\n#if !X\n    public const string S = \"\"\"\n#endif\n#nullable enable\n#if !X\n\"\"\";\n#endif\n}\n\npublic class Beta { public string? G; }\n";
 
     private const string UsingAfterNullable = "namespace N1\n{\n#nullable enable\n    public class Alpha { public string? A; }\n}\n\nnamespace N2\n{\n    using L = System.Collections.Generic.List<string?>;\n\n    public class Beta { public L? B; }\n}\n";
 
