@@ -1,3 +1,4 @@
+using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
 using static AgenticRoslynTool.Tests.NullableSplitFixture;
 
@@ -56,6 +57,36 @@ public sealed class NullableRefusalTests
         // With no symbols the #nullable line is inside a comment or a string, so the parse
         // the tool reads holds no #nullable. With X defined it is a live directive above Beta.
         Assert.Equal(FileSplitter.NullableGuardReason, PlanRow(source).Reason);
+    }
+
+    [Theory]
+    [InlineData("\n\u00A0#")]
+    [InlineData("\n\f#")]
+    [InlineData("\n\v#")]
+    [InlineData("\n\uFEFF#")]
+    [InlineData("\n#\u00A0")]
+    [InlineData("\r#")]
+    public void NullableTheCompilerReadsPastUnusualWhitespace_RefusesThePlan(string lineStart)
+    {
+        // Each row is a line the compiler reads as #nullable but a [ \t] and \n scan did not.
+        var source = UnderIfInAlpha(lineStart);
+
+        Assert.Equal(FileSplitter.NullableGuardReason, PlanRow(source).Reason);
+
+        var outputs = FileLocalCompiler.SplitUnchecked("/work/Alpha.cs", source).Select(output => output.Text).ToArray();
+        Assert.Contains("symbols [", NullableContextOracle.FindChange(source, outputs));
+    }
+
+    [Theory]
+    [InlineData("\u0085#")]
+    [InlineData("\u2028#")]
+    [InlineData("\u2029#")]
+    public void NullableAfterAUnicodeLineBreak_TheGuardRefuses(string lineStart)
+    {
+        // The plan refuses these sooner, as an empty directive shell, so ask the guard itself.
+        var root = CSharpSyntaxTree.ParseText(UnderIfInAlpha(lineStart)).GetCompilationUnitRoot();
+
+        Assert.True(NullableGuard.Refuses(root, TopLevelType.Find(root).ToArray()));
     }
 
     [Theory]
@@ -120,6 +151,11 @@ public sealed class NullableRefusalTests
     private const string HiddenInARawString = "public class Alpha\n{\n#if !X\n    public const string S = \"\"\"\n#endif\n#nullable enable\n#if !X\n\"\"\";\n#endif\n}\n\npublic class Beta { public string? G; }\n";
 
     private const string UsingAfterNullable = "namespace N1\n{\n#nullable enable\n    public class Alpha { public string? A; }\n}\n\nnamespace N2\n{\n    using L = System.Collections.Generic.List<string?>;\n\n    public class Beta { public L? B; }\n}\n";
+
+    private static string UnderIfInAlpha(string lineStart)
+    {
+        return "namespace N;\n\npublic class Alpha\n{\n#if X" + lineStart + "nullable enable\n#endif\n}\n\npublic class Beta\n{\n    public string? B;\n}\n";
+    }
 
     private static FileResult PlanRow(string source)
     {

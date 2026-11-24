@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -29,9 +28,12 @@ namespace AgenticRoslynTool;
 /// in turn, each past a narrower rule, so the guard refuses the <c>#if</c> itself. In such a
 /// file a directive can even hide from the parse: a comment or a string opened under
 /// <c>#if</c> swallows a <c>#nullable</c> line in one build that another build reads. So with an
-/// <c>#if</c>, a movable directive is any line at or after that span that reads as
-/// <c>#nullable</c>. A directive must start its own line, and lines are the same in every
-/// build.</item>
+/// <c>#if</c>, a movable directive is any <c>#</c> at or after that span that starts a line
+/// and is followed by <c>nullable</c>. A directive must start its own line, and lines are the
+/// same in every build. The scan finds lines and whitespace with the compiler's own
+/// <see cref="SyntaxFacts.IsNewLine"/> and <see cref="SyntaxFacts.IsWhitespace"/>. A
+/// <c>\n</c> and <c>[ \t]</c> scan missed a lone carriage return, a no-break space, and a
+/// form feed, each of which the compiler reads as part of a directive line.</item>
 /// <item>The directive comes before any <c>using</c> directive. <c>Restore</c> restates the context
 /// above the type it keeps. A <c>using</c> after the directive sits above that type, in a later
 /// namespace or after an <c>[assembly: ...]</c> list, so a <c>string?</c> in a using alias would
@@ -42,7 +44,7 @@ namespace AgenticRoslynTool;
 /// decision 31.
 /// </para>
 /// </remarks>
-internal static partial class NullableGuard
+internal static class NullableGuard
 {
     /// <summary>
     /// Reports whether <paramref name="root"/> holds a movable <c>#nullable</c> directive and,
@@ -56,7 +58,7 @@ internal static partial class NullableGuard
         var directives = SourceDirectives.Before(root, root.FullSpan.End).ToArray();
         if (directives.Any(directive => directive.Kind() == SyntaxKind.IfDirectiveTrivia))
         {
-            return NullableLine().Matches(root.ToFullString()).Any(line => line.Index >= removable);
+            return HasNullableLine(root.ToFullString(), removable);
         }
 
         var movable = directives.FirstOrDefault(directive => directive.Kind() == SyntaxKind.NullableDirectiveTrivia && directive.SpanStart >= removable);
@@ -64,6 +66,42 @@ internal static partial class NullableGuard
             && root.DescendantNodes().OfType<UsingDirectiveSyntax>().Any(directive => directive.SpanStart > movable.SpanStart);
     }
 
-    [GeneratedRegex(@"^[ \t]*#[ \t]*nullable\b", RegexOptions.Multiline)]
-    private static partial Regex NullableLine();
+    /// <summary>
+    /// Reports whether any line at or after <paramref name="start"/> could be a
+    /// <c>#nullable</c> directive in some build: a <c>#</c> with only whitespace before it on its
+    /// line, then optional whitespace, then <c>nullable</c>.
+    /// </summary>
+    private static bool HasNullableLine(string text, int start)
+    {
+        for (var hash = text.IndexOf('#', start); hash >= 0; hash = text.IndexOf('#', hash + 1))
+        {
+            if (StartsLine(text, hash) && NamesNullable(text, hash + 1))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool StartsLine(string text, int hash)
+    {
+        var index = hash - 1;
+        while (index >= 0 && SyntaxFacts.IsWhitespace(text[index]))
+        {
+            index--;
+        }
+
+        return index < 0 || SyntaxFacts.IsNewLine(text[index]);
+    }
+
+    private static bool NamesNullable(string text, int index)
+    {
+        while (index < text.Length && SyntaxFacts.IsWhitespace(text[index]))
+        {
+            index++;
+        }
+
+        return string.CompareOrdinal(text, index, "nullable", 0, "nullable".Length) == 0;
+    }
 }

@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 46 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 525 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 534 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -95,7 +95,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 525 passed, 0 failed
+dotnet test  -c Release      # must be 534 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -454,7 +454,9 @@ agent does not pay again.
   build and the fold is exact there. It refuses one before any `using` too, because
   `Restore` restates context above the type, below that `using`. With an `#if`, it reads
   `#nullable` lines from the text: a comment opened under `#if` hid one from the parse in
-  round five. Its remarks hold the rule. A narrower rule needs a generator over every
+  round five. The scan finds lines and whitespace with `SyntaxFacts`, not `[ \t]` and
+  `\n`: a no-break space, a form feed, and a lone carriage return each hid one from a
+  regex. Its remarks hold the rule. A narrower rule needs a generator over every
   directive kind and placement, run through `NullableContextOracle`, before review.
 - **Roslyn parses a directive in a branch that is off as an inactive directive.** It is
   never disabled text, whatever its spacing, so `# nullable enable` under `#if X` is a

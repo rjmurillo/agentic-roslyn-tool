@@ -1410,7 +1410,11 @@ In a file with an `#if`, the guard reads movable `#nullable` lines from the text
 the parse. A comment or a string opened under `#if` can swallow a `#nullable` line in the
 no-symbol parse that a build with the symbol reads as a live directive. A directive must
 start its own line, and lines are the same in every build, so the text sees every
-directive any build can read. It also counts a `#nullable` line inside an ordinary string
+directive any build can read. That holds only when the scan reads lines and whitespace the
+way the compiler does. The scan uses `SyntaxFacts.IsNewLine` and `SyntaxFacts.IsWhitespace`
+for that. A first version matched `[ \t]` and `\n` only. It missed a `#nullable` after a
+no-break space, a form feed, or a lone carriage return, and a build with the symbol lost
+its context. It also counts a `#nullable` line inside an ordinary string
 or comment, which only over-refuses.
 
 The guard got here through review. Four narrower rules each passed rounds and then

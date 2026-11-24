@@ -720,7 +720,9 @@ this for the type each output is named for. A kept file can also hold `file` typ
   source, before any output is built. It does not read conditions, so `#if false` and an
   `#if DEBUG` around one statement count. With an `#if` in the file, it reads movable
   `#nullable` lines from the text, not the parse: a comment or string opened under `#if`
-  can hide a directive from the parse that another build reads.
+  can hide a directive from the parse that another build reads. It finds lines and
+  whitespace the way the compiler does, so a no-break space, a form feed, or a lone
+  carriage return does not hide one either.
 - `#pragma` directives are not restated. A `#pragma warning` does not change the nullable
   context; it suppresses warnings, and that suppression is lost the same way.
 - `VerifyOutputs` checks each output with the same fold, so it catches a misplaced line,
