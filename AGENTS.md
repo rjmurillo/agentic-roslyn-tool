@@ -24,8 +24,8 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 43 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 469 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 44 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 486 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -67,6 +67,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `FileNamingConvention.cs` | The `stylecop`, `metadata` enum behind `--file-naming`. Selects the naming rule `OutputBuilder` and `SplitPlanner` apply. |
 | `PlanMismatch.cs` | Words the note for a content phase row that disagrees with its manifest: the other `--file-naming` name, or what differs in the plan shape. |
 | `KeptRenameCollisions.cs` | Decides which planned kept file renames stand. Gives a rename target to the first input that claims it, and holds the renames phase to the renames the manifest plans. |
+| `PlannedOutputClaims.cs` | Refuses a planned row whose new file lands on a path another input renames into, creates, or leaves in place. |
 | `EncodedSource.cs` | Reads bytes into text while capturing encoding, byte order mark, and newline style, then writes them back unchanged. |
 | `TopLevelType.cs` | One top level type declaration plus the file name it maps to. `HasFileModifier` marks a `file` type. |
 | `SplitPlan.cs` | The decision for one input: keep, rename, split, or refuse. |
@@ -92,7 +93,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 469 passed, 0 failed
+dotnet test  -c Release      # must be 486 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -462,6 +463,15 @@ agent does not pay again.
 - **Keep paths out of a row's note unless the collision pass wrote them.** The content
   phase searches `planned.Note` for a collision name. The `file` type note carries type
   names only for that reason.
+- **A renamed kept file is an output the plan owns.** The name collision pass once
+  compared new files with new files only. One input renamed its kept file to `A.cs` while
+  another planned a new `A.cs`, and both rows said `split`. Content then skipped the second
+  with `target path already exists`. AutoMapper's `src/UnitTests/Bug` folder hit it.
+  `PlannedOutputClaims` now refuses the new file's owner with `planned output path
+  collision with another input requires manual handling`. Do not qualify that new file
+  instead. The content phase probes the computed simple name too, and rule 10 forbids an
+  exemption. See decision 32. `RenameTargetCollisionTests` and
+  `QualifiedClaimCollisionTests` pin it.
 
 ## Known issues, not yet fixed
 
@@ -524,13 +534,6 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   `RenamesPhase_UnderAnotherConvention_CanLeaveOutAPlannedRename` pins this. A fix means
   the manifest recording `--file-naming` too, as decision 26 does for `--collision-naming`.
   That waits on a decision. See decisions 24 and 26.
-- A kept file's rename target is checked against other kept renames, not against new
-  files. `KeptRenameCollisions` gives a rename target to the first input that claims it.
-  `ResolvePlannedOutputCollisions` looks at new files only. So if one input plans to rename
-  its kept file to a name another input plans as a new file, the plan shows both as
-  `split`. After the rename lands, the content phase skips the second input with
-  `target path already exists`. Nothing is overwritten. `--file-naming metadata` makes this
-  easier to reach, because a generic type kept in a plain named file is renamed.
 - A renames run over a file the content phase already split reports it as `stale plan:`.
   The content run rewrote the kept file, so its bytes differ from the plan. The content
   phase tells its own earlier write from an outside edit and says `already applied`. The
