@@ -75,7 +75,7 @@ public sealed class RenameTargetCollisionTests
         // other's new file. Refusing one would free the other, but which one would depend
         // on input order, so both are refused. Decision 32 records this shape.
         using var ws = new TempWorkspace();
-        var p = ws.WriteFile("P.cs", "namespace One;\n\npublic class A\n{\n}\n\npublic class B\n{\n}\n");
+        var p = ws.WriteFile("P.cs", P);
         var q = ws.WriteFile("Q.cs", "namespace Two;\n\npublic class B\n{\n}\n\npublic class A\n{\n}\n");
 
         var plan = RunAllPhases(ws, false, [p, q], out var content);

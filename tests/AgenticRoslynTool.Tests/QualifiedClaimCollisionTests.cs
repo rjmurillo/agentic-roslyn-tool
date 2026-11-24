@@ -73,6 +73,25 @@ public sealed class QualifiedClaimCollisionTests
     }
 
     [Fact]
+    public void NewFileThatDiffersOnlyByCase_IsACollision()
+    {
+        // a.cs and A.cs are one file on Windows and macOS. A plan made on Linux must be
+        // safe to apply there, so the claim check ignores case on every platform.
+        var root = Path.Combine(Path.GetTempPath(), "art-claims");
+        var x = Path.Combine(root, "X.cs");
+        var results = new[]
+        {
+            FileResult.Split(x, Path.Combine(root, "A.cs"), true, null, [new NewFileResult(Path.Combine(root, "B.cs"), "B")]),
+            FileResult.Split(Path.Combine(root, "Y.cs"), Path.Combine(root, "Y.cs"), false, null, [new NewFileResult(Path.Combine(root, "a.cs"), "a")]),
+        };
+
+        var resolved = SplitPlanner.ResolvePlannedOutputCollisions(results);
+
+        Assert.Equal(("split", "skipped"), (resolved[0].Status, resolved[1].Status));
+        Assert.Equal($"output {Path.Combine(root, "a.cs")} is also claimed by {x}", resolved[1].Note);
+    }
+
+    [Fact]
     public void NewFileOnItsOwnVacatedPath_IsNotACollision()
     {
         // Foo.cs keeps Bar and renames to Bar.cs, which frees Foo.cs for the moved Foo. A

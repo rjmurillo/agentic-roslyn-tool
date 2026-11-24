@@ -7,11 +7,11 @@ namespace AgenticRoslynTool;
 /// <remarks>
 /// <para>
 /// The per-file plan probes the disk, so it cannot see a path that another input in the
-/// same run is about to create. The name collision pass in
+/// same run is about to create. The name step in
 /// <see cref="SplitPlanner.ResolvePlannedOutputCollisions"/> compares new files with new
-/// files only. A renamed kept file was never an entry there. So one input could rename its
-/// kept file to <c>A.cs</c> while another planned a new <c>A.cs</c>. Both rows were
-/// <c>split</c>, the rename landed, and the content phase skipped the second row with
+/// files only. Before this type, no check covered a renamed kept file. So one input could
+/// rename its kept file to <c>A.cs</c> while another planned a new <c>A.cs</c>. Both rows
+/// were <c>split</c>, the rename landed, and the content phase skipped the second row with
 /// <c>target path already exists</c>. AutoMapper's <c>src/UnitTests/Bug</c> folder hit it.
 /// </para>
 /// <para>
@@ -24,9 +24,12 @@ namespace AgenticRoslynTool;
 /// <para>
 /// Two inputs that rename to one target are not refused here.
 /// <see cref="KeptRenameCollisions"/> gives the rename to the first and keeps the other in
-/// place. Paths are compared ignoring case, like every other collision check in the plan.
-/// A row's own paths never refuse it, because a moved type may land on the path its own
-/// kept file vacates.
+/// place, and compares their targets the way the disk does. Here, paths are compared
+/// ignoring case, like the name step. A row's own paths never refuse it, because a moved
+/// type may land on the path its own kept file vacates.
+/// Each step builds its claims once, before it refuses anything. So a row refused in a
+/// step still blocks other rows in that step. That costs a skipped file, never a broken
+/// promise, and it keeps the result independent of input order.
 /// </para>
 /// </remarks>
 internal static class PlannedOutputClaims

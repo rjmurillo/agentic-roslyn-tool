@@ -1417,12 +1417,17 @@ refused first no longer pushes its partners into a qualified name. On AutoMapper
 `ProjectCollectionsBug.cs` now moves `B` to `B.cs`, not `ProjectCollectionsBug.B.cs`. A
 plan with no such collision comes back as the same rows, so its manifest is byte for byte
 the same. A same name, different case pair counts as a collision on every platform, as
-it does for every other collision check. The checks over-refuse in three rare shapes. A
-row refused by a later step still blocks a new file in the first. A row that plans a
-rename still claims its original path, though the rename usually lands. Two rows that
-each rename onto the other's new file are both refused, though refusing one would free
-the other. Picking one would depend on input order. Each shape costs a skipped file,
-never a broken promise. AutoMapper hit none of them.
+it does in the name step.
+
+The checks can over-refuse. The general rule: each step builds its claims once, before
+it refuses anything, so a refused row's claims still block other rows. Two rows that each
+rename onto the other's new file are the smallest case: both are refused, though refusing
+one would free the other. A chain of such rows refuses every link. A row refused by the
+second step also still blocks a new file in the first. Repeating each step until nothing
+changes could free some of these rows. Picking which row to free in a cycle would depend
+on input order, so the checks do not try. Separately, a row that plans a rename still
+claims its original path, though the rename usually lands. Each case costs a skipped
+file, never a broken promise. AutoMapper hit none of them.
 
 Two renames to one target are outside this check. `KeptRenameCollisions` compares
 them the way the disk does, so `Foo.cs` and `foo.cs` are two targets on Linux, and

@@ -285,7 +285,7 @@ Promises:
   row's rename target, another row's new file, and an input that stays where it is.
   Paths are compared ignoring case. The row with the new file is skipped with
   `planned output path collision with another input requires manual handling`. Its
-  `note` reads `output <path> is also claimed by <input>`, once per path. In a
+  `note` reads `output <path> is also claimed by <input>`, once per path and input. In a
   rename against new file conflict, the new file's row is the one skipped. A new file
   is checked against rename targets under its computed simple name, before any
   qualified name is chosen, because the content phase probes that name too. A
