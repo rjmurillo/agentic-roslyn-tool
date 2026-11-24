@@ -7,6 +7,7 @@ namespace AgenticRoslynTool;
 /// Roslyn syntax rewriter that collapses runs of three or more blank lines down to two
 /// while preserving all other trivia. Applied to each output tree after unwanted type
 /// declarations are removed, to keep the resulting file tidy without touching semantics.
+/// <see cref="OwnedSpanCollapser"/> is the one concrete form, and keeps every type's owned span.
 /// </summary>
 /// <remarks>
 /// This runs entirely through the Roslyn trivia model, never on the raw file text, and
@@ -15,7 +16,7 @@ namespace AgenticRoslynTool;
 /// corrupt them. Operating on the trivia list is the single most important reason the
 /// splitter is built on the Syntax API.
 /// </remarks>
-internal sealed class BlankLineCollapser : CSharpSyntaxRewriter
+internal abstract class BlankLineCollapser : CSharpSyntaxRewriter
 {
     /// <summary>Rewrites both leading and trailing trivia of every token through <see cref="CollapseTriviaList"/>.</summary>
     public override SyntaxToken VisitToken(SyntaxToken token)
@@ -25,7 +26,8 @@ internal sealed class BlankLineCollapser : CSharpSyntaxRewriter
             .WithTrailingTrivia(CollapseTriviaList(token.TrailingTrivia));
     }
 
-    private static SyntaxTriviaList CollapseTriviaList(SyntaxTriviaList triviaList)
+    /// <summary>Cuts each run of line breaks in <paramref name="triviaList"/> to two, keeping all other trivia.</summary>
+    protected static SyntaxTriviaList CollapseTriviaList(SyntaxTriviaList triviaList)
     {
         var result = new List<SyntaxTrivia>(triviaList.Count);
         var pendingWhitespace = new List<SyntaxTrivia>();
@@ -62,4 +64,3 @@ internal sealed class BlankLineCollapser : CSharpSyntaxRewriter
         return SyntaxFactory.TriviaList(result);
     }
 }
-

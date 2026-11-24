@@ -1326,9 +1326,9 @@ ask for. Today the tool adds only the header a caller passes with `--require-hea
 with `contains file-local type; manual split required` is now `split`, or `skipped` with
 one of eight new reasons, or with any reason that applies to an ordinary input, such as a
 `#region` over two types. That old reason is gone. Such a file can also end `failed`, as any ordinary input can. One known
-case: the ownership check counts text, so a type with three blank lines in a row in its
-body fails that check at plan time, and nothing is written. That defect is older than
-this change and `AGENTS.md` lists it. When the kept type is a class or record,
+case was that the ownership check counts text, so a type with three blank lines in a row
+in its body failed that check at plan time, and nothing was written. That defect is older
+than this change. Decision 35 fixed it. When the kept type is a class or record,
 one SA1402 warning stays for each `file` class or record, and a person must suppress it. The scan is conservative,
 so some safe inputs are skipped: a moved type that merely has a member named like the
 `file` type, any input with an `#if` branch the parse excludes, a balanced `#pragma
@@ -1441,6 +1441,54 @@ file in place of refusing it, and you must also exempt the computed path probe. 
 reopens the path rule 10 closed. `RenameTargetCollisionTests` and
 `QualifiedClaimCollisionTests` pin both steps under both `--collision-naming` values and
 both input orders.
+
+### Decision 35. The blank line collapse stays out of every type's owned span
+
+**Context.** `BlankLineCollapser` cut every run of three or more blank lines to two. It
+did this inside types too. The ownership check in `OutputVerifier` then looked for the
+type's original text and found it zero times. So a file the compiler accepts ended
+`failed`, and nothing was written. Dapper's `tests/Dapper.Tests/Providers/SqliteTests.cs`
+at `188094784256da61d7a37c43ea54c64213c2ce7c` hit this. Its kept type `SqliteTests` holds
+three blank lines in a row. The row read `declaration and owned trivia for SqliteTests
+appears 0 times across outputs, expected 1`. Three controls isolated the cause. Delete
+one of the three lines, and the file splits. Strip the space after the `{` on line 130,
+or empty the line that holds only spaces, and it still fails. So the run's length is the
+cause. The file's `#pragma` lines stayed in place in the control that split, so they were
+not the cause. Moved types failed the same way.
+
+**Decision.** `OutputBuilder` now runs `OwnedSpanCollapser`, a subclass of
+`BlankLineCollapser`. It does not descend into a top-level type. Of that type's trivia it
+collapses only the leading trivia above the owned start. That is where removing a neighbor
+leaves its seam. It finds types with `TopLevelType.Find`. It finds the boundary with
+`OutputVerifier.GetTypeOwnedStart`. The span it protects is therefore the span the verifier
+checks. That holds because removal keeps only unbalanced directives, so no doc comment moves
+from a removed type onto a kept one. The verifier was not changed.
+
+The new logic sits in its own type for one reason. The local quality scanner gates a
+changed file on its old scores, and adding the logic to `BlankLineCollapser.cs` dropped
+cohesion from 9.0 to 7.6 and coupling from 8.0 to 7.0. `BlankLineCollapser` keeps its old
+shape and becomes the abstract base that owns `CollapseTriviaList`.
+
+**Alternatives considered.** Loosen the ownership check to ignore blank lines. Rejected
+because it weakens a guard to satisfy it, as decision 7 warns. Drop the collapse
+entirely. Rejected because removing a type would then leave its neighbors' blank lines
+stacked at the seam. `BlankLineRunBetweenTypes_StillCollapses` pins that collapse.
+
+**Consequences.** A run of blank lines inside a type is kept byte for byte, in the kept
+file and in every new file. An output can therefore hold three or more blank lines in a
+row where the source did. Runs outside every type still collapse to two. The collapse
+stays on Roslyn trivia, per decision 3. With this build, the Dapper file splits into four
+files, and `tests/Dapper.Tests` builds for `net10.0` with no errors. The content phase was
+also run over nunit at `da9d5b61cbf7edcdef7ec896d678b0e1ef6ba966` and MassTransit at
+`d9f61f764c802785cc9a4be92547d8f5b63018d4`. Its output matched the previous build byte
+for byte. That shows no regression only. Neither corpus held a type with the run, so
+Dapper is the one real file on the new path. `BlankLineRunInsideTypeTests` pins the
+change with LF and CRLF inputs.
+
+**Reversal warning.** Let the collapse run inside a type again, and any type with three
+blank lines in a row ends `failed`. Protect a span other than the one the verifier
+checks, and the two drift. A doc comment followed by blank lines is the first shape that
+breaks.
 
 ## Credit
 
