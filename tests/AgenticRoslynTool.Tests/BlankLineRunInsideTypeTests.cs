@@ -94,6 +94,16 @@ public sealed class BlankLineRunInsideTypeTests
         Assert.Contains(Lines("{\n\n\n    public class Bar", newLine), barText);
     }
 
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    public void BlankLineRunBelowComment_KeepsOneBlankLine(string newLine)
+    {
+        // The comment's own line break counts toward the two kept, so one blank line remains.
+        var barText = SplitAndRead(Wrap(EmptyFoo + "\n    // note\n\n\n\n    public class Bar\n    {\n    }\n"), "Bar.cs", newLine);
+        Assert.Contains(Lines("    // note\n\n    public class Bar", newLine), barText);
+    }
+
     private static string Wrap(string body)
     {
         return TestHeader.Copyright + "\nusing System;\n\nnamespace Sample.Ns\n{\n" + body + "}\n";
