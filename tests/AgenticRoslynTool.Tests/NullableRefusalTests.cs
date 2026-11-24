@@ -138,15 +138,27 @@ public sealed class NullableRefusalTests
         Assert.NotEqual(NullableContextOracle.DiagnosticIds(source, enable), NullableContextOracle.DiagnosticIds(gamma.Text, enable));
     }
 
+    [Fact]
+    public void NullableInAFileWithAGeneratedName_RefusesThePlan()
+    {
+        Assert.Equal(FileSplitter.NullableGuardReason, PlanRow(GeneratedBody, "Alpha.g.cs").Reason);
+    }
+
     [Theory]
     [InlineData("Alpha.g.cs")]
     [InlineData("Alpha.Designer.cs")]
     [InlineData("TemporaryGeneratedFile_Alpha.cs")]
     [InlineData("x\\TemporaryGeneratedFile_Alpha.cs")]
-    public void NullableInAFileWithAGeneratedName_RefusesThePlan(string name)
+    [InlineData("x:TemporaryGeneratedFile_Alpha.cs")]
+    public void NameTheCompilerReadsAsGenerated_TheGuardRefuses(string name)
     {
-        // The diagnostics rows above prove the loss. These pin the name rule the compiler uses.
-        Assert.Equal(FileSplitter.NullableGuardReason, PlanRow(GeneratedBody, name).Reason);
+        // Each row first asks the compiler, so a name rule that drifts from it fails here. A
+        // parsed path needs no file, so a name Windows cannot create still runs everywhere.
+        var path = "/work/" + name;
+        Assert.Contains("CS8669", NullableContextOracle.DiagnosticIds("class C { string? s; }", Microsoft.CodeAnalysis.NullableContextOptions.Enable, path));
+
+        var root = CSharpSyntaxTree.ParseText(GeneratedBody, path: path).GetCompilationUnitRoot();
+        Assert.True(NullableGuard.Refuses(root, TopLevelType.Find(root).ToArray()));
     }
 
     [Theory]

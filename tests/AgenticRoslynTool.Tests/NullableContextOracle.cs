@@ -31,10 +31,10 @@ internal static class NullableContextOracle
             type => NullableCheckPoints.Of(type).Select(model.GetNullableContext).ToArray());
     }
 
-    /// <summary>Returns the error and warning ids the compiler reports for one file, under the project default given.</summary>
-    internal static string[] DiagnosticIds(string text, NullableContextOptions projectDefault = NullableContextOptions.Disable)
+    /// <summary>Returns the error and warning ids the compiler reports for one file at a path, under the project default given.</summary>
+    internal static string[] DiagnosticIds(string text, NullableContextOptions projectDefault = NullableContextOptions.Disable, string path = "")
     {
-        var tree = CSharpSyntaxTree.ParseText(text, Parse);
+        var tree = CSharpSyntaxTree.ParseText(text, Parse, path);
         return Compile(tree, projectDefault).GetDiagnostics()
             .Where(d => d.Severity >= DiagnosticSeverity.Warning)
             .Select(d => d.Id)
