@@ -78,6 +78,12 @@ internal static class CompileItemName
                 depth++;
                 i++;
             }
+            else if (c == '(' && depth > 0)
+            {
+                // A property function call inside a reference. Its closing parenthesis must
+                // not end the reference, or a separator inside the call reads as a boundary.
+                depth++;
+            }
             else if (c == ')' && depth > 0)
             {
                 depth--;

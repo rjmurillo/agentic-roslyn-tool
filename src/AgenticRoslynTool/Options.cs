@@ -9,7 +9,7 @@ namespace AgenticRoslynTool;
 /// newline-delimited path list. The literal <c>-</c> reads the list from standard input.
 /// </param>
 /// <param name="ManifestPath">Absolute path to the CSV plan manifest. Defaults to <c>sa1402-split-manifest.csv</c> next to the input. Only the plan phase writes it.</param>
-/// <param name="RepoRoot">Absolute repository root used as the working directory for <c>git mv</c> calls.</param>
+/// <param name="RepoRoot">Absolute repository root used as the working directory for <c>git mv</c> calls, and the root <see cref="MsBuildCompileItems.Scan"/> reads.</param>
 /// <param name="Phase">
 /// Which of the <see cref="AgenticRoslynTool.Phase"/> stages to execute. <see cref="Parse"/>
 /// defaults it to <see cref="Phase.Plan"/>, so only an explicit <c>--phase</c> changes source.

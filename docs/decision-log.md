@@ -1379,6 +1379,104 @@ parses with the preview language version, so new syntax parses with no error. A 
 bind to a type with no name at the use site needs a new refusal here. Extension blocks in
 C# 14 were one.
 
+### Decision 31. A file an MSBuild Compile item names is not split
+
+**Context.** v0.2.0 broke AutoMapper's build at commit `79d10deec588`. The build had 0
+errors before the run. After plan, renames, a commit, and content, it had 236. They were
+CS0115, `no suitable method found to override`, and CS0246, a type not found. Every phase
+exited 0. `src/IntegrationTests/AutoMapper.IntegrationTests.csproj` holds `<Compile
+Include="..\UnitTests\AutoMapperSpecBase.cs" Link="AutoMapperSpecBase.cs" />`. That file
+declares several types. The split moved them into new files in `UnitTests`, and the
+IntegrationTests project never compiles those. Its base classes were gone. The tool never
+read an MSBuild file, so nothing guarded this.
+
+The same break has other shapes. A shared project's `.projitems` names each file with
+`$(MSBuildThisFileDirectory)`. An old-style project lists every file. A `Compile Remove`
+leaves a file out, and the new siblings would be compiled where the original was not. A
+`Compile Update` gives the file metadata the siblings would lack.
+
+**Decision.** Decision 13 applies: refuse, never guess. Every phase scans the MSBuild files
+under `--repo-root` once per run, after the input list is read and before any input is
+processed. It reads `.csproj`, `.props`, `.targets`, `.projitems`, and `.shproj` files, so
+`Directory.Build.props` and `Directory.Build.targets` are included. It skips `bin`, `obj`,
+and `.git` and does not follow directory symlinks. Each file is parsed as XML, with no
+property evaluation and no import. Every `Compile` element in any namespace counts. Each
+`;`-separated value of `Include`, `Update`, `Remove`, and `Exclude` is read.
+
+- Only the part after the last `/` or `\` is compared with the input's file name, case
+  insensitively. A separator inside `$(...)`, `@(...)`, or `%(...)` does not count.
+- An exact name equal to the input's name refuses it. The reason is `file is named by an
+  MSBuild Compile item in <path>; manual split required`.
+- A part of exactly `*.cs`, `*`, or `**` refuses nothing. It matches the new sibling files
+  too, so the split compiles the same types.
+- Any other part with `*`, `?`, or a reference refuses the input when it could match the
+  name. A reference matches any text. `Foo*.cs` refuses `Foo.cs`. `*.Designer.cs` does not.
+- The check runs right after `nothing to split`, so a one-type file keeps that reason. It
+  asks about the path the plan recorded and the path the phase reads, so a rename cannot
+  hide a file. The content phase scans again, because a project can change between phases.
+- The path in the reason is relative to `--repo-root`, with `/` separators. When several
+  files qualify, the first in ordinal order is named, so the text is the same on every run.
+
+`Exclude` goes beyond the brief. It breaks the same way `Remove` does.
+
+**An MSBuild file the scan cannot read.** It cannot say which files it names. Every input
+in its directory or below is refused with `cannot read MSBuild Compile items in <path>;
+manual split required`. A named refusal wins over this one. These count as unreadable: not
+valid XML, a document type declaration, a read error, a symlink, an empty file, and a file
+over 16 MiB. A symlink can point outside the repository or at a file of any size. A named
+pipe reports length zero, so the zero check keeps the scan from opening one and blocking
+forever. An empty file is not valid XML, so that check refuses nothing real. A directory
+the scan cannot list ends the run with exit code 3, because a partial scan would let a
+split through that a missed project forbids.
+
+Patterns run on a non-backtracking regular expression engine. The text comes from files in
+the repository, and a pattern of many wildcards would take exponential time on a
+backtracking engine. A run of wildcards also compiles to one.
+
+**Why the directory parts are ignored.** The tool cannot evaluate properties, so it cannot
+tell which directory `$(SharedDir)Foo.cs` names. Comparing file names only is conservative.
+A file of the same name in another directory is refused too. That is the trade-off, and it
+costs a skipped file, never a broken build.
+
+**Why the unreadable rule stops at the directory.** Refusing the whole run for one broken
+file would make the tool useless in a repository that carries a broken template. MSBuild
+cannot load a malformed project either, so a broken file that takes part in the build
+already breaks it. The hole: a broken project that links a file from a sibling directory
+does not protect that file. `MsBuildUnreadableFileTests` pins the hole.
+
+**Reading XML does not reverse decision 1.** No project is loaded, no property is
+evaluated, and nothing needs to build. The scan is one XML read per MSBuild file. A plan
+over 1,458 AutoMapper files took about 0.84 seconds with and without it. A synthetic plan
+over 6,400 two-type files, beside one project that lists 6,400 other names and one
+wildcard, took 1.57 seconds without the scan and 1.68 with it.
+
+**Consequences.**
+
+- On AutoMapper at `79d10deec588`, exactly one plan row changes. `AutoMapperSpecBase.cs`
+  goes from `split` to `skipped`, naming `src/IntegrationTests/AutoMapper.IntegrationTests.csproj`.
+  The build after the full workflow has 0 errors.
+- A value whose file name part is only a reference refuses every input in the repository.
+  `@(Generated)`, `$(VersionFile)`, `Remove="@(Compile)"`, `Exclude="$(DefaultItemExcludes)"`,
+  and `Remove="$(BaseIntermediateOutputPath)**"` all do. The tool cannot tell whether the
+  property ends in a separator. Each row names the file, so the cause is visible. To split
+  such a repository, rewrite the item with a literal directory, such as `obj/**`, for the
+  run.
+- The guard is only as wide as `--repo-root`. It defaults to the working directory. A run
+  from a subfolder does not see a project elsewhere that links the file. The packaged
+  `AGENTS.md` and skill say to run from the repository root.
+- A test or a caller that leaves `--repo-root` unset in a broad directory scans all of it.
+  In the system temp directory on Linux that ends the run with exit code 3.
+- Not covered: a stale item that names a file the split would create. A `Compile
+  Remove="Bar.cs"` for a file that no longer exists would drop a new `Bar.cs`. Matching
+  planned output names is not built. `AGENTS.md` lists it under known issues.
+
+**Reversal warning.** Drop the scan and AutoMapper's build breaks again with 236 errors at
+exit code 0. Scan only in the plan phase and an edit to a project between phases goes
+unseen. Ask only the read path and a renamed file escapes a project that names its old
+name. Compare directories as well as names and every `$(...)` prefix becomes a guess. Treat
+an unreadable file as naming nothing and a broken or hostile file lets every split through.
+Swap in a backtracking regular expression engine and one crafted item stalls the run.
+
 ## Credit
 
 The approach owes a debt to Lizzy Gallagher's write up on Roslyn refactoring,

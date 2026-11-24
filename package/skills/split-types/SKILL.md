@@ -29,6 +29,8 @@ step runs the same build). Below, `<tool>` means whichever you use.
    `git -c core.quotePath=false ls-files '*.cs' > <dir>/split.txt`
 2. Plan. This changes no source file:
    `<tool> split-types --phase plan --input <dir>/split.txt --manifest <dir>/split.csv --json`
+   Run it from the repository root, or add `--repo-root <repository root>`. The tool skips
+   a file that an MSBuild `Compile` item names, and it looks only under that root.
    If the repository enforces SA1649, add `--collision-naming type-first` to this step only.
    If its StyleCop `fileNamingConvention` is `metadata`, also add `--file-naming metadata`.
    `nextArgs` repeats it for you.

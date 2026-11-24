@@ -35,11 +35,13 @@ public sealed class MsBuildScanSafetyTests : IDisposable
     [Fact]
     public void OversizedMsBuildFile_IsNotRead_AndRefusesItsDirectory()
     {
+        // Valid XML that names nothing, so only the size cap can refuse Bar.cs.
         Directory.CreateDirectory(PathOf("src/App"));
-        using (var stream = File.Create(PathOf("src/App/App.csproj")))
+        using (var writer = new StreamWriter(PathOf("src/App/App.csproj")))
         {
-            // Sparse on most file systems, so the test writes almost nothing.
-            stream.SetLength(MsBuildCompileItems.MaxFileBytes + 1);
+            writer.Write("<Project>");
+            writer.Write(new string(' ', (int)MsBuildCompileItems.MaxFileBytes));
+            writer.Write("</Project>");
         }
 
         Assert.Equal(Reason, Scan().DescribeRefusal(PathOf("src/App/Bar.cs")));

@@ -24,6 +24,13 @@ public sealed class MsBuildCompileItemTests : IDisposable
     [InlineData("<Compile Include=\"specbase.CS\" />", "SpecBase.cs")]
     [InlineData("<Compile Include=\"Spec%20Base %282%29.cs\" />", "Spec Base (2).cs")]
     [InlineData("<Compile Include=\"$([System.IO.Path]::Combine('a/b', 'c'))SpecBase.cs\" />", "SpecBase.cs")]
+    [InlineData("<Compile Include=\"$([System.IO.Path]::GetFullPath('x').Replace('\\', '/'))SpecBase.cs\" />", "SpecBase.cs")]
+    // A value that is only a reference can expand to any file. These refuse every input.
+    [InlineData("<Compile Include=\"@(Generated)\" />", "SpecBase.cs")]
+    [InlineData("<Compile Include=\"$(VersionFile)\" />", "SpecBase.cs")]
+    [InlineData("<Compile Remove=\"@(Compile)\" />", "SpecBase.cs")]
+    [InlineData("<Compile Include=\"**/*.cs\" Exclude=\"$(DefaultItemExcludes)\" />", "SpecBase.cs")]
+    [InlineData("<Compile Remove=\"$(BaseIntermediateOutputPath)**\" />", "SpecBase.cs")]
     public void ItemThatCanNameTheInput_IsRefused(string item, string inputName)
     {
         WriteProject("src/Other/Other.csproj", item);
