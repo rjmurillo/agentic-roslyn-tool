@@ -513,7 +513,7 @@ Reason text shown in italics is a template; the run substitutes real values.
 | File has top level statements | skipped | `contains top-level statements; manual split required` |
 | One type or fewer | skipped | `nothing to split: input has <n> top-level type declaration(s)` |
 | An MSBuild `Compile` item under `--repo-root` can name the file | skipped | `file is named by an MSBuild Compile item in <path>; manual split required` |
-| An MSBuild file in the file's directory or above it, up to `--repo-root`, cannot be read | skipped | `cannot read MSBuild Compile items in <path>; manual split required` |
+| An MSBuild file, or a directory symlink that leads outside `--repo-root`, sits in the file's directory or above it and cannot be read | skipped | `cannot read MSBuild Compile items in <path>; manual split required` |
 | A `file` type and at most one other type | skipped | `nothing to split: file-local types stay in their file and at most one other type is declared` |
 | A `file` type, and text an `#if` excludes anywhere in the file | skipped | `file-local type shares the file with conditionally excluded text; manual split required` |
 | A `file` type, and a `global using` directive | skipped | `file-local type shares the file with a global using directive; manual split required` |
@@ -524,27 +524,33 @@ Reason text shown in italics is a template; the run substitutes real values.
 | Anything else that throws while handling one input | failed | the exception message |
 
 The two MSBuild rows run in every phase, so the renames phase renames no such file and the
-content phase writes none. `<path>` is the MSBuild file relative to `--repo-root`, with `/`
-separators. When several files qualify, the first in ordinal order is named. A named file
-wins over an unreadable one. The scan runs once per run, after the input list is read and
-before any input is processed. The content phase scans again and does not trust the plan,
+content phase writes none. `<path>` is relative to `--repo-root`, with `/` separators. When
+several files qualify, the first in ordinal order is named. A named file wins over an
+unreadable one. The scan runs once per run, after the input list is read and before any
+input is processed. The content phase scans for itself and does not trust the plan,
 because a project can change between phases.
 
 - **What is scanned.** Every `.csproj`, `.props`, `.targets`, `.projitems`, and `.shproj`
-  file under `--repo-root`. Directories named `bin`, `obj`, and `.git` are skipped, and
-  directory symlinks are not followed. A directory the scan cannot list ends the run with
-  exit code 3 before any file is touched.
-- **What is read.** Every `Compile` element, in any XML namespace, at any depth. Each
-  `;`-separated value of `Include`, `Update`, `Remove`, and `Exclude` is read. No property
-  is evaluated and no import is followed.
+  file under `--repo-root`. Directories named `bin`, `obj`, and `.git` are skipped. No
+  directory symlink is followed. A directory the scan cannot list ends the run with exit
+  code 3 before any file is touched. The message says to make it readable and to keep
+  `--repo-root` at the repository root.
+- **What is read.** Every `Compile` element, in any XML namespace, at any depth, in any
+  letter case. Each `;`-separated value of `Include`, `Update`, `Remove`, and `Exclude` is
+  read. No property is evaluated and no import is followed. Names read before a file's
+  error still count.
 - **How a value matches.** Only the part after the last `/` or `\` is compared, case
-  insensitively, with the input's file name. A `$(...)`, `@(...)`, or `%(...)` reference,
-  `*`, and `?` are wildcards, and `%XX` is an escaped character. A part of exactly `*.cs`,
-  `*`, or `**` matches the new files too, so it refuses nothing. The content phase asks
-  about the path the plan recorded and the path it reads, so a rename does not hide a file.
+  insensitively, with the input's file name. An escaped `%2F` or `%5C` is a separator too.
+  A `$(...)`, `@(...)`, or `%(...)` reference, `*`, and `?` are wildcards, and `%XX` is an
+  escaped character. A part of exactly `*.cs`, `*`, or `**` matches the new files too, so
+  it refuses nothing. The content phase asks about the path the plan recorded and the path
+  it reads, so a rename does not hide a file.
 - **What counts as unreadable.** A file that is not valid XML, holds a document type
-  declaration, cannot be opened, is a symlink, is empty, or is over 16 MiB. A named pipe
-  reports a length of zero, so the scan never opens one.
+  declaration, cannot be opened, is a symlink, is empty, is over 16 MiB, or holds a
+  `Compile` value over 4,096 characters. A directory symlink whose final target lies
+  outside `--repo-root`, or nowhere, counts too. One whose target lies inside the root
+  does not, because the walk reads those files by their real path. A named pipe reports a
+  length of zero, so the scan never opens one.
 
 `MsBuildCompileItemTests`, `MsBuildUnreadableFileTests`, `MsBuildScanSafetyTests`, and
 `MsBuildCompilePhaseTests` pin all of it. See decision 31.

@@ -24,8 +24,8 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 45 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 523 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 47 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 533 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -85,6 +85,8 @@ Every source file, so you do not have to open one to find out whether it matters
 | `CsvFieldReader.cs` | Quote aware CSV field parsing for the manifest and for CSV inputs. |
 | `MsBuildCompileItems.cs` | Reads every MSBuild file under `--repo-root` once per run, as XML only. Refuses an input a `Compile` item names, or one near an MSBuild file it cannot read. |
 | `CompileItemName.cs` | Reads the file name part of one `Compile` item value. Says which file names an exact name or a wildcard could match. |
+| `MsBuildFileFinder.cs` | Finds the MSBuild files under the root, and the directory symlinks that lead outside it. Says which files are safe to open. |
+| `MsBuildText.cs` | Reads MSBuild references, `$(...)`, `@(...)`, `%(...)`, and `%XX` escapes. |
 
 The tool splits itself cleanly. Running it over `src/AgenticRoslynTool/` reports every file
 skipped and exits 0. That is the cheapest smoke test in the repo, and it is how you confirm
@@ -94,7 +96,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 523 passed, 0 failed
+dotnet test  -c Release      # must be 533 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`

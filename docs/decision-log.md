@@ -1384,7 +1384,8 @@ C# 14 were one.
 **Context.** v0.2.0 broke AutoMapper's build at commit `79d10deec588`. The build had 0
 errors before the run. After plan, renames, a commit, and content, MSBuild reported 236.
 That count lists each error twice. The 118 distinct errors were 115 CS0115, `no suitable
-method found to override`, and 3 CS0246, a type not found. Every phase exited 0. `src/IntegrationTests/AutoMapper.IntegrationTests.csproj` holds `<Compile
+method found to override`, and 3 CS0246, a type not found. Every phase exited 0.
+`src/IntegrationTests/AutoMapper.IntegrationTests.csproj` holds `<Compile
 Include="..\UnitTests\AutoMapperSpecBase.cs" Link="AutoMapperSpecBase.cs" />`. That file
 declares several types. The split moved them into new files in `UnitTests`, and the
 IntegrationTests project never compiles those. Its base classes were gone. The tool never
@@ -1399,56 +1400,92 @@ leaves a file out, and the new siblings would be compiled where the original was
 under `--repo-root` once per run, after the input list is read and before any input is
 processed. It reads `.csproj`, `.props`, `.targets`, `.projitems`, and `.shproj` files, so
 `Directory.Build.props` and `Directory.Build.targets` are included. It skips `bin`, `obj`,
-and `.git` and does not follow directory symlinks. Each file is parsed as XML, with no
-property evaluation and no import. Every `Compile` element in any namespace counts. Each
-`;`-separated value of `Include`, `Update`, `Remove`, and `Exclude` is read.
+and `.git`. Each file is parsed as XML, with no property evaluation and no import. Every
+`Compile` element counts, in any namespace and in any letter case, because MSBuild reads
+item types without regard to case. Each `;`-separated value of `Include`, `Update`,
+`Remove`, and `Exclude` is read.
 
 - Only the part after the last `/` or `\` is compared with the input's file name, case
-  insensitively. A separator inside `$(...)`, `@(...)`, or `%(...)` does not count.
+  insensitively. An escaped separator, `%2F` or `%5C`, counts as one, because MSBuild
+  unescapes it before it reads the path. A separator inside `$(...)`, `@(...)`, or
+  `%(...)` does not count.
 - An exact name equal to the input's name refuses it. The reason is `file is named by an
   MSBuild Compile item in <path>; manual split required`.
 - A part of exactly `*.cs`, `*`, or `**` refuses nothing. It matches the new sibling files
   too, so the split compiles the same types.
 - Any other part with `*`, `?`, or a reference refuses the input when it could match the
   name. A reference matches any text. `Foo*.cs` refuses `Foo.cs`. `*.Designer.cs` does not.
+  `$(MSBuildThisFileDirectory)Foo.cs` refuses any name that ends in `Foo.cs`.
 - The check runs right after `nothing to split`, so a one-type file keeps that reason. It
   asks about the path the plan recorded and the path the phase reads, so a rename cannot
-  hide a file. The content phase scans again, because a project can change between phases.
+  hide a file. The content phase scans for itself, because a project can change between
+  phases.
 - The path in the reason is relative to `--repo-root`, with `/` separators. When several
   files qualify, the first in ordinal order is named, so the text is the same on every run.
 
-`Exclude` goes beyond the brief. It breaks the same way `Remove` does.
+Three things go beyond the brief. `Exclude` is read, because it breaks the same way
+`Remove` does. Item types match in any case. Escaped separators split the path.
 
-**An MSBuild file the scan cannot read.** It cannot say which files it names. Every input
-in its directory or below is refused with `cannot read MSBuild Compile items in <path>;
-manual split required`. A named refusal wins over this one. These count as unreadable: not
-valid XML, a document type declaration, a read error, a symlink, an empty file, and a file
-over 16 MiB. A symlink can point outside the repository or at a file of any size. A named
-pipe reports length zero, so the zero check keeps the scan from opening one and blocking
-forever. An empty file is not valid XML, so that check refuses nothing real. A directory
-the scan cannot list ends the run with exit code 3, because a partial scan would let a
-split through that a missed project forbids.
+**What the scan cannot read.** Such a path cannot say which files it names. Every input in
+its directory or below is refused with `cannot read MSBuild Compile items in <path>; manual
+split required`. A named refusal wins over this one. Names read from a file before its
+error still count, which only refuses more. These count as unreadable, each for its own
+reason:
+
+- Not valid XML, or a read error. MSBuild cannot load such a file either.
+- A document type declaration. The reader refuses it, so no entity is ever expanded.
+- A file symlink. It can point outside the repository, or at a file of any size.
+- A directory symlink whose final target lies outside `--repo-root`, or nowhere. It is not
+  followed, and a project behind it could name any file. A link whose target lies inside
+  the root refuses nothing, because the walk reads those files by their real path.
+- An empty file. A named pipe reports length zero, so this check keeps the scan from
+  opening one and blocking forever. An empty file is not valid XML anyway.
+- A file over 16 MiB, or one `Compile` value over 4,096 characters. Either bounds the
+  cost a hostile file can impose.
+
+A directory the scan cannot list ends the run with exit code 3, because a partial scan
+would let a split through that a missed project forbids. The message says to make the
+directory readable and keep `--repo-root` at the repository root. A narrower root is
+itself a partial scan.
 
 Patterns run on a non-backtracking regular expression engine. The text comes from files in
 the repository, and a pattern of many wildcards would take exponential time on a
-backtracking engine. A run of wildcards also compiles to one.
+backtracking engine. A run of wildcards compiles to one, and a duplicate pattern is kept
+once. A value whose only wildcards are leading references, the `.projitems` shape, is not
+a pattern at all. Its tail goes into a lookup, so a shared project with thousands of files
+costs a few lookups per input.
 
 **Why the directory parts are ignored.** The tool cannot evaluate properties, so it cannot
 tell which directory `$(SharedDir)Foo.cs` names. Comparing file names only is conservative.
-A file of the same name in another directory is refused too. That is the trade-off, and it
-costs a skipped file, never a broken build.
+A file of the same name in another directory is refused too. The cost runs from one
+skipped file to every input in the repository, as the consequences below say. It is never
+a broken build.
 
 **Why the unreadable rule stops at the directory.** Refusing the whole run for one broken
-file would make the tool useless in a repository that carries a broken template. MSBuild
-cannot load a malformed project either, so a broken file that takes part in the build
-already breaks it. The hole: a broken project that links a file from a sibling directory
-does not protect that file. `MsBuildUnreadableFileTests` pins the hole.
+file would make the tool useless in a repository that carries a broken template. For a
+malformed file this costs little: MSBuild cannot load it, so a malformed file that takes
+part in the build already breaks it. That argument does not hold for the other causes.
+MSBuild loads a file symlink, a large file, or a project behind a directory symlink. So the
+hole is wider than malformed XML. A file the scan cannot read that links a file from a
+sibling directory does not protect that file. `MsBuildUnreadableFileTests` pins the hole.
 
 **Reading XML does not reverse decision 1.** No project is loaded, no property is
-evaluated, and nothing needs to build. The scan is one XML read per MSBuild file. A plan
-over 1,458 AutoMapper files took about 0.84 seconds with and without it. A synthetic plan
-over 6,400 two-type files, beside one project that lists 6,400 other names and one
-wildcard, took 1.57 seconds without the scan and 1.68 with it.
+evaluated, and nothing needs to build. The scan is one XML read per MSBuild file. Plan
+times were taken with `--dry-run --json`, two runs each, on one Linux workstation. A plan
+over 1,458 AutoMapper files took about 0.84 seconds with and without the scan. A synthetic
+plan over 6,400 two-type files, beside one project that lists 6,400 other names and one
+wildcard, took 1.57 seconds without the scan and 1.68 with it. No threshold was set in
+advance. The brief asked only that a 6,400-file run not slow noticeably.
+
+**Rejected.**
+
+- Limiting a refusal to inputs under the declaring file's directory. A `..\` path reaches
+  outside that directory, and AutoMapper's break is exactly that shape.
+- Letting `--exclude` prune the scan, or adding a flag that ignores reference-only items.
+  Either lets a caller switch the guard off for the file that needs it, and decision 13
+  says refuse. The cost is that no flag clears a repository-wide refusal.
+- Defaulting `--repo-root` to the git top level. It would change an existing flag's
+  default, so it waits for a decision of its own.
 
 **Consequences.**
 
@@ -1460,12 +1497,16 @@ wildcard, took 1.57 seconds without the scan and 1.68 with it.
   and `Remove="$(BaseIntermediateOutputPath)**"` all do. The tool cannot tell whether the
   property ends in a separator. Each row names the file, so the cause is visible. To split
   such a repository, rewrite the item with a literal directory, such as `obj/**`, for the
-  run.
+  run. How often real repositories hit this was not measured. AutoMapper is the only real
+  repository this was run on.
 - The guard is only as wide as `--repo-root`. It defaults to the working directory. A run
   from a subfolder does not see a project elsewhere that links the file. The packaged
-  `AGENTS.md` and skill say to run from the repository root.
+  `AGENTS.md` and skill say to run from the repository root, and never to narrow it.
 - A test or a caller that leaves `--repo-root` unset in a broad directory scans all of it.
-  In the system temp directory on Linux that ends the run with exit code 3.
+  In the system temp directory on Linux that ends the run with exit code 3. Before this
+  change such a run planned normally, so this is a behavior change.
+- The unreadable rule compares path text. A root and inputs spelled through different
+  symlinks do not match, and the rule then does not fire for them.
 - Not covered: a stale item that names a file the split would create. A `Compile
   Remove="Bar.cs"` for a file that no longer exists would drop a new `Bar.cs`. Matching
   planned output names is not built. `AGENTS.md` lists it under known issues.
@@ -1475,7 +1516,8 @@ exit code 0. Scan only in the plan phase and an edit to a project between phases
 unseen. Ask only the read path and a renamed file escapes a project that names its old
 name. Compare directories as well as names and every `$(...)` prefix becomes a guess. Treat
 an unreadable file as naming nothing and a broken or hostile file lets every split through.
-Swap in a backtracking regular expression engine and one crafted item stalls the run.
+Match `Compile` by exact case and a `<compile>` item is missed. Swap in a backtracking
+regular expression engine and one crafted item stalls the run.
 
 ## Credit
 
