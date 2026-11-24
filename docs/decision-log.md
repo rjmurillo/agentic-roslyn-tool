@@ -1326,9 +1326,9 @@ ask for. Today the tool adds only the header a caller passes with `--require-hea
 with `contains file-local type; manual split required` is now `split`, or `skipped` with
 one of eight new reasons, or with any reason that applies to an ordinary input, such as a
 `#region` over two types. That old reason is gone. Such a file can also end `failed`, as any ordinary input can. One known
-case: the ownership check counts text, so a type with three blank lines in a row in its
-body fails that check at plan time, and nothing is written. That defect is older than
-this change. Decision 35 fixes it. When the kept type is a class or record,
+case was that the ownership check counts text, so a type with three blank lines in a row
+in its body failed that check at plan time, and nothing was written. That defect is older
+than this change. Decision 35 fixed it. When the kept type is a class or record,
 one SA1402 warning stays for each `file` class or record, and a person must suppress it. The scan is conservative,
 so some safe inputs are skipped: a moved type that merely has a member named like the
 `file` type, any input with an `#if` branch the parse excludes, a balanced `#pragma
@@ -1390,7 +1390,8 @@ three blank lines in a row. The row read `declaration and owned trivia for Sqlit
 appears 0 times across outputs, expected 1`. Three controls isolated the cause. Delete
 one of the three lines, and the file splits. Strip the space after the `{` on line 130,
 or empty the line that holds only spaces, and it still fails. So the run's length is the
-cause. The `#pragma` lines were not involved. Moved types failed the same way.
+cause. The file's `#pragma` lines stayed in place in the control that split, so they were
+not the cause. Moved types failed the same way.
 
 **Decision.** The collapser does not descend into a top-level type. Of that type's trivia
 it collapses only the leading trivia above the owned start. That is where removing a
@@ -1400,7 +1401,8 @@ verifier checks. The verifier was not changed.
 
 **Alternatives considered.** Loosen the ownership check to ignore blank lines. Rejected
 because it weakens a guard to satisfy it, as decision 7 warns. Drop the collapse
-entirely. Rejected because the run between two types would then grow on every split.
+entirely. Rejected because removing a type would then leave its neighbors' blank lines
+stacked at the seam. `BlankLineRunBetweenTypes_StillCollapses` pins that collapse.
 
 **Consequences.** A run of blank lines inside a type is kept byte for byte, in the kept
 file and in every new file. Runs outside every type still collapse to two. The collapse
@@ -1408,7 +1410,9 @@ stays on Roslyn trivia, per decision 3. With this build, the Dapper file splits 
 files, and `tests/Dapper.Tests` builds for `net10.0` with no errors. The content phase was
 also run over nunit at `da9d5b61cbf7edcdef7ec896d678b0e1ef6ba966` and MassTransit at
 `d9f61f764c802785cc9a4be92547d8f5b63018d4`. Its output matched the previous build byte
-for byte. `BlankLineRunInsideTypeTests` pins the change with LF and CRLF inputs.
+for byte. That shows no regression only. Neither corpus held a type with the run, so
+Dapper is the one real file on the new path. `BlankLineRunInsideTypeTests` pins the
+change with LF and CRLF inputs.
 
 **Reversal warning.** Let the collapse run inside a type again, and any type with three
 blank lines in a row ends `failed`. Protect a span other than the one the verifier

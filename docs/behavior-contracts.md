@@ -710,7 +710,9 @@ The only method that writes source files.
 
 `BuildOutputs` runs each output through `BlankLineCollapser` before it renders text.
 
-- A run of three or more blank lines outside every type's owned span is cut to two.
+- Outside every type's owned span, a run of line breaks in one trivia list is cut to two.
+  A comment's own line break counts as one, so a comment followed by a run keeps one
+  blank line below it.
 - Every top-level type's owned span is left byte for byte, blank lines included. The span
   is the one `VerifyOutputs` checks, from `OutputVerifier.GetTypeOwnedStart` to the end
   of the declaration.

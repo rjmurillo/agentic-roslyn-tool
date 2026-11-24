@@ -34,10 +34,19 @@ internal sealed class BlankLineCollapser : CSharpSyntaxRewriter
 {
     private readonly Dictionary<SyntaxNode, TopLevelType> topLevelTypes;
 
-    /// <summary>Creates a collapser for <paramref name="root"/>, which must be the tree later passed to <see cref="Visit"/>.</summary>
-    public BlankLineCollapser(CompilationUnitSyntax root)
+    private BlankLineCollapser(CompilationUnitSyntax root)
     {
         topLevelTypes = TopLevelType.Find(root).ToDictionary(type => (SyntaxNode)type.Node);
+    }
+
+    /// <summary>
+    /// Collapses blank line runs in <paramref name="root"/> outside every top-level type's
+    /// owned span. The types are found in the same tree that is rewritten, so the node
+    /// lookup in <see cref="Visit"/> always matches.
+    /// </summary>
+    public static CompilationUnitSyntax Collapse(CompilationUnitSyntax root)
+    {
+        return (CompilationUnitSyntax)new BlankLineCollapser(root).Visit(root)!;
     }
 
     /// <summary>Leaves a top-level type's owned span untouched and visits every other node as usual.</summary>

@@ -53,7 +53,7 @@ public sealed class BlankLineRunInsideTypeTests
             "    {\n" +
             "        public int X;\n" +
             "\n" +
-            "\n" +
+            "\t  \n" +
             "\n" +
             "\n" +
             "        public int Y;\n" +
@@ -72,6 +72,7 @@ public sealed class BlankLineRunInsideTypeTests
     public void BlankLineRunBetweenDocCommentAndDeclaration_IsKept(string newLine)
     {
         // The owned span starts at the doc comment, so blank lines after it are owned text.
+        // The run above the doc comment is outside it and still collapses to two.
         var documented =
             "    /// <summary>Bar.</summary>\n" +
             "\n" +
@@ -81,11 +82,44 @@ public sealed class BlankLineRunInsideTypeTests
             "    {\n" +
             "    }";
         using var ws = new TempWorkspace();
-        var source = Wrap("    public class Foo\n    {\n    }\n\n" + documented + "\n");
+        var source = Wrap("    public class Foo\n    {\n    }\n\n\n\n\n" + documented + "\n");
         var result = Split(ws, source, newLine);
 
         AssertSplit(result);
-        Assert.Contains(Lines(documented, newLine), File.ReadAllText(Path.Combine(ws.Root, "Bar.cs")));
+        var barText = File.ReadAllText(Path.Combine(ws.Root, "Bar.cs"));
+        Assert.Contains(Lines(documented, newLine), barText);
+        Assert.Contains(Lines("{\n\n\n" + documented, newLine), barText);
+    }
+
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    public void BlankLineRunAfterAttributeInFileScopedNamespace_IsKept(string newLine)
+    {
+        // An attribute list is part of the declaration, so blank lines after it are owned text.
+        var attributed =
+            "[Serializable]\n" +
+            "\n" +
+            "\n" +
+            "\n" +
+            "public class Bar\n" +
+            "{\n" +
+            "}";
+        using var ws = new TempWorkspace();
+        var source = TestHeader.Copyright + "\n" +
+            "using System;\n" +
+            "\n" +
+            "namespace Sample.Ns;\n" +
+            "\n" +
+            "public class Foo\n" +
+            "{\n" +
+            "}\n" +
+            "\n" +
+            attributed + "\n";
+        var result = Split(ws, source, newLine);
+
+        AssertSplit(result);
+        Assert.Contains(Lines(attributed, newLine), File.ReadAllText(Path.Combine(ws.Root, "Bar.cs")));
     }
 
     [Theory]

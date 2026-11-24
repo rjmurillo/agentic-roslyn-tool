@@ -82,7 +82,7 @@ internal static class OutputBuilder
                 newRoot = newRoot.WithAttributeLists(default);
             }
 
-            newRoot = (CompilationUnitSyntax)new BlankLineCollapser(newRoot).Visit(newRoot)!;
+            newRoot = BlankLineCollapser.Collapse(newRoot);
             var rendered = newRoot.ToFullString();
             var body = EnsureTrailingNewLine(rendered, source.NewLine, source.HasFinalNewLine);
             var text = EnsureHeader(rendered, header);
