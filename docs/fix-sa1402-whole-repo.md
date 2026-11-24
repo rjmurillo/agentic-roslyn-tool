@@ -251,7 +251,7 @@ are most likely to see:
 | --- | --- | --- |
 | File has top-level statements | skipped | `contains top-level statements; manual split required` |
 | A `Compile` item in a project names the file, for example a linked file or a shared project | skipped | `file is named by an MSBuild Compile item in <path>; manual split required` |
-| An MSBuild file, or a directory link the scan does not follow, sits in the file's folder or above it and cannot be read. Causes: not valid XML, a symlink, empty, over 16 MiB, or a `Compile` value over 4,096 characters | skipped | `cannot read MSBuild Compile items in <path>; manual split required` |
+| An MSBuild file, or a directory link whose target the scan does not reach, sits in the file's folder or above it and cannot be read. Causes: not valid XML, a document type declaration, a symlink, empty, over 16 MiB, a `Compile` value over 4,096 characters, or a wildcard past the 10,000-pattern cap | skipped | `cannot read MSBuild Compile items in <path>; manual split required` |
 | File declares a `file` type and one other type | skipped | `nothing to split: file-local types stay in their file and at most one other type is declared` |
 | A type that would move names a `file` type | skipped | `moved type names a file-local type; manual split required` |
 | A `file` type declares extension members | skipped | `file-local type declares extension members; manual split required` |

@@ -73,6 +73,21 @@ public sealed class MsBuildLinkTests : IDisposable
         Assert.Equal(SharedReason, Scan().DescribeRefusal(PathOf("src/App/Bar.cs")));
     }
 
+    [Fact]
+    public void DirectoryLinkThroughAnotherLink_RefusesItsParent()
+    {
+        // The second link's target reads as inside the root, but its path runs through the
+        // first link, so the files behind it are outside and never walked.
+        using var outside = new TempWorkspace();
+        outside.WriteFile("sub/Shared.projitems", "<Project><ItemGroup><Compile Include=\"Unrelated.cs\" /></ItemGroup></Project>");
+        if (!TryLink(PathOf("x/a"), outside.Root, directory: true) || !TryLink(PathOf("src/App/Shared"), PathOf("x/a/sub"), directory: true))
+        {
+            return;
+        }
+
+        Assert.Equal(SharedReason, Scan().DescribeRefusal(PathOf("src/App/Bar.cs")));
+    }
+
     // Creating a link needs a privilege some Windows machines lack. The Linux CI job runs
     // these tests, as it does the other link tests in this suite.
     private static bool TryLink(string link, string target, bool directory)

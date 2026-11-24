@@ -564,12 +564,14 @@ because a project can change between phases.
   declaration, cannot be opened, is a symlink, is empty, is over 16 MiB, or holds a
   `Compile` value over 4,096 characters. So does a file whose wildcard pattern finds the
   scan already holding 10,000. A directory symlink counts too when the walk does not
-  reach its final target: the target lies outside `--repo-root`, or inside a `bin`,
-  `obj`, or `.git` directory. One whose target the walk does reach refuses nothing. A
+  reach its final target. Both the target and the root are resolved to real paths, one
+  directory link at a time. The link counts when the target's real path lies outside the
+  root's, or inside a `bin`, `obj`, or `.git` directory. A loop, or a chain deeper than
+  40 links, counts too. One whose target the walk does reach refuses nothing. A
   named pipe reports a length of zero, so the scan never opens one.
 
-`MsBuildCompileItemTests`, `MsBuildUnreadableFileTests`, `MsBuildScanSafetyTests`, and
-`MsBuildCompilePhaseTests` pin all of it. See decision 31.
+`MsBuildCompileItemTests`, `MsBuildUnreadableFileTests`, `MsBuildScanSafetyTests`,
+`MsBuildLinkTests`, and `MsBuildCompilePhaseTests` pin all of it. See decision 31.
 
 The seven `file` rows apply in the order shown, and the first that holds decides the reason.
 The last three put the type's name in the row's `note`, for example `Numbers declares

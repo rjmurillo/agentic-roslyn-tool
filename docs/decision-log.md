@@ -1435,8 +1435,10 @@ reason:
 - Not valid XML, or a read error. MSBuild cannot load such a file either.
 - A document type declaration. The reader refuses it, so no entity is ever expanded.
 - A file symlink. It can point outside the repository, or at a file of any size.
-- A directory symlink whose final target the walk does not reach: one outside
-  `--repo-root`, or one inside a `bin`, `obj`, or `.git` directory. It is not followed,
+- A directory symlink whose final target the walk does not reach. The target and the
+  root are both resolved to real paths, one directory link at a time. The link counts
+  when that real path lies outside the root's, or inside a `bin`, `obj`, or `.git`
+  directory. A loop, or a chain deeper than 40 links, counts too. It is not followed,
   and a project behind it could name any file. A link whose target the walk does reach
   refuses nothing, because the walk reads those files by their real path.
 - An empty file. A named pipe reports length zero, so this check keeps the scan from

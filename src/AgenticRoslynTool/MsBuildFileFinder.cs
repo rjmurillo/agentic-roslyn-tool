@@ -83,16 +83,62 @@ internal static class MsBuildFileFinder
     }
 
     /// <summary>
-    /// True when the walk reads a link's final target by its real path: the target lies
-    /// under the root, and no directory on the way down is one the walk skips. Case counts
-    /// for the root, so a doubtful match is reported, not skipped.
+    /// True when the walk reads a link's final target by its real path: that path lies
+    /// under the root's real path, and passes through no directory the walk skips.
     /// </summary>
     private static bool IsWalked(string? target, string root)
     {
-        var prefix = Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar;
-        return target is not null
-            && target.StartsWith(prefix, StringComparison.Ordinal)
-            && !target[prefix.Length..].Split(Path.DirectorySeparatorChar).Any(IsSkipped);
+        var realTarget = target is null ? null : RealPath(target, 0);
+        var realRoot = RealPath(root, 0);
+        if (realTarget is null || realRoot is null)
+        {
+            return false;
+        }
+
+        // Case counts, so a doubtful match is reported, not skipped.
+        var prefix = Path.TrimEndingDirectorySeparator(realRoot) + Path.DirectorySeparatorChar;
+        return realTarget.StartsWith(prefix, StringComparison.Ordinal)
+            && !realTarget[prefix.Length..].Split(Path.DirectorySeparatorChar).Any(IsSkipped);
+    }
+
+    /// <summary>
+    /// Resolves every directory link in <paramref name="path"/>, one part at a time. Null
+    /// when a link loops, goes deeper than 40 links, or cannot be read. The caller then
+    /// treats the path as one the walk does not reach.
+    /// </summary>
+    private static string? RealPath(string path, int depth)
+    {
+        if (depth > 40)
+        {
+            return null;
+        }
+
+        var current = Path.GetPathRoot(path)!;
+        try
+        {
+            foreach (var name in path[current.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+            {
+                current = Path.Combine(current, name);
+                var link = new DirectoryInfo(current);
+                if (link.LinkTarget is not null)
+                {
+                    var next = link.ResolveLinkTarget(returnFinalTarget: true)?.FullName;
+                    var resolved = next is null ? null : RealPath(next, depth + 1);
+                    if (resolved is null)
+                    {
+                        return null;
+                    }
+
+                    current = resolved;
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+
+        return current;
     }
 
     private static bool IsSkipped(string name) =>
