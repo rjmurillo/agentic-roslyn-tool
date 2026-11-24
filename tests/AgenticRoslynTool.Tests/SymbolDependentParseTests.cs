@@ -69,6 +69,39 @@ public sealed class SymbolDependentParseTests
     }
 
     [Fact]
+    public void BrokenFile_NamingExactlyTheCap_StillGetsTheRetry()
+    {
+        var groups = string.Concat(Enumerable.Range(0, SourceParsing.MaxRetrySymbols).Select(i => $"#if S{i}\n#endif\n"));
+        var result = PlanOne("namespace Sample;\n\ninternal class Broken\n{\n" + groups + "    void M( }\n}\n\ninternal class Second { }\n");
+
+        Assert.Equal("failed", result.Status);
+    }
+
+    [Fact]
+    public void RetryOverDeepCodeTheFirstParseSkipped_FinishesAndJudges()
+    {
+        // The retry parses code under #if A that the first parse skipped. It runs on its own
+        // thread with a large stack, and a moderate nest there still gets judged.
+        var result = PlanOne(DeepUnderIf(5_000));
+
+        Assert.Equal("failed", result.Status);
+    }
+
+    [Fact]
+    public void RetryPastItsTimeLimit_SkipsTheFileUnjudged()
+    {
+        // Parse time grows with the square of nesting depth. A retry that runs past its limit
+        // is cancelled, and the file is skipped, never failed and never split.
+        var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(DeepUnderIf(20_000), SourceParsing.Options);
+
+        Assert.Equal(SourceParsing.RetryTooSlowReason, SourceParsing.SymbolRetrySkipReason(tree, TimeSpan.FromMilliseconds(50)));
+    }
+
+    private static string DeepUnderIf(int depth) =>
+        "namespace Sample;\n\n#if A\ninternal class Z { int f = " + new string('(', depth) + "0" + new string(')', depth) + "; }\n#endif\n\n" +
+        "internal class Broken { void M( }\ninternal class Second { }\n";
+
+    [Fact]
     public void BrokenFile_WithNoConditionals_StillFails()
     {
         var result = PlanOne("namespace Sample;\n\ninternal class Broken { void M( }\ninternal class Second { }\n");

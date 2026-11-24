@@ -1525,7 +1525,11 @@ fifth round measured the `#error` check as quadratic: one crafted file with 80,0
 its directive by binary search, and that file takes about 53 seconds, close to the same
 file with `#warning` lines. A sixth round found the symbol retry grew faster than quadratic
 with distinct symbols: 160,000 took 278 seconds. A file whose `#if` lines name more than
-256 distinct symbols is now skipped without the retry, with its own reason. The same round
+256 distinct symbols is now skipped without the retry, with its own reason. The same round found that the retry parses code the first parse skipped, so 200,000
+nested parentheses under `#if A` overflowed the stack and ended the run. The retry now runs
+on a thread with a 256 MB stack. Parse time also grows with the square of nesting depth,
+and 40,000 nested parentheses took 65 seconds, so the retry stops after 10 seconds and the
+file is skipped unjudged, with its own reason. The same round
 found that an unconditional `#define` after a conditional `#undef` did not fix the symbol
 again. It now does, from that point in the file. The six repositories informed the symbol
 retry, so their result is no longer independent evidence for it. Confirming it needs

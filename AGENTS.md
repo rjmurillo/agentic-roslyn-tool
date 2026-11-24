@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 45 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 532 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 535 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -94,7 +94,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 532 passed, 0 failed
+dotnet test  -c Release      # must be 535 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -255,14 +255,16 @@ agent does not pay again.
   the build sets. One under `#if true`, under a symbol the file sets with `#define` or
   `#undef` outside any symbol-dependent `#if`, or under no `#if`, still fails the file,
   because every build of it fails. A `#define` inside `#if !NET` runs only in some builds,
-  so its symbol still depends on the build, and so does one that any such branch unsets.
+  so its symbol still depends on the build, and so does one that any such branch unsets,
+  until an unconditional `#define` or `#undef` later in the file fixes it again.
 - **With no symbols, a file can stop parsing at all.** `#if NET6_0_OR_GREATER` followed
   by `#elif NETSTANDARD` and no `#else` leaves no branch live here, and the expression
   around it breaks. BenchmarkDotNet has one. `SourceParsing.SymbolRetrySkipReason`
   re-parses with every symbol the file's `#if` lines name, and a file that parses then is
   skipped, not failed. Never split the symbol-defined tree: the build may not see it.
   Past 256 distinct symbols the retry does not run, because its parse time grows faster
-  than the symbol count. Such a file is skipped unjudged.
+  than the symbol count. The retry runs on a thread with a large stack and stops after 10
+  seconds, because it parses code the first parse skipped. Such files are skipped unjudged.
 - **`dotnet new` template sources are not C#.** Lines like `#if (UseXunit)` and
   placeholder names do not parse. Those files are `failed`, correctly. Tell the user to
   pass `--exclude` for the template folder. Do not change the parse rule to accept them.

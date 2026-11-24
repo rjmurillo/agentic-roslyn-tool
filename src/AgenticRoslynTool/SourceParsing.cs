@@ -34,6 +34,16 @@ internal static class SourceParsing
     /// <summary>The skip reason for a file whose <c>#if</c> lines name too many symbols to retry.</summary>
     internal const string TooManySymbolsReason = "does not parse with no preprocessor symbols, and its #if lines name too many symbols to retry; manual split required";
 
+    /// <summary>The skip reason for a file whose retry parse ran past its time limit.</summary>
+    internal const string RetryTooSlowReason = "does not parse with no preprocessor symbols, and the retry with its symbols ran past its time limit; manual split required";
+
+    /// <summary>
+    /// How long the retry may parse. The retry parses code the first parse skipped, and
+    /// Roslyn's parse time grows with the square of nesting depth: 40,000 nested parentheses
+    /// under an <c>#if</c> took 65 seconds. Past this limit the file is skipped unjudged.
+    /// </summary>
+    internal static readonly TimeSpan RetryTimeLimit = TimeSpan.FromSeconds(10);
+
     /// <summary>
     /// The most distinct symbols the retry defines. Real files name a handful. A crafted file
     /// with 160,000 made the retry parse take minutes, so past this count the file is skipped
@@ -65,8 +75,8 @@ internal static class SourceParsing
     /// conditions name no symbol, or only symbols the file sets itself with <c>#define</c>
     /// or <c>#undef</c> outside any symbol-dependent branch, has the same value in every
     /// build, so its <c>#error</c> still counts, as does one outside any <c>#if</c>. A
-    /// symbol any symbol-dependent branch sets or unsets counts as a build symbol everywhere
-    /// in the file.
+    /// symbol a symbol-dependent branch sets or unsets counts as a build symbol from there
+    /// on, until an unconditional <c>#define</c> or <c>#undef</c> later in the file fixes it.
     /// </remarks>
     internal static Diagnostic[] Errors(SyntaxTree tree)
     {
@@ -90,7 +100,7 @@ internal static class SourceParsing
     /// splitting it would split a tree the build never sees. A file that names more than
     /// <see cref="MaxRetrySymbols"/> symbols is skipped without the retry.
     /// </summary>
-    internal static string? SymbolRetrySkipReason(SyntaxTree tree)
+    internal static string? SymbolRetrySkipReason(SyntaxTree tree, TimeSpan? timeLimit = null)
     {
         var symbols = tree.GetCompilationUnitRoot().DescendantTrivia()
             .Select(t => t.GetStructure())
@@ -110,9 +120,38 @@ internal static class SourceParsing
             return TooManySymbolsReason;
         }
 
-        var withSymbols = CSharpSyntaxTree.ParseText(tree.GetText(), SourceParsing.Options.WithPreprocessorSymbols(symbols), path: tree.FilePath);
-        return Errors(withSymbols).Length == 0 ? SymbolDependentReason : null;
+        // The retry parses code the first parse skipped. A deep nest there can overflow the
+        // stack, which no catch can stop: 200,000 nested parentheses under #if A ended the
+        // whole run. So the retry runs on its own thread with a large stack. Roslyn checks a
+        // cancellation token too rarely inside a deep nest to bound the time, so the run
+        // stops waiting at the limit instead. The abandoned parse finishes, or the process
+        // exits, on a background thread; its result is never read.
+        var limit = timeLimit ?? RetryTimeLimit;
+        var cancel = new CancellationTokenSource(limit);
+        string? reason = null;
+        var retry = new Thread(
+            () =>
+            {
+                try
+                {
+                    var withSymbols = CSharpSyntaxTree.ParseText(tree.GetText(), SourceParsing.Options.WithPreprocessorSymbols(symbols), tree.FilePath, cancel.Token);
+                    reason = Errors(withSymbols).Length == 0 ? SymbolDependentReason : null;
+                }
+                catch (OperationCanceledException)
+                {
+                    reason = RetryTooSlowReason;
+                }
+            },
+            RetryStackBytes)
+        {
+            IsBackground = true,
+        };
+        retry.Start();
+        return retry.Join(limit) ? reason : RetryTooSlowReason;
     }
+
+    /// <summary>The stack size for the symbol retry's thread: 256 MB of address space.</summary>
+    private const int RetryStackBytes = 256 * 1024 * 1024;
 
     /// <summary>Renders diagnostics as one semicolon-separated string for a row's reason.</summary>
     internal static string Describe(IEnumerable<Diagnostic> diagnostics) =>
@@ -135,11 +174,9 @@ internal static class SourceParsing
     {
         var excused = new List<ErrorDirectiveTriviaSyntax>();
         // Symbols the file sets itself, outside any branch that depends on a build symbol.
-        // Only those have the same value in every build.
+        // Only those have the same value in every build. A #define under #if !NET removes its
+        // symbol from this set until an unconditional #define or #undef puts it back.
         var setByFile = new HashSet<string>(StringComparer.Ordinal);
-        // Symbols some symbol-dependent branch sets or unsets, such as a #define under
-        // #if !NET. Their value differs between builds, so they never count as set by the file.
-        var setByBuild = new HashSet<string>(StringComparer.Ordinal);
         // One entry per open #if group: whether any condition seen so far in it names a build
         // symbol. dependentGroups counts the true entries, so each check is constant time.
         var groups = new Stack<bool>();
@@ -152,10 +189,10 @@ internal static class SourceParsing
                 // not it is live here, so an inactive one counts too. Outside such a branch an
                 // inactive directive sits under a constant false condition and never runs.
                 case DefineDirectiveTriviaSyntax define when define.IsActive || dependentGroups > 0:
-                    RecordSet(define.Name.ValueText, dependentGroups > 0, setByFile, setByBuild);
+                    RecordSet(define.Name.ValueText, dependentGroups > 0, setByFile);
                     break;
                 case UndefDirectiveTriviaSyntax undef when undef.IsActive || dependentGroups > 0:
-                    RecordSet(undef.Name.ValueText, dependentGroups > 0, setByFile, setByBuild);
+                    RecordSet(undef.Name.ValueText, dependentGroups > 0, setByFile);
                     break;
                 case IfDirectiveTriviaSyntax ifDirective:
                     var ifDepends = NamesBuildSymbol(ifDirective.Condition, setByFile);
@@ -187,18 +224,16 @@ internal static class SourceParsing
         return index >= 0 && position < excused[index].Span.End;
     }
 
-    private static void RecordSet(string symbol, bool underBuildSymbol, HashSet<string> setByFile, HashSet<string> setByBuild)
+    private static void RecordSet(string symbol, bool underBuildSymbol, HashSet<string> setByFile)
     {
         if (underBuildSymbol)
         {
-            setByBuild.Add(symbol);
             setByFile.Remove(symbol);
         }
         else
         {
             // An unconditional #define or #undef fixes the symbol for every build from here on,
             // whatever a symbol-dependent branch did to it earlier.
-            setByBuild.Remove(symbol);
             setByFile.Add(symbol);
         }
     }
