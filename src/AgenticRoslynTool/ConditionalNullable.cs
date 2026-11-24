@@ -29,9 +29,9 @@ namespace AgenticRoslynTool;
 /// </list>
 /// <para>
 /// Earlier checks run first and refuse some of these files with their own reasons. A
-/// conditional <c>#nullable</c> inside the last type, after its start, is allowed when no
-/// definition is conditional: it sets context only for that type's members and travels with
-/// it. The refusal does not read conditions, so it also refuses <c>#if false</c>.
+/// conditional <c>#nullable</c> inside the last type, after its start, is allowed when the
+/// file holds no <c>#define</c> or <c>#undef</c>: it sets context only for that type's members
+/// and travels with it. The refusal does not read conditions, so it also refuses <c>#if false</c>.
 /// </para>
 /// See decision 31.
 /// </remarks>

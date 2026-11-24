@@ -1430,7 +1430,7 @@ Four other ways were tried and rejected:
 
 The `KeepDirectives` result was observed on Microsoft.CodeAnalysis.CSharp 5.9.0.
 
-**Consequences.** A file that split before still splits, with one exception. A file
+**Consequences.** A file that split before still splits, with two exceptions. A file
 where a `#nullable` under `#if` starts before the last type is now skipped, in any
 branch, even `#if false`, and even when a later unconditional directive overrides it. So
 is a file that holds a `#nullable` under `#if` and any `#define` or `#undef`. The parse
