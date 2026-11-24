@@ -244,7 +244,8 @@ internal sealed class FileSplitter
         var collisionNaming = CollisionNamingFlag.Resolve(_options.CollisionNaming, ManifestCollisionNaming.Read(_options.ManifestPath), _options.ManifestPath);
         var plannedFiles = SplitPlanner.IndexByInputPath(manifestPlan.Where(r => r.Status == "split"));
 
-        // Scanned again, not read from the plan. A project can change between phases.
+        // This phase scans for itself and does not trust the plan manifest. A project can
+        // change between phases.
         ScanCompileItems();
 
         // Every row, under the same paths the split index uses, so an input handed over by

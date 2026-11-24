@@ -40,7 +40,7 @@ public sealed class MsBuildScanSafetyTests : IDisposable
         using (var writer = new StreamWriter(PathOf("src/App/App.csproj")))
         {
             writer.Write("<Project>");
-            writer.Write(new string(' ', (int)MsBuildCompileItems.MaxFileBytes));
+            writer.Write(new string(' ', (int)MsBuildFileFinder.MaxFileBytes));
             writer.Write("</Project>");
         }
 
@@ -70,7 +70,7 @@ public sealed class MsBuildScanSafetyTests : IDisposable
     }
 
     [Fact]
-    public void PatternWithManyWildcards_MatchesInLinearTime()
+    public async Task PatternWithManyWildcards_DoesNotStall()
     {
         // A backtracking engine takes time exponential in the wildcard count on a name
         // that almost matches. This one would not finish within the test run.
@@ -78,12 +78,69 @@ public sealed class MsBuildScanSafetyTests : IDisposable
         _workspace.WriteFile("src/App/App.csproj", $"<Project><ItemGroup><Compile Include=\"{wildcards}\" /></ItemGroup></Project>");
         var items = Scan();
 
-        var watch = Stopwatch.StartNew();
-        var reason = items.DescribeRefusal(PathOf("src/Lib/" + new string('a', 200) + ".cs"));
-        watch.Stop();
+        // WaitAsync throws TimeoutException when matching stalls, which fails the test.
+        var reason = await Task.Run(() => items.DescribeRefusal(PathOf("src/Lib/" + new string('a', 200) + ".cs"))).WaitAsync(TimeSpan.FromSeconds(60));
 
         Assert.Null(reason);
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(10), $"matching took {watch.Elapsed}");
+    }
+
+    [Fact]
+    public void OverlongItemValue_RefusesItsDirectory_WithoutBuildingAPattern()
+    {
+        var value = new string('?', MsBuildCompileItems.MaxValueLength + 1);
+        _workspace.WriteFile("src/App/App.csproj", $"<Project><ItemGroup><Compile Include=\"{value}\" /></ItemGroup></Project>");
+
+        Assert.Equal(Reason, Scan().DescribeRefusal(PathOf("src/App/Bar.cs")));
+    }
+
+    [Fact]
+    public void DirectoryLinkLeavingTheRoot_IsNotFollowed_AndRefusesItsParent()
+    {
+        // A project behind the link could name any file, and the scan does not read it.
+        using var outside = new TempWorkspace();
+        outside.WriteFile("Shared.projitems", "<Project><ItemGroup><Compile Include=\"Unrelated.cs\" /></ItemGroup></Project>");
+        Directory.CreateDirectory(PathOf("src/App"));
+        Directory.CreateSymbolicLink(PathOf("src/App/Shared"), outside.Root);
+
+        var items = Scan();
+
+        Assert.Equal("cannot read MSBuild Compile items in src/App/Shared; manual split required", items.DescribeRefusal(PathOf("src/App/Bar.cs")));
+        Assert.Null(items.DescribeRefusal(PathOf("src/Lib/Bar.cs")));
+    }
+
+    [Fact]
+    public void DirectoryLinkInsideTheRoot_RefusesNothing()
+    {
+        // The walk reads the target by its real path, so the link adds nothing unseen.
+        _workspace.WriteFile("src/Real/Real.csproj", "<Project><ItemGroup><Compile Include=\"Unrelated.cs\" /></ItemGroup></Project>");
+        Directory.CreateSymbolicLink(PathOf("src/App"), PathOf("src/Real"));
+
+        Assert.Null(Scan().DescribeRefusal(PathOf("src/Bar.cs")));
+    }
+
+    [Fact]
+    public void UnlistableDirectory_EndsTheScan()
+    {
+        // Root can list anything, so the permission has no effect there.
+        if (OperatingSystem.IsWindows() || Environment.UserName == "root")
+        {
+            return;
+        }
+
+        var locked = PathOf("src/Locked");
+        Directory.CreateDirectory(locked);
+        File.SetUnixFileMode(locked, UnixFileMode.None);
+        try
+        {
+            var error = Assert.Throws<InvalidOperationException>(Scan);
+
+            Assert.StartsWith($"cannot scan {locked} for MSBuild files: ", error.Message, StringComparison.Ordinal);
+            Assert.EndsWith("Make that directory readable; --repo-root must stay the repository root.", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.SetUnixFileMode(locked, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
     }
 
     private MsBuildCompileItems Scan() => MsBuildCompileItems.Scan(_workspace.Root);

@@ -50,5 +50,18 @@ public sealed class MsBuildUnreadableFileTests : IDisposable
             MsBuildCompileItems.Scan(_workspace.Root).DescribeRefusal(PathOf("src/App/Bar.cs")));
     }
 
+    [Fact]
+    public void NamesReadBeforeTheError_StillRefuse()
+    {
+        // Keeping them only refuses more. The file is unreadable as well.
+        _workspace.WriteFile("src/App/App.csproj", "<Project><ItemGroup><Compile Include=\"../Lib/Bar.cs\" /></ItemGroup>");
+        var items = MsBuildCompileItems.Scan(_workspace.Root);
+
+        Assert.Equal(
+            "file is named by an MSBuild Compile item in src/App/App.csproj; manual split required",
+            items.DescribeRefusal(PathOf("src/Lib/Bar.cs")));
+        Assert.Equal(Reason, items.DescribeRefusal(PathOf("src/App/Baz.cs")));
+    }
+
     private string PathOf(string relativePath) => Path.Combine(_workspace.Root, relativePath);
 }

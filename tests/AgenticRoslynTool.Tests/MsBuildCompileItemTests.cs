@@ -15,6 +15,10 @@ public sealed class MsBuildCompileItemTests : IDisposable
     [InlineData("<Compile Include=\"..\\UnitTests\\SpecBase.cs\" Link=\"SpecBase.cs\" />", "SpecBase.cs")]
     [InlineData("<Compile Include=\"$(MSBuildThisFileDirectory)SpecBase.cs\" />", "SpecBase.cs")]
     [InlineData("<Compile Remove=\"SpecBase.cs\" />", "SpecBase.cs")]
+    [InlineData("<compile Include=\"..\\UnitTests\\SpecBase.cs\" />", "SpecBase.cs")]
+    [InlineData("<Compile Include=\"Shared%2FSpecBase.cs\" />", "SpecBase.cs")]
+    [InlineData("<Compile Include=\"Shared%5cSpec*.cs\" />", "SpecBase.cs")]
+    [InlineData("<Compile Include=\"$(Root)%2F$(Dir)SpecBase.cs\" />", "SpecBase.cs")]
     [InlineData("<Compile Update=\"SpecBase.cs\" DependentUpon=\"Other.cs\" />", "SpecBase.cs")]
     [InlineData("<Compile Include=\"**/*.cs\" Exclude=\"Legacy/SpecBase.cs\" />", "SpecBase.cs")]
     [InlineData("<Compile Include=\"Spec*.cs\" />", "SpecBase.cs")]
@@ -70,6 +74,22 @@ public sealed class MsBuildCompileItemTests : IDisposable
         Assert.Equal(
             "file is named by an MSBuild Compile item in Legacy/Legacy.csproj; manual split required",
             Scan().DescribeRefusal(InputPath("SpecBase.cs")));
+    }
+
+    [Fact]
+    public void SharedProjectItems_NameAFileThroughTheirOwnDirectory()
+    {
+        // The shape Visual Studio writes into a shared project's .projitems file.
+        _workspace.WriteFile(
+            "Shared/Shared.projitems",
+            "<Project xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">\n  <ItemGroup>\n    <Compile Include=\"$(MSBuildThisFileDirectory)Models\\SpecBase.cs\" />\n    <Compile Include=\"$(MSBuildThisFileDirectory)Other.cs\" />\n  </ItemGroup>\n</Project>\n");
+
+        var items = Scan();
+
+        Assert.Equal(
+            "file is named by an MSBuild Compile item in Shared/Shared.projitems; manual split required",
+            items.DescribeRefusal(InputPath("SpecBase.cs")));
+        Assert.Null(items.DescribeRefusal(InputPath("Unrelated.cs")));
     }
 
     [Theory]

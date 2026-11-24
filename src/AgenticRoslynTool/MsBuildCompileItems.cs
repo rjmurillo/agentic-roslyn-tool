@@ -23,25 +23,24 @@ namespace AgenticRoslynTool;
 /// </remarks>
 internal sealed class MsBuildCompileItems
 {
-    private static readonly string[] Extensions = [".csproj", ".props", ".targets", ".projitems", ".shproj"];
+    /// <summary>The longest item value read, in characters. A longer one makes its file unreadable, so no pattern is built from it.</summary>
+    internal const int MaxValueLength = 4096;
 
     private static readonly string[] ItemAttributes = ["Include", "Update", "Remove", "Exclude"];
-
-    /// <summary>The largest MSBuild file read, 16 MiB. A project that lists every file is a few megabytes at most.</summary>
-    internal const long MaxFileBytes = 16L * 1024 * 1024;
 
     private static readonly XmlReaderSettings ReaderSettings = new()
     {
         DtdProcessing = DtdProcessing.Prohibit,
         XmlResolver = null,
-        MaxCharactersInDocument = MaxFileBytes,
+        MaxCharactersInDocument = MsBuildFileFinder.MaxFileBytes,
     };
 
-    // Exact names are looked up, wildcards are matched. A project that lists every file can
-    // hold thousands of exact names and almost no wildcards.
+    // Each store is filled in ordinal file order, and the first file to add a key keeps it.
     private readonly Dictionary<string, string> _exactNames = new(StringComparer.OrdinalIgnoreCase);
 
-    private readonly List<(Regex Pattern, string File)> _patterns = [];
+    private readonly Dictionary<string, string> _suffixes = new(StringComparer.OrdinalIgnoreCase);
+
+    private readonly Dictionary<string, (Regex Pattern, string File)> _patterns = [];
 
     private readonly List<(string Directory, string File)> _unreadable = [];
 
@@ -53,25 +52,23 @@ internal sealed class MsBuildCompileItems
     /// <param name="file">The MSBuild file, relative to the repository root, with <c>/</c> separators.</param>
     internal static string NamedReason(string file) => $"file is named by an MSBuild Compile item in {file}; manual split required";
 
-    /// <summary>Reason recorded for an input in or below the directory of an MSBuild file that could not be read as XML.</summary>
-    /// <param name="file">The MSBuild file, relative to the repository root, with <c>/</c> separators.</param>
+    /// <summary>Reason recorded for an input in or below the directory of an MSBuild file, or a directory symlink, the scan could not read.</summary>
+    /// <param name="file">The unreadable path, relative to the repository root, with <c>/</c> separators.</param>
     internal static string UnreadableReason(string file) => $"cannot read MSBuild Compile items in {file}; manual split required";
 
-    /// <summary>
-    /// Reads every <c>.csproj</c>, <c>.props</c>, <c>.targets</c>, <c>.projitems</c>, and
-    /// <c>.shproj</c> file under <paramref name="repoRoot"/>. Directories named <c>bin</c>,
-    /// <c>obj</c>, and <c>.git</c> are skipped, and directory symlinks are not followed.
-    /// </summary>
+    /// <summary>Reads every path <see cref="MsBuildFileFinder.Find"/> returns for <paramref name="repoRoot"/>.</summary>
     /// <remarks>
     /// Files are read in ordinal order of their relative path, so the file a reason names is
-    /// the same on every run and every platform. A file that is not valid XML, cannot be
-    /// read, or is one <see cref="IsSafeToOpen"/> rejects is recorded as unreadable.
+    /// the same on every run and every platform. A path <see cref="MsBuildFileFinder.IsSafeToOpen"/>
+    /// rejects, a file that is not valid XML or cannot be read, and a file with an item value
+    /// over <see cref="MaxValueLength"/> are recorded as unreadable. Names read from a file
+    /// before its error still count, which only refuses more.
     /// </remarks>
-    /// <exception cref="InvalidOperationException">Thrown when a directory cannot be listed. A partial scan would let a split through that a missed project forbids.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when a directory cannot be listed.</exception>
     internal static MsBuildCompileItems Scan(string repoRoot)
     {
         var items = new MsBuildCompileItems();
-        var files = FindMsBuildFiles(repoRoot)
+        var files = MsBuildFileFinder.Find(repoRoot)
             .Select(path => (Path: path, Relative: Path.GetRelativePath(repoRoot, path).Replace('\\', '/')))
             .OrderBy(f => f.Relative, StringComparer.Ordinal);
 
@@ -79,11 +76,7 @@ internal sealed class MsBuildCompileItems
         {
             try
             {
-                if (IsSafeToOpen(path))
-                {
-                    items.Read(path, relative);
-                }
-                else
+                if (!MsBuildFileFinder.IsSafeToOpen(path) || !items.Read(path, relative))
                 {
                     items._unreadable.Add((Path.GetDirectoryName(path)!, relative));
                 }
@@ -99,28 +92,22 @@ internal sealed class MsBuildCompileItems
 
     /// <summary>
     /// Returns the reason an input must not be split, or null when no MSBuild file stands in
-    /// the way.
+    /// the way. A named refusal wins over an unreadable one.
     /// </summary>
     /// <param name="paths">Every full path the input is known by: where it was planned, and where it is read now.</param>
     internal string? DescribeRefusal(params string[] paths)
     {
-        // Both stores were filled in ordinal file order, so the first hit in each is that
-        // store's earliest file, and the smaller of the two is the earliest of all.
-        string? named = null;
-        foreach (var path in paths)
-        {
-            var name = Path.GetFileName(path);
-            if (_exactNames.TryGetValue(name, out var file))
-            {
-                named = Earliest(named, file);
-            }
-
-            var match = _patterns.FirstOrDefault(p => p.Pattern.IsMatch(name));
-            if (match.File is not null)
-            {
-                named = Earliest(named, match.File);
-            }
-        }
+        // Every file that names the input, from all three stores. The earliest is reported.
+        var named = paths
+            .Select(path => Path.GetFileName(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .SelectMany(name => Enumerable.Range(0, name.Length + 1)
+                .Select(start => _suffixes.GetValueOrDefault(name[start..]))
+                .Append(_exactNames.GetValueOrDefault(name))
+                .Concat(_patterns.Values.Where(p => p.Pattern.IsMatch(name)).Select(p => p.File)))
+            .OfType<string>()
+            .Order(StringComparer.Ordinal)
+            .FirstOrDefault();
 
         if (named is not null)
         {
@@ -133,49 +120,33 @@ internal sealed class MsBuildCompileItems
         return unreadable.File is null ? null : UnreadableReason(unreadable.File);
     }
 
-    /// <summary>
-    /// False for a file the scan will not open: a symlink, an empty file, or one over
-    /// <see cref="MaxFileBytes"/>. Each is treated as unreadable, which refuses inputs and
-    /// never lets one through.
-    /// </summary>
-    /// <remarks>
-    /// A symlink can point outside the repository or at a file of any size. A FIFO or a
-    /// device reports a length of zero, and opening one can block the run forever. An empty
-    /// file is not valid XML either, so the zero length check costs nothing real.
-    /// </remarks>
-    private static bool IsSafeToOpen(string path)
-    {
-        var file = new FileInfo(path);
-        return file.LinkTarget is null && file.Length is > 0 and <= MaxFileBytes;
-    }
-
-    private static string Earliest(string? current, string candidate) =>
-        current is null || string.CompareOrdinal(candidate, current) < 0 ? candidate : current;
-
-    private void Read(string path, string relative)
+    /// <summary>Reads one file. Returns false when an item value is too long to read safely.</summary>
+    private bool Read(string path, string relative)
     {
         using var reader = XmlReader.Create(path, ReaderSettings);
         while (reader.Read())
         {
-            if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "Compile")
+            // MSBuild reads item types without regard to case, so <compile> counts too.
+            if (reader.NodeType != XmlNodeType.Element || !reader.LocalName.Equals("Compile", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            foreach (var attribute in ItemAttributes)
+            var values = ItemAttributes
+                .Select(reader.GetAttribute)
+                .SelectMany(text => (text ?? string.Empty).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+            foreach (var value in values)
             {
-                var text = reader.GetAttribute(attribute);
-                if (text is null)
+                if (value.Length > MaxValueLength)
                 {
-                    continue;
+                    return false;
                 }
 
-                foreach (var value in text.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                {
-                    Add(value, relative);
-                }
+                Add(value, relative);
             }
         }
+
+        return true;
     }
 
     private void Add(string value, string relative)
@@ -184,47 +155,13 @@ internal sealed class MsBuildCompileItems
         {
             _exactNames.TryAdd(exact, relative);
         }
+        else if (CompileItemName.Suffix(value) is { } suffix)
+        {
+            _suffixes.TryAdd(suffix, relative);
+        }
         else if (CompileItemName.Matcher(value) is { } pattern)
         {
-            _patterns.Add((pattern, relative));
+            _patterns.TryAdd(pattern.ToString(), (pattern, relative));
         }
     }
-
-    /// <summary>Walks the tree by hand for the reason <see cref="InputSource.DiscoverSourceFiles"/> does.</summary>
-    private static List<string> FindMsBuildFiles(string root)
-    {
-        var files = new List<string>();
-        var pending = new Stack<string>();
-        pending.Push(root);
-        while (pending.Count > 0)
-        {
-            var directory = pending.Pop();
-            try
-            {
-                files.AddRange(Directory.EnumerateFiles(directory).Where(IsMsBuildFile));
-                foreach (var child in Directory.EnumerateDirectories(directory))
-                {
-                    var name = Path.GetFileName(child);
-                    var skipped = name.Equals("bin", StringComparison.OrdinalIgnoreCase)
-                        || name.Equals("obj", StringComparison.OrdinalIgnoreCase)
-                        || name.Equals(".git", StringComparison.OrdinalIgnoreCase);
-                    if (!skipped && new DirectoryInfo(child).LinkTarget is null)
-                    {
-                        pending.Push(child);
-                    }
-                }
-            }
-            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
-            {
-                throw new InvalidOperationException(
-                    $"cannot scan {directory} for MSBuild files: {ex.Message.TrimEnd('.')}. Pass --repo-root to name the repository's own root.",
-                    ex);
-            }
-        }
-
-        return files;
-    }
-
-    private static bool IsMsBuildFile(string path) =>
-        Extensions.Any(extension => path.EndsWith(extension, StringComparison.OrdinalIgnoreCase));
 }
