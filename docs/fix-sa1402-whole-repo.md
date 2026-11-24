@@ -131,10 +131,10 @@ leave it exactly as you reviewed it, and record what they did in a report file b
 `../split-types.report.csv` here. Pass `--report` to put it somewhere else. Do not point
 the content phase at a new, empty manifest path: it needs the plan.
 
-If a content run fails a file, fix the cause and run the same content command again.
-Never edit the source file to get past the tool. A failed check on a file your build
-compiles is a bug in the tool, so exclude that file and report it. The plan still lists
-that file as `split`. Files the first run already split are reported as
+If a content run fails a file, fix the cause and run the same content command again. The
+plan still lists that file as `split`. Never edit the source file to get past the tool. A
+failed check on a file your build compiles is a bug in the tool: pass `--exclude` with
+that file's path, run the plan again, and report it. Files the first run already split are reported as
 `skipped` with a reason that starts with `already applied`.
 
 ### What the split looks like
@@ -265,6 +265,7 @@ are most likely to see:
 | File already has one type | skipped | `nothing to split: input has 1 top-level type declaration(s)` |
 | Path matches `--exclude` | skipped | `excluded by pattern: <pattern>` |
 | File does not parse | failed | `input has syntax errors: <diagnostics>` |
+| File does not parse, and its `#if` lines name more than 256 symbols | skipped | `does not parse with no preprocessor symbols, and its #if lines name too many symbols to retry; manual split required` |
 | File parses only with the preprocessor symbols its `#if` lines name | skipped | `parses only with the preprocessor symbols its #if lines name, which this tool does not define; manual split required` |
 | File is a .NET 10 file-based program (`#:` or `#!` lines) | skipped | `file-based program (#: or #! directive): it compiles alone, so no type can move out of it` |
 

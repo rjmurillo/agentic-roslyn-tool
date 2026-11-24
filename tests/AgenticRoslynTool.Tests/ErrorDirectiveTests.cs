@@ -56,6 +56,8 @@ public sealed class ErrorDirectiveTests
     [InlineData("#if A\n#endif\n#error x", "CS1029")]
     [InlineData("#error version", "CS8304")]
     [InlineData("#endif\n#error x", "CS1029")]
+    // A bare #error right after an excused one is not covered by the excused directive.
+    [InlineData("#if A\n#error a\n#endif\n#error b", "CS1029")]
     public void Errors_ExcusesAnErrorDirectiveOnlyWhenItsBranchNamesASymbol(string directives, string? expectedId)
     {
         var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(
@@ -82,6 +84,12 @@ public sealed class ErrorDirectiveTests
     // depends on the build. The polyfill pattern below compiles in a build that defines NET.
     [InlineData("#if !NET\n#define LEGACY\n#endif\nnamespace Sample;\n\ninternal class Host\n{\n#if LEGACY\n#error legacy not supported\n#endif\n}\n", false)]
     [InlineData("#if !NET\n#undef MODERN\n#endif\nnamespace Sample;\n\ninternal class Host\n{\n#if !MODERN\n#error needs MODERN\n#endif\n}\n", false)]
+    // A #define in a branch inactive here still runs in the builds that take it.
+    [InlineData("#undef X\n#if NET\n#define X\n#endif\nnamespace Sample;\n\ninternal class Host\n{\n#if !X\n#error needs X\n#endif\n}\n", false)]
+    // An #elif that names a build symbol makes the whole group depend on the build.
+    [InlineData("#define X\nnamespace Sample;\n\ninternal class Host\n{\n#if !X\n#elif NET\n#else\n#error x\n#endif\n}\n", false)]
+    // An unconditional #define after a conditional #undef fixes the symbol again.
+    [InlineData("#if NET\n#undef FOO\n#endif\n#define FOO\nnamespace Sample;\n\ninternal class Host\n{\n#if FOO\n#error always\n#endif\n}\n", true)]
     // A symbol the file defines, then unsets only in some builds, depends on the build.
     [InlineData("#define X\n#if NET && !FOO\n#undef X\n#endif\nnamespace Sample;\n\ninternal class Host\n{\n#if X\n#error needs NET without FOO\n#endif\n}\n", false)]
     // A broken group beside an excused #error is still broken: only the #error's own

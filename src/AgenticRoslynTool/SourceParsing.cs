@@ -31,6 +31,16 @@ internal static class SourceParsing
     /// <summary>The skip reason for a file that parses only once its preprocessor symbols are defined.</summary>
     internal const string SymbolDependentReason = "parses only with the preprocessor symbols its #if lines name, which this tool does not define; manual split required";
 
+    /// <summary>The skip reason for a file whose <c>#if</c> lines name too many symbols to retry.</summary>
+    internal const string TooManySymbolsReason = "does not parse with no preprocessor symbols, and its #if lines name too many symbols to retry; manual split required";
+
+    /// <summary>
+    /// The most distinct symbols the retry defines. Real files name a handful. A crafted file
+    /// with 160,000 made the retry parse take minutes, so past this count the file is skipped
+    /// unjudged, never failed.
+    /// </summary>
+    internal const int MaxRetrySymbols = 256;
+
     /// <summary>The diagnostic IDs an <c>#error</c> directive raises.</summary>
     private static readonly HashSet<string> ErrorDirectiveIds = new(StringComparer.Ordinal) { "CS1029", "CS8304" };
 
@@ -63,7 +73,7 @@ internal static class SourceParsing
         var excused = SymbolDependentErrorDirectives(tree.GetCompilationUnitRoot());
         // The excused directives come in document order, so each diagnostic needs one binary
         // search. Scanning them all per diagnostic, or calling FindTrivia, was quadratic: a
-        // file with 40,000 guarded #error lines took about a minute.
+        // file with 80,000 guarded #error lines took minutes. Decision 33 has the numbers.
         var starts = excused.Select(e => e.Span.Start).ToArray();
         return tree.GetDiagnostics()
             .Where(d => d.Severity == DiagnosticSeverity.Error)
@@ -72,14 +82,15 @@ internal static class SourceParsing
     }
 
     /// <summary>
-    /// True when <paramref name="tree"/> has errors with no symbols defined, but none once
-    /// every symbol its <c>#if</c> and <c>#elif</c> conditions name is defined. With no
-    /// symbols, a group of branches that all name symbols leaves no branch live, and the
-    /// code around it can stop parsing. The real build defines one of them. The tool cannot
-    /// split such a file safely, because it would split a tree the build never sees, so the
-    /// caller skips it rather than failing it.
+    /// For a <paramref name="tree"/> with errors, the reason to skip it rather than fail it,
+    /// or null when it is broken under its symbols too. With no symbols, a group of branches
+    /// that all name symbols leaves no branch live, and the code around it can stop parsing.
+    /// The real build defines one of them. So the file is parsed again with every symbol its
+    /// <c>#if</c> and <c>#elif</c> conditions name, and a file that parses then is skipped:
+    /// splitting it would split a tree the build never sees. A file that names more than
+    /// <see cref="MaxRetrySymbols"/> symbols is skipped without the retry.
     /// </summary>
-    internal static bool ParsesWithItsSymbols(SyntaxTree tree)
+    internal static string? SymbolRetrySkipReason(SyntaxTree tree)
     {
         var symbols = tree.GetCompilationUnitRoot().DescendantTrivia()
             .Select(t => t.GetStructure())
@@ -91,11 +102,16 @@ internal static class SourceParsing
             .ToArray();
         if (symbols.Length == 0)
         {
-            return false;
+            return null;
+        }
+
+        if (symbols.Length > MaxRetrySymbols)
+        {
+            return TooManySymbolsReason;
         }
 
         var withSymbols = CSharpSyntaxTree.ParseText(tree.GetText(), SourceParsing.Options.WithPreprocessorSymbols(symbols), path: tree.FilePath);
-        return Errors(withSymbols).Length == 0;
+        return Errors(withSymbols).Length == 0 ? SymbolDependentReason : null;
     }
 
     /// <summary>Renders diagnostics as one semicolon-separated string for a row's reason.</summary>
@@ -178,8 +194,11 @@ internal static class SourceParsing
             setByBuild.Add(symbol);
             setByFile.Remove(symbol);
         }
-        else if (!setByBuild.Contains(symbol))
+        else
         {
+            // An unconditional #define or #undef fixes the symbol for every build from here on,
+            // whatever a symbol-dependent branch did to it earlier.
+            setByBuild.Remove(symbol);
             setByFile.Add(symbol);
         }
     }

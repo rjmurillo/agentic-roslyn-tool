@@ -250,7 +250,8 @@ earlier report, so do not point `--report` at a second plan you want to keep.
 
 Because the plan stays as you reviewed it, a content run can be repeated. When a row
 fails, fix the cause and run the same command again. Never edit a source file to get
-past the tool: a failed check on a file your build compiles is a bug in the tool. The retry applies the rows that
+past the tool: a failed check on a file your build compiles is a bug in the tool. Exclude
+that file, run the plan again, and report it. The retry applies the rows that
 failed. A row an earlier run already applied is reported as `skipped` with a reason that
 starts with `already applied`, and its files are not written again. A file that changed
 for any other reason since the plan is `skipped` with a `stale plan:` reason.

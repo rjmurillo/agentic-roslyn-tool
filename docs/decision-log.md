@@ -1521,8 +1521,13 @@ repository, found two more cases: a `#define` inside `#if !NET`, and a `#define`
 later `#if NET && !FOO` unsets. Each was taken as set in every build, which failed a valid
 file. A symbol any symbol-dependent branch sets or unsets now counts as a build symbol. A
 fifth round measured the `#error` check as quadratic: one crafted file with 80,000 guarded
-`#error` lines took 230 seconds. Each diagnostic now finds its directive by binary search,
-and that file takes about 53 seconds, close to the same file with `#warning` lines. The six repositories informed the symbol
+`#error` lines took between 230 and 311 seconds across two runs. Each diagnostic now finds
+its directive by binary search, and that file takes about 53 seconds, close to the same
+file with `#warning` lines. A sixth round found the symbol retry grew faster than quadratic
+with distinct symbols: 160,000 took 278 seconds. A file whose `#if` lines name more than
+256 distinct symbols is now skipped without the retry, with its own reason. The same round
+found that an unconditional `#define` after a conditional `#undef` did not fix the symbol
+again. It now does, from that point in the file. The six repositories informed the symbol
 retry, so their result is no longer independent evidence for it. Confirming it needs
 repositories that played no part in tuning it.
 

@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using Xunit;
 
 namespace AgenticRoslynTool.Tests;
@@ -53,6 +54,18 @@ public sealed class SymbolDependentParseTests
 
         Assert.Equal("failed", result.Status);
         Assert.StartsWith("input has syntax errors:", result.Reason);
+    }
+
+    [Fact]
+    public void BrokenFile_NamingTooManySymbols_IsSkippedWithoutTheRetry()
+    {
+        // The retry defines every symbol at once, and its parse time grows faster than the
+        // symbol count. Past the cap the file is skipped unjudged, never failed.
+        var groups = string.Concat(Enumerable.Range(0, SourceParsing.MaxRetrySymbols + 1).Select(i => $"#if S{i}\n#endif\n"));
+        var result = PlanOne("namespace Sample;\n\ninternal class Broken\n{\n" + groups + "    void M( }\n}\n\ninternal class Second { }\n");
+
+        Assert.Equal("skipped", result.Status);
+        Assert.Equal(SourceParsing.TooManySymbolsReason, result.Reason);
     }
 
     [Fact]

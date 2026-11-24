@@ -54,7 +54,7 @@ step runs the same build). Below, `<tool>` means whichever you use.
        1 and 2 with `--exclude` and that row's `keptPath`, so only that file is left out.
      - `output check failed`: the tool's own check refused a split it built, and wrote
        nothing. If the run passed `--require-header`, make sure that header is a comment
-       and run again. Otherwise the tool is wrong: exclude that row's `keptPath` the same
+       and re-run step 2 with the corrected header. Otherwise the tool is wrong: exclude that row's `keptPath` the same
        way.
      - When the tool is wrong, tell the user to report it at
        https://github.com/rjmurillo/agentic-roslyn-tool/issues.
