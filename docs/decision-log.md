@@ -1379,6 +1379,54 @@ parses with the preview language version, so new syntax parses with no error. A 
 bind to a type with no name at the use site needs a new refusal here. Extension blocks in
 C# 14 were one.
 
+### Decision 32. A renamed kept file is a planned output, and the new file yields to it
+
+**Context.** The name collision pass compared new files with new files only. A renamed
+kept file was never an entry. A whole repository plan of AutoMapper at `79d10de` hit the
+gap. `ProjectCollectionsBug.cs` kept type `A` and planned a rename to `Bug/A.cs`.
+`AssignableCollectionBug.cs` moved its own `A` to `Bug/A.cs`. Both rows said `split`.
+The rename landed, and content skipped the second file with `target path already exists`.
+Nothing was overwritten, but the plan promised a split that could not happen. The
+renamed file was also left unsplit. Qualified names had the same blind spot. A qualified
+name was never checked against another input's path.
+
+**Decision.** Every path a `split` row creates or renames into is unique across the plan,
+ignoring case. `PlannedOutputClaims` enforces it in two steps around the name pass.
+Before names are qualified, a row whose computed new file is another row's rename target
+is skipped. After they are qualified, a row whose new file is any path another row
+creates, renames into, or leaves in place is skipped. The reason is `planned output path
+collision with another input requires manual handling`. The note names the path and the
+other input. Two inputs that rename to one target stay as they were: the first renames,
+and the other keeps its name, as `KeptRenameCollisions` decides under decision 24.
+
+Three other answers were weighed and rejected.
+
+- Qualify the new file, as a name collision is. The content phase probes the computed
+  simple name before it reads the manifest path. After the rename, that name exists, so
+  content still skips the row. Making it work needs an exemption in that probe, which
+  rule 10 in `AGENTS.md` forbids.
+- Drop the rename and keep the new file. The renames and content phases recompute the
+  rename. Whether the target exists then depends on which input ran first, so the result
+  depends on input order.
+- Refuse both rows. The rename owner's plan is sound alone, so that loses a split for
+  nothing.
+
+**Consequences.** The new file's owner is left whole for a human. On AutoMapper that is
+one file out of 165 planned splits, and content now splits all 164 the plan marks. A row
+refused first no longer pushes its partners into a qualified name. On AutoMapper,
+`ProjectCollectionsBug.cs` now moves `B` to `B.cs`, not `ProjectCollectionsBug.B.cs`. A
+plan with no such collision comes back as the same rows, so its manifest is byte for byte
+the same. A same name, different case pair counts as a collision on every platform, as
+it does for every other collision check.
+
+**Reversal warning.** Drop the first step and the AutoMapper shape returns: the plan says
+`split` and content skips the row after its rename already landed. Drop the second and a
+qualified name can land on another input's file, with the same result. Qualify the new
+file in place of refusing it, and you must also exempt the computed path probe. That
+reopens the path rule 10 closed. `RenameTargetCollisionTests` and
+`QualifiedClaimCollisionTests` pin both steps under both `--collision-naming` values and
+both input orders.
+
 ## Credit
 
 The approach owes a debt to Lizzy Gallagher's write up on Roslyn refactoring,
