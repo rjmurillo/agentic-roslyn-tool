@@ -24,8 +24,8 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 46 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 550 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 47 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 553 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -50,6 +50,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `OutputBuilder.cs` | Renders the text of every output file: name, carved source, required header, trailing newline. |
 | `OutputVerifier.cs` | The correctness checks, run against in-memory outputs before anything is written. A failure here means nothing reaches disk. |
 | `SourceParsing.cs` | The one parse rule: the parse options, which errors mean a file is not valid C#, and how to spot a file-based program. Every parse goes through it. |
+| `SymbolRetry.cs` | Runs the symbol retry parse in a child process, so a crash or a stall there skips one file instead of ending the run. |
 | `WorkspaceWriter.cs` | The only place the tool touches the working tree. Every rename runs through `git mv`; every write preserves encoding and byte order mark. |
 | `GitCommand.cs` | Runs one git command with a time limit. Passes each argument on its own, reads both streams, and kills git and its children on expiry. |
 | `Program.cs` | Top level statements. Verb dispatch, error handling, exit codes, output selection. Decides which file a run writes: the manifest in `plan`, the report otherwise. Declares no type. |
@@ -95,7 +96,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 550 passed, 0 failed
+dotnet test  -c Release      # must be 553 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -264,11 +265,12 @@ agent does not pay again.
   re-parses with every symbol the file's `#if` lines name, and a file that parses then is
   skipped, not failed. Never split the symbol-defined tree: the build may not see it.
   Past 256 distinct symbols the retry does not run, because its parse time grows faster
-  than the symbol count. Past 1,000 nested brackets it does not run either, because it
-  parses code the first parse skipped, and Roslyn recurses once per bracket: a deep nest
-  overflowed even a 256 MB stack. The depth is counted on the lexer, which does not
-  recurse. Such files are skipped unjudged. Do not trade the depth check for a bigger
-  stack or a timer; round 8 showed both only move the crash.
+  than the symbol count. The retry runs in a child process (`SymbolRetry`), because it
+  parses code the first parse skipped and Roslyn recurses: deep parentheses, generic
+  arguments, interpolated strings, and `is not` chains each overflowed the stack in-process.
+  A crash or a stall past 30 seconds ends only the child, and the file is skipped unjudged.
+  Do not move the retry back in-process behind a guard; rounds 7 to 9 tried a bigger stack,
+  a timer, and a depth count, and each missed a shape.
 - **`dotnet new` template sources are not C#.** Lines like `#if (UseXunit)` and
   placeholder names do not parse. Those files are `failed`, correctly. Tell the user to
   pass `--exclude` for the template folder. Do not change the parse rule to accept them.

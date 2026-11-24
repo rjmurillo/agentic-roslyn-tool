@@ -1526,13 +1526,16 @@ its directive by binary search, and that file takes about 53 seconds, close to t
 file with `#warning` lines. A sixth round found the symbol retry grew faster than quadratic
 with distinct symbols: 160,000 took 278 seconds. A file whose `#if` lines name more than
 256 distinct symbols is now skipped without the retry, with its own reason. The same round found that the retry parses code the first parse skipped, so 200,000
-nested parentheses under `#if A` overflowed the stack and ended the run. A seventh round
-tried a thread with a 256 MB stack and a 10-second wait. An eighth round showed that only
-moved the crash: 500,000 nested parentheses still overflowed it, and abandoned parses
-piled up threads and memory. Parse time also grows with the square of depth: 40,000 took
-65 seconds. So the depth is now checked before the retry parses. The lexer, which does not
-recurse, counts the deepest bracket nesting under the retry's symbols. Past 1,000 the file
-is skipped unjudged, with its own reason, and the retry never starts. The same round
+nested parentheses under `#if A` overflowed the stack and ended the run. Rounds seven to nine
+tried guards inside the process: a thread with a 256 MB stack and a 10-second wait, then a
+bracket depth count on the lexer. Each caught one shape and missed the next. A deeper nest
+still overflowed the larger stack. Abandoned parses piled up threads and memory. The lexer
+itself recurses inside interpolated strings. Generic arguments, `<` chains, and `is not`
+chains nest with no bracket at all. The maintainer chose to run the retry in a child
+process. The tool starts itself with a hidden verb and sends the symbols and the text over
+standard input. A crash, a stall past 30 seconds, or a failed start ends only the child, and
+its file is skipped unjudged, with its own reason. Six crafted files that each crashed an
+in-process retry now take 9 seconds in all, and the run goes on. The same round
 found that an unconditional `#define` after a conditional `#undef` did not fix the symbol
 again. It now does, from that point in the file. The six repositories informed the symbol
 retry, so their result is no longer independent evidence for it. Confirming it needs

@@ -265,7 +265,7 @@ are most likely to see:
 | File already has one type | skipped | `nothing to split: input has 1 top-level type declaration(s)` |
 | Path matches `--exclude` | skipped | `excluded by pattern: <pattern>` |
 | File does not parse | failed | `input has syntax errors: <diagnostics>` |
-| File does not parse, and nests brackets more than 1,000 deep | skipped | `does not parse with no preprocessor symbols, and it nests brackets too deeply to retry; manual split required` |
+| File does not parse, and the retry with its symbols crashes or runs past 30 seconds | skipped | `does not parse with no preprocessor symbols, and the retry with its symbols did not finish; manual split required` |
 | File does not parse, and its `#if` lines name more than 256 symbols | skipped | `does not parse with no preprocessor symbols, and its #if lines name too many symbols to retry; manual split required` |
 | File parses only with the preprocessor symbols its `#if` lines name | skipped | `parses only with the preprocessor symbols its #if lines name, which this tool does not define; manual split required` |
 | File is a .NET 10 file-based program (`#:` or `#!` lines) | skipped | `file-based program (#: or #! directive): it compiles alone, so no type can move out of it` |

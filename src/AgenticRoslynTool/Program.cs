@@ -15,6 +15,14 @@ if (args.Length == 0)
 }
 
 var verb = args[0];
+
+// The symbol retry's child process. Hidden from help: only SymbolRetry starts it.
+if (verb == SymbolRetry.Verb)
+{
+    using var input = new StreamReader(Console.OpenStandardInput(), new System.Text.UTF8Encoding(false));
+    return SymbolRetry.RunChild(input);
+}
+
 if (verb is "--help" or "-h" or "help")
 {
     PrintUsage(Console.Out);
