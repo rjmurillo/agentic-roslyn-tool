@@ -706,6 +706,19 @@ The only method that writes source files.
   the kept path, so the restore writes there and no `git mv` is undone. `WriteOutputs`
   never moves a file.
 
+### Blank line collapse
+
+`BuildOutputs` runs each output through `BlankLineCollapser` before it renders text.
+
+- A run of three or more blank lines outside every type's owned span is cut to two.
+- Every top-level type's owned span is left byte for byte, blank lines included. The span
+  is the one `VerifyOutputs` checks, from `OutputVerifier.GetTypeOwnedStart` to the end
+  of the declaration.
+- The work runs on Roslyn trivia, never on text, so a blank line inside a block comment or
+  an `#if` region is never touched.
+
+Verified by `BlankLineRunInsideTypeTests` and `OwnedTriviaTests`.
+
 ### Encoding round trip
 
 `EncodedSource` captures the encoding, whether a byte order mark was present, the newline

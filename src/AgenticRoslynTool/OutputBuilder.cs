@@ -63,7 +63,9 @@ internal static class OutputBuilder
     /// <c>SyntaxRemoveOptions.KeepUnbalancedDirectives</c> to prevent orphaned
     /// preprocessor tokens, assembly-level attributes are cleared on non-kept outputs
     /// (attributes stay only in the kept file), and the tree is run through
-    /// <see cref="BlankLineCollapser"/> before serialization. The header is injected
+    /// <see cref="BlankLineCollapser"/> before serialization. The collapser leaves each
+    /// remaining type's owned span untouched, because the verifier requires that text to
+    /// appear unchanged. The header is injected
     /// after body text is captured so line-conservation counting is not confused by
     /// it.
     /// </summary>
@@ -80,7 +82,7 @@ internal static class OutputBuilder
                 newRoot = newRoot.WithAttributeLists(default);
             }
 
-            newRoot = (CompilationUnitSyntax)new BlankLineCollapser().Visit(newRoot)!;
+            newRoot = (CompilationUnitSyntax)new BlankLineCollapser(newRoot).Visit(newRoot)!;
             var rendered = newRoot.ToFullString();
             var body = EnsureTrailingNewLine(rendered, source.NewLine, source.HasFinalNewLine);
             var text = EnsureHeader(rendered, header);

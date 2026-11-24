@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 43 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 469 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 479 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -73,7 +73,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `PlannedFile.cs` | One output file inside a plan, before content is rendered. `Holds` says which types an output declares: its own, and in the kept file every `file` type. |
 | `PlannedOutputEntry.cs` | A planned output path paired with its owning input, used for cross file collision detection. |
 | `OutputFile.cs` | Rendered output. `BodyText` excludes any injected header; `Text` includes it. |
-| `BlankLineCollapser.cs` | Collapses the blank line runs left behind when a type is removed. |
+| `BlankLineCollapser.cs` | Collapses the blank line runs left behind when a type is removed. Never touches a type's owned span. |
 | `DirectiveInfo.cs` | One preprocessor directive and its span. |
 | `DirectiveSafety.cs` | Verdict on whether directives make a file unsafe to split. |
 | `FileResult.cs` | One manifest or report row. Owns the `split`, `skipped`, `failed` status vocabulary. |
@@ -92,7 +92,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 469 passed, 0 failed
+dotnet test  -c Release      # must be 479 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -462,16 +462,20 @@ agent does not pay again.
 - **Keep paths out of a row's note unless the collision pass wrote them.** The content
   phase searches `planned.Note` for a collision name. The `file` type note carries type
   names only for that reason.
+- **A blank line run inside a type is owned text.** `BlankLineCollapser` once cut every
+  run of three or more blank lines to two, inside types too. The ownership check then
+  found the type zero times, and a valid file ended `failed`. Dapper's `SqliteTests.cs`
+  hit it. The space after a `{` and a line of only spaces looked guilty and were not.
+  Remove one blank line and see whether the row changes before you blame a character.
+  Decision 35.
 
 ## Known issues, not yet fixed
 
 Recorded so nobody rediscovers them and nobody assumes they are intentional.
 
-- The ownership check counts text, so some valid inputs end `failed` at plan time. A type
-  with three blank lines in a row inside its body is one: the blank line collapse rewrites
-  the body, and the check then finds the original text zero times. A comment above the
-  first type that repeats a one line declaration is another: every output repeats the
-  comment. Nothing is written in either case. This is true with or without a `file` type.
+- The ownership check counts text, so some valid inputs end `failed` at plan time. A
+  comment above the first type that repeats a one line declaration is one: every output
+  repeats the comment. Nothing is written. This is true with or without a `file` type.
   An input with a `file` type used to be skipped before this check ran, and now reaches
   it like any other input.
 

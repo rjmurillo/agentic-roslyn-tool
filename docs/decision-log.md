@@ -1328,7 +1328,7 @@ one of eight new reasons, or with any reason that applies to an ordinary input, 
 `#region` over two types. That old reason is gone. Such a file can also end `failed`, as any ordinary input can. One known
 case: the ownership check counts text, so a type with three blank lines in a row in its
 body fails that check at plan time, and nothing is written. That defect is older than
-this change and `AGENTS.md` lists it. When the kept type is a class or record,
+this change. Decision 35 fixes it. When the kept type is a class or record,
 one SA1402 warning stays for each `file` class or record, and a person must suppress it. The scan is conservative,
 so some safe inputs are skipped: a moved type that merely has a member named like the
 `file` type, any input with an `#if` branch the parse excludes, a balanced `#pragma
@@ -1378,6 +1378,42 @@ Re-check this argument when the C# language version or the Roslyn package change
 parses with the preview language version, so new syntax parses with no error. A new way to
 bind to a type with no name at the use site needs a new refusal here. Extension blocks in
 C# 14 were one.
+
+### Decision 35. The blank line collapse stays out of every type's owned span
+
+**Context.** `BlankLineCollapser` cut every run of three or more blank lines to two. It
+did this inside types too. The ownership check in `OutputVerifier` then looked for the
+type's original text and found it zero times. So a file the compiler accepts ended
+`failed`, and nothing was written. Dapper's `tests/Dapper.Tests/Providers/SqliteTests.cs`
+at `188094784256da61d7a37c43ea54c64213c2ce7c` hit this. Its kept type `SqliteTests` holds
+three blank lines in a row. The row read `declaration and owned trivia for SqliteTests
+appears 0 times across outputs, expected 1`. Three controls isolated the cause. Delete
+one of the three lines, and the file splits. Strip the space after the `{` on line 130,
+or empty the line that holds only spaces, and it still fails. So the run's length is the
+cause. The `#pragma` lines were not involved. Moved types failed the same way.
+
+**Decision.** The collapser does not descend into a top-level type. Of that type's trivia
+it collapses only the leading trivia above the owned start. That is where removing a
+neighbor leaves its seam. It finds types with `TopLevelType.Find`. It finds the boundary
+with `OutputVerifier.GetTypeOwnedStart`. The span it protects is therefore the span the
+verifier checks. The verifier was not changed.
+
+**Alternatives considered.** Loosen the ownership check to ignore blank lines. Rejected
+because it weakens a guard to satisfy it, as decision 7 warns. Drop the collapse
+entirely. Rejected because the run between two types would then grow on every split.
+
+**Consequences.** A run of blank lines inside a type is kept byte for byte, in the kept
+file and in every new file. Runs outside every type still collapse to two. The collapse
+stays on Roslyn trivia, per decision 3. With this build, the Dapper file splits into four
+files, and `tests/Dapper.Tests` builds for `net10.0` with no errors. The content phase was
+also run over nunit at `da9d5b61cbf7edcdef7ec896d678b0e1ef6ba966` and MassTransit at
+`d9f61f764c802785cc9a4be92547d8f5b63018d4`. Its output matched the previous build byte
+for byte. `BlankLineRunInsideTypeTests` pins the change with LF and CRLF inputs.
+
+**Reversal warning.** Let the collapse run inside a type again, and any type with three
+blank lines in a row ends `failed`. Protect a span other than the one the verifier
+checks, and the two drift. A doc comment followed by blank lines is the first shape that
+breaks.
 
 ## Credit
 
