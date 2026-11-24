@@ -78,23 +78,34 @@ public sealed class SymbolDependentParseTests
     }
 
     [Fact]
-    public void RetryOverDeepCodeTheFirstParseSkipped_FinishesAndJudges()
+    public void RetryOverModerateNesting_StillJudges()
     {
-        // The retry parses code under #if A that the first parse skipped. It runs on its own
-        // thread with a large stack, and a moderate nest there still gets judged.
-        var result = PlanOne(DeepUnderIf(5_000));
+        var result = PlanOne(DeepUnderIf(SourceParsing.MaxRetryDepth - 10));
 
         Assert.Equal("failed", result.Status);
     }
 
     [Fact]
-    public void RetryPastItsTimeLimit_SkipsTheFileUnjudged()
+    public void RetryOverDeepCodeTheFirstParseSkipped_IsSkippedBeforeItParses()
     {
-        // Parse time grows with the square of nesting depth. A retry that runs past its limit
-        // is cancelled, and the file is skipped, never failed and never split.
-        var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(DeepUnderIf(20_000), SourceParsing.Options);
+        // The retry parses code under #if A that the first parse skipped. 500,000 nested
+        // parentheses there overflowed even a 256 MB stack and ended the run. The depth check
+        // runs first, on the lexer, so this returns at once.
+        var result = PlanOne(DeepUnderIf(500_000));
 
-        Assert.Equal(SourceParsing.RetryTooSlowReason, SourceParsing.SymbolRetrySkipReason(tree, TimeSpan.FromMilliseconds(50)));
+        Assert.Equal("skipped", result.Status);
+        Assert.Equal(SourceParsing.TooDeepReason, result.Reason);
+    }
+
+    [Fact]
+    public void DepthCheck_IsNotFooledByBracketsInStrings()
+    {
+        // A raw text count would read ( ")" ( ")" ... as depth 1. The lexer reads the strings
+        // as tokens, so the real depth counts.
+        var nest = string.Concat(Enumerable.Repeat("(\")\" + ", SourceParsing.MaxRetryDepth + 10)) + "0" + new string(')', SourceParsing.MaxRetryDepth + 10);
+        var result = PlanOne("namespace Sample;\n\n#if A\ninternal class Z { object f = " + nest + "; }\n#endif\n\ninternal class Broken { void M( }\ninternal class Second { }\n");
+
+        Assert.Equal(SourceParsing.TooDeepReason, result.Reason);
     }
 
     private static string DeepUnderIf(int depth) =>

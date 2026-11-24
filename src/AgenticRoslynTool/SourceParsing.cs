@@ -34,15 +34,17 @@ internal static class SourceParsing
     /// <summary>The skip reason for a file whose <c>#if</c> lines name too many symbols to retry.</summary>
     internal const string TooManySymbolsReason = "does not parse with no preprocessor symbols, and its #if lines name too many symbols to retry; manual split required";
 
-    /// <summary>The skip reason for a file whose retry parse ran past its time limit.</summary>
-    internal const string RetryTooSlowReason = "does not parse with no preprocessor symbols, and the retry with its symbols ran past its time limit; manual split required";
+    /// <summary>The skip reason for a file nested too deeply to retry safely.</summary>
+    internal const string TooDeepReason = "does not parse with no preprocessor symbols, and it nests brackets too deeply to retry; manual split required";
 
     /// <summary>
-    /// How long the retry may parse. The retry parses code the first parse skipped, and
-    /// Roslyn's parse time grows with the square of nesting depth: 40,000 nested parentheses
-    /// under an <c>#if</c> took 65 seconds. Past this limit the file is skipped unjudged.
+    /// The deepest bracket nesting the retry will parse. The retry parses code the first
+    /// parse skipped, and Roslyn's parser recurses once per bracket: 500,000 nested
+    /// parentheses under an <c>#if</c> overflowed even a 256 MB stack, and parse time grows
+    /// with the square of depth. Real code nests a few dozen deep. Past this depth the file
+    /// is skipped unjudged, before the retry starts.
     /// </summary>
-    internal static readonly TimeSpan RetryTimeLimit = TimeSpan.FromSeconds(10);
+    internal const int MaxRetryDepth = 1_000;
 
     /// <summary>
     /// The most distinct symbols the retry defines. Real files name a handful. A crafted file
@@ -98,9 +100,10 @@ internal static class SourceParsing
     /// The real build defines one of them. So the file is parsed again with every symbol its
     /// <c>#if</c> and <c>#elif</c> conditions name, and a file that parses then is skipped:
     /// splitting it would split a tree the build never sees. A file that names more than
-    /// <see cref="MaxRetrySymbols"/> symbols is skipped without the retry.
+    /// <see cref="MaxRetrySymbols"/> symbols, or nests brackets deeper than
+    /// <see cref="MaxRetryDepth"/>, is skipped without the retry.
     /// </summary>
-    internal static string? SymbolRetrySkipReason(SyntaxTree tree, TimeSpan? timeLimit = null)
+    internal static string? SymbolRetrySkipReason(SyntaxTree tree)
     {
         var symbols = tree.GetCompilationUnitRoot().DescendantTrivia()
             .Select(t => t.GetStructure())
@@ -120,38 +123,41 @@ internal static class SourceParsing
             return TooManySymbolsReason;
         }
 
-        // The retry parses code the first parse skipped. A deep nest there can overflow the
-        // stack, which no catch can stop: 200,000 nested parentheses under #if A ended the
-        // whole run. So the retry runs on its own thread with a large stack. Roslyn checks a
-        // cancellation token too rarely inside a deep nest to bound the time, so the run
-        // stops waiting at the limit instead. The abandoned parse finishes, or the process
-        // exits, on a background thread; its result is never read.
-        var limit = timeLimit ?? RetryTimeLimit;
-        var cancel = new CancellationTokenSource(limit);
-        string? reason = null;
-        var retry = new Thread(
-            () =>
-            {
-                try
-                {
-                    var withSymbols = CSharpSyntaxTree.ParseText(tree.GetText(), SourceParsing.Options.WithPreprocessorSymbols(symbols), tree.FilePath, cancel.Token);
-                    reason = Errors(withSymbols).Length == 0 ? SymbolDependentReason : null;
-                }
-                catch (OperationCanceledException)
-                {
-                    reason = RetryTooSlowReason;
-                }
-            },
-            RetryStackBytes)
+        var withSymbolsOptions = SourceParsing.Options.WithPreprocessorSymbols(symbols);
+        if (MaxBracketDepth(tree.GetText().ToString(), withSymbolsOptions) > MaxRetryDepth)
         {
-            IsBackground = true,
-        };
-        retry.Start();
-        return retry.Join(limit) ? reason : RetryTooSlowReason;
+            return TooDeepReason;
+        }
+
+        var withSymbols = CSharpSyntaxTree.ParseText(tree.GetText(), SourceParsing.Options.WithPreprocessorSymbols(symbols), path: tree.FilePath);
+        return Errors(withSymbols).Length == 0 ? SymbolDependentReason : null;
     }
 
-    /// <summary>The stack size for the symbol retry's thread: 256 MB of address space.</summary>
-    private const int RetryStackBytes = 256 * 1024 * 1024;
+    /// <summary>
+    /// The deepest bracket nesting the retry would parse. The lexer runs in one pass with no
+    /// recursion, under the same symbols as the retry, so it sees exactly the code the retry
+    /// would parse. Brackets inside strings and comments are not tokens, so they cannot hide
+    /// a nest. A close never drops the depth below zero, so closes placed early cannot hide
+    /// a deep nest later.
+    /// </summary>
+    private static int MaxBracketDepth(string text, CSharpParseOptions options)
+    {
+        var depth = 0;
+        var max = 0;
+        foreach (var token in SyntaxFactory.ParseTokens(text, options: options))
+        {
+            if (token.IsKind(SyntaxKind.OpenParenToken) || token.IsKind(SyntaxKind.OpenBracketToken) || token.IsKind(SyntaxKind.OpenBraceToken))
+            {
+                max = Math.Max(max, ++depth);
+            }
+            else if ((token.IsKind(SyntaxKind.CloseParenToken) || token.IsKind(SyntaxKind.CloseBracketToken) || token.IsKind(SyntaxKind.CloseBraceToken)) && depth > 0)
+            {
+                depth--;
+            }
+        }
+
+        return max;
+    }
 
     /// <summary>Renders diagnostics as one semicolon-separated string for a row's reason.</summary>
     internal static string Describe(IEnumerable<Diagnostic> diagnostics) =>

@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 46 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 549 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 550 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -95,7 +95,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 549 passed, 0 failed
+dotnet test  -c Release      # must be 550 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -264,8 +264,11 @@ agent does not pay again.
   re-parses with every symbol the file's `#if` lines name, and a file that parses then is
   skipped, not failed. Never split the symbol-defined tree: the build may not see it.
   Past 256 distinct symbols the retry does not run, because its parse time grows faster
-  than the symbol count. The retry runs on a thread with a large stack and stops after 10
-  seconds, because it parses code the first parse skipped. Such files are skipped unjudged.
+  than the symbol count. Past 1,000 nested brackets it does not run either, because it
+  parses code the first parse skipped, and Roslyn recurses once per bracket: a deep nest
+  overflowed even a 256 MB stack. The depth is counted on the lexer, which does not
+  recurse. Such files are skipped unjudged. Do not trade the depth check for a bigger
+  stack or a timer; round 8 showed both only move the crash.
 - **`dotnet new` template sources are not C#.** Lines like `#if (UseXunit)` and
   placeholder names do not parse. Those files are `failed`, correctly. Tell the user to
   pass `--exclude` for the template folder. Do not change the parse rule to accept them.
