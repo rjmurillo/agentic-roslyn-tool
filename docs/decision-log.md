@@ -1474,8 +1474,9 @@ that an unchecked split of such an input still breaks where the kept file's `fil
 loses the context.
 
 The context check reads each output's body, before any `--require-header` banner, as
-line conservation does. A banner that holds a `#nullable` line, or a `#define`, changes
-every new file the same way, because the caller asked for it. An earlier draft checked
+line conservation does. A banner that holds a `#nullable` line, or a `#define`, applies to
+every new file, because the caller asked for it. A restated line sits below the banner, so
+it still wins for a type that had its own context in the source. An earlier draft checked
 the full text, and that failed every split whose banner held a `#nullable` line.
 
 Each type asks about the same source tree, so `SourceDirectives` lists a tree's

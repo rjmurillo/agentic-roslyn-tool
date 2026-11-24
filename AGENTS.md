@@ -535,7 +535,8 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   applies to them instead. `NullableDirectives` treats "no directive" as the same default
   on both sides, so it does not add a `#nullable disable` for this. The other way round
   happens too. A type named `TemporaryGeneratedFile_Beta` lands in a file Roslyn reads as
-  generated. There a restated `#nullable restore` means disabled, not the project default.
+  generated. A type that read the project default in the source gets no restated line, and
+  with no directive that file reads disabled.
 
 - A `#warning` or `#error` directive above the namespace is copied into every output, so
   a build reports it once for each new file. This is true with or without a `file` type.
@@ -546,7 +547,10 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   and a `file` type in that file raised CS8618 where it raised nothing before. This is
   true with or without a `file` type. A comment above a `using` line or the `namespace`
   line reaches every output. `--exclude` keeps generated files out of a run.
-  `NullableDirectives` folds directives only, so decision 31 cannot restate this.
+  `NullableDirectives` folds directives only, so decision 31 cannot restate this. The
+  reverse holds too. The comment directly above a later type opens that type's new file,
+  so the compiler reads the new file as generated, even with no `#nullable` in the source.
+  `NullableGuard` reads only the source's opening comment, so it does not refuse this.
 
 - A `global using` alias is copied into every output, like any using directive. The next
   build fails with CS1537, because a global alias may be declared once in a project. An

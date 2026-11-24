@@ -573,7 +573,7 @@ A directive wholly contained inside a single type is allowed and travels with th
 that would leave a directive group with no code inside it.
 
 `NullableGuard.Refuses` is a third. It refuses a file with a movable `#nullable` beside
-any `#if`, or before a `using` directive. See "Nullable context" below. The second check
+any `#if`, before a `using` directive, or in a file the compiler reads as generated. See "Nullable context" below. The second check
 carves the tree through `OutputBuilder.Carve`, the same call that starts each output.
 `AnalyzeDirectiveSafety` and `NullableGuard` read the source and do not carve.
 
@@ -711,7 +711,8 @@ this for the type each output is named for. A kept file can also hold `file` typ
   also includes a `#nullable` between the attribute and the namespace, which every file
   keeps; the guard over-refuses that one.
 - The lines go above the type's first comment, doc comment, or attribute, at the start of
-  a line, ending in the source file's newline. A `--require-header` banner that opens the
+  a line, ending in the source file's newline. `EncodedSource` knows CRLF and LF only, so
+  in a file with lone carriage returns the added line ends in LF. It compiles the same. A `--require-header` banner that opens the
   file stays first: the lines go below it, so the file never gets a second banner.
 - The tool parses with no preprocessor symbols. A file with no `#if` has one build, so
   the fold is exact there. A file that holds a movable `#nullable` and any `#if` is skipped
@@ -731,8 +732,9 @@ this for the type each output is named for. A kept file can also hold `file` typ
   context; it suppresses warnings, and that suppression is lost the same way.
 - `VerifyOutputs` checks each output with the same fold, so it catches a misplaced line,
   not a wrong fold. That check reads the body, before any `--require-header` banner. A
-  banner that holds a `#nullable` line changes every new file's context, because the
-  caller asked for that banner. `NullableContextOracle` checks the fold against the
+  banner that holds a `#nullable` line sets the context of each type that had the project
+  default in the source, because the caller asked for that banner. A restated line below
+  the banner still sets the context of a type that had its own. `NullableContextOracle` checks the fold against the
   compiler, in every build the source's `#if` symbols describe; `NullableContextTests` and
   `NullableRefusalTests` run it. It reads contexts, and in a generated file both sides read
   as inherited, so the generated rows compare diagnostics instead.
