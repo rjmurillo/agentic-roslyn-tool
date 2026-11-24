@@ -107,7 +107,7 @@ public sealed class CliContractTests
             File.WriteAllText(Path.Combine(directory, "Two.cs"), "class A { }\nclass B { }\n");
             var manifest = Path.Combine(directory, "manifest.csv");
 
-            var result = Run("split-types", "--input", directory, "--manifest", manifest, "--dry-run", "--json");
+            var result = Run("split-types", "--input", directory, "--repo-root", directory, "--manifest", manifest, "--dry-run", "--json");
 
             Assert.Equal(0, result.ExitCode);
 

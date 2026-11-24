@@ -65,7 +65,7 @@ public sealed class FileNamingOptionTests
         var source = ws.WriteFile("A.cs", FileNamingRuns.AWithGenericFoo);
         var manifest = Path.Combine(ws.Root, "manifest.csv");
 
-        var result = FileNamingRuns.RunTool("split-types", "--input", source, "--manifest", manifest, "--dry-run", "--json", "--file-naming", "metadata");
+        var result = FileNamingRuns.RunTool("split-types", "--input", source, "--repo-root", ws.Root, "--manifest", manifest, "--dry-run", "--json", "--file-naming", "metadata");
 
         Assert.Equal(0, result.ExitCode);
 
