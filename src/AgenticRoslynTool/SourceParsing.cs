@@ -31,6 +31,9 @@ internal static class SourceParsing
     /// <summary>The skip reason for a file that parses only once its preprocessor symbols are defined.</summary>
     internal const string SymbolDependentReason = "parses only with the preprocessor symbols its #if lines name, which this tool does not define; manual split required";
 
+    /// <summary>The diagnostic IDs an <c>#error</c> directive raises.</summary>
+    private static readonly HashSet<string> ErrorDirectiveIds = new(StringComparer.Ordinal) { "CS1029", "CS8304" };
+
     /// <summary>
     /// The parse options every read of C# uses: the preview language version, and the
     /// <c>FileBasedProgram</c> feature so <c>#:</c> and <c>#!</c> directives parse.
@@ -44,19 +47,21 @@ internal static class SourceParsing
     /// </summary>
     /// <remarks>
     /// A diagnostic raised by an <c>#error</c> directive is left out when the branch that
-    /// holds the directive depends on a preprocessor symbol. The real build defines symbols
-    /// this tool does not, so it may never take that branch. Matching the diagnostic by
-    /// location covers every ID such a directive raises: CS1029 for <c>#error text</c> and
-    /// CS8304 for <c>#error version</c>. A branch whose conditions use no symbol, such as
-    /// <c>#if true</c>, is live in every build, so its <c>#error</c> still counts, as does
-    /// one outside any <c>#if</c>.
+    /// holds the directive depends on a preprocessor symbol the build sets. The real build
+    /// defines symbols this tool does not, so it may never take that branch. A diagnostic is
+    /// excused only when it carries an ID an <c>#error</c> raises, CS1029 for
+    /// <c>#error text</c> and CS8304 for <c>#error version</c>, and sits on that directive.
+    /// A broken neighbor, such as a second <c>#else</c>, is never excused. A branch whose
+    /// conditions name no symbol, or only symbols the file sets itself with <c>#define</c>
+    /// or <c>#undef</c>, has the same value in every build, so its <c>#error</c> still
+    /// counts, as does one outside any <c>#if</c>.
     /// </remarks>
     internal static Diagnostic[] Errors(SyntaxTree tree)
     {
         var excused = SymbolDependentErrorDirectives(tree.GetCompilationUnitRoot());
         return tree.GetDiagnostics()
             .Where(d => d.Severity == DiagnosticSeverity.Error)
-            .Where(d => !excused.Any(directive => directive.FullSpan.IntersectsWith(d.Location.SourceSpan)))
+            .Where(d => !(ErrorDirectiveIds.Contains(d.Id) && excused.Any(directive => directive.Span.IntersectsWith(d.Location.SourceSpan))))
             .ToArray();
     }
 
@@ -100,24 +105,33 @@ internal static class SourceParsing
         root.DescendantTrivia().Any(t => t.IsKind(SyntaxKind.IgnoredDirectiveTrivia) || t.IsKind(SyntaxKind.ShebangDirectiveTrivia));
 
     /// <summary>
-    /// The <c>#error</c> directives whose branch depends on a preprocessor symbol at some
-    /// level of <c>#if</c> nesting. An <c>#elif</c> or <c>#else</c> branch depends on every
+    /// The <c>#error</c> directives whose branch depends on a preprocessor symbol the build
+    /// sets, at some level of <c>#if</c> nesting. An <c>#elif</c> or <c>#else</c> branch depends on every
     /// condition before it in its group, because it runs only when those are false.
     /// </summary>
     private static List<ErrorDirectiveTriviaSyntax> SymbolDependentErrorDirectives(CompilationUnitSyntax root)
     {
         var excused = new List<ErrorDirectiveTriviaSyntax>();
-        // One entry per open #if group: whether any condition seen so far in it names a symbol.
+        // Symbols the file sets itself. They have the same value in every build.
+        var setByFile = new HashSet<string>(StringComparer.Ordinal);
+        // One entry per open #if group: whether any condition seen so far in it names a symbol
+        // the build sets.
         var groups = new Stack<bool>();
         foreach (var directive in root.DescendantTrivia().Where(t => t.IsDirective).Select(t => t.GetStructure()).OfType<DirectiveTriviaSyntax>())
         {
             switch (directive)
             {
+                case DefineDirectiveTriviaSyntax define when define.IsActive:
+                    setByFile.Add(define.Name.ValueText);
+                    break;
+                case UndefDirectiveTriviaSyntax undef when undef.IsActive:
+                    setByFile.Add(undef.Name.ValueText);
+                    break;
                 case IfDirectiveTriviaSyntax ifDirective:
-                    groups.Push(NamesSymbol(ifDirective.Condition));
+                    groups.Push(NamesBuildSymbol(ifDirective.Condition, setByFile));
                     break;
                 case ElifDirectiveTriviaSyntax elif when groups.Count > 0:
-                    groups.Push(groups.Pop() || NamesSymbol(elif.Condition));
+                    groups.Push(groups.Pop() || NamesBuildSymbol(elif.Condition, setByFile));
                     break;
                 case EndIfDirectiveTriviaSyntax when groups.Count > 0:
                     groups.Pop();
@@ -131,6 +145,6 @@ internal static class SourceParsing
         return excused;
     }
 
-    private static bool NamesSymbol(ExpressionSyntax condition) =>
-        condition.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Any();
+    private static bool NamesBuildSymbol(ExpressionSyntax condition, HashSet<string> setByFile) =>
+        condition.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Any(n => !setByFile.Contains(n.Identifier.ValueText));
 }

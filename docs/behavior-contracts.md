@@ -662,7 +662,8 @@ source with the C# compiler, because a parse cannot show a binding.
 ### VerifyOutputs
 
 Runs before `WriteOutputs`. Throws, and the file is recorded `failed` and never written,
-when any of these hold:
+when any of these hold. The row's reason is the message after the prefix
+`output check failed: `, so an agent can tell a refused split from a broken input:
 
 - An output does not start with the required header, when `--require-header` is set.
 - An output does not parse.

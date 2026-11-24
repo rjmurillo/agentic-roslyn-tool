@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 44 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 495 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 505 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -93,7 +93,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 495 passed, 0 failed
+dotnet test  -c Release      # must be 505 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -209,8 +209,10 @@ weight.
     agent the run broke. Before decision 33 the packaged skill told it to fix the cause.
     A false `failed` on a valid file invites an agent to edit good code to please the tool.
     The tool cannot prove this for every file, because it parses without the build's
-    symbols. So when it cannot tell, it skips with a reason, and it fails only a file that
-    is broken with and without the symbols its `#if` lines name. `SourceParsing` owns the
+    symbols. So when the parse cannot tell, it skips with a reason, and the parse check
+    fails only a file broken with and without the symbols its `#if` lines name. A failed
+    output check is a tool bug, never a source problem, and its reason starts
+    `output check failed: ` so agents route it to exclude and report. `SourceParsing` owns the
     whole parse rule: the options, which errors count, the symbol retry, and file-based
     program detection. Never parse with other options and never filter diagnostics
     anywhere else. `ParseRuleOwnershipTests` fails the build if you do. When a real
@@ -246,10 +248,11 @@ agent does not pay again.
   when it declares `Main` in a class and has no top-level statements.
 - **The tool defines no preprocessor symbols, so `#else` is often the live branch.** A
   `#error Unknown target framework` in that branch raises CS1029 here and never in the
-  real build. `#error version` raises CS8304, not CS1029, so match an `#error`'s
-  diagnostics by location, never by ID. `SourceParsing.Errors` excuses an `#error` only
-  when its branch depends on a symbol. One under `#if true`, or under no `#if`, still
-  fails the file, because every build of it fails.
+  real build. `#error version` raises CS8304, not CS1029. `SourceParsing.Errors` excuses
+  only those two IDs, and only on the `#error` itself: matching by location alone also
+  excused a broken `#else` beside it. It excuses them only when the branch names a symbol
+  the build sets. One under `#if true`, under a symbol the file sets with `#define` or
+  `#undef`, or under no `#if`, still fails the file, because every build of it fails.
 - **With no symbols, a file can stop parsing at all.** `#if NET6_0_OR_GREATER` followed
   by `#elif NETSTANDARD` and no `#else` leaves no branch live here, and the expression
   around it breaks. BenchmarkDotNet has one. `SourceParsing.ParsesWithItsSymbols`

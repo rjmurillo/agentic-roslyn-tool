@@ -52,10 +52,10 @@ step runs the same build). Below, `<tool>` means whichever you use.
        `dotnet new` template, re-run step 2 with `--exclude` and the folder's path from
        the repository root. If the build compiles it, the tool is wrong: exclude it the
        same way.
-     - `does not parse`, `was dropped`, `was duplicated`, `does not match input`, or
-       `appears <n> times`: the tool's own check caught a bad split of a valid file. The
-       tool is wrong. Exclude the file the same way.
-     - In both cases, tell the user to report it at
+     - `output check failed`: the tool's own check refused a split it built, and wrote
+       nothing. If the run passed `--require-header`, make sure that header is a comment
+       and run again. Otherwise the tool is wrong: exclude the file's path the same way.
+     - When the tool is wrong, tell the user to report it at
        https://github.com/rjmurillo/agentic-roslyn-tool/issues.
      - Any other reason, such as a failed rename: fix that cause, which is never the
        file's code, and run the same command again.

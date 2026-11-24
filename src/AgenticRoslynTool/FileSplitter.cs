@@ -50,6 +50,19 @@ internal sealed class FileSplitter
     internal const string NotPlannedReason = "not present as split in plan manifest";
 
     /// <summary>
+    /// Starts the reason on a row whose input does not parse. The packaged agent documents
+    /// route rows by this prefix, and <c>PackagedAgentDocsTests</c> holds them to it.
+    /// </summary>
+    internal const string SyntaxErrorsPrefix = "input has syntax errors: ";
+
+    /// <summary>
+    /// Starts the reason on a row that <see cref="OutputVerifier"/> refused: the tool built a
+    /// split and its own check rejected it, so nothing was written. Without a malformed
+    /// <c>--require-header</c>, that is a bug in the tool, never a problem in the source.
+    /// </summary>
+    internal const string OutputCheckFailedPrefix = "output check failed: ";
+
+    /// <summary>
     /// Reason recorded when a content run meets a row an earlier content run already applied.
     /// The words say what was checked and nothing more. The leading <c>already applied</c> is
     /// published: callers match on it to tell this skip from a refusal, so it must not change.
@@ -473,7 +486,7 @@ internal sealed class FileSplitter
                 return FileResult.Skip(originalPath, readPath, SourceParsing.SymbolDependentReason);
             }
 
-            return FileResult.Failed(originalPath, readPath, "input has syntax errors: " + SourceParsing.Describe(originalDiagnostics));
+            return FileResult.Failed(originalPath, readPath, SyntaxErrorsPrefix + SourceParsing.Describe(originalDiagnostics));
         }
 
         // Checked before top-level statements, because a file-based program can declare
@@ -527,7 +540,14 @@ internal sealed class FileSplitter
         {
             var headerText = OutputBuilder.NormalizeHeaderText(_options.RequiredHeader, source.NewLine);
             var outputs = OutputBuilder.BuildOutputs(source, root, types, plan, headerText);
-            OutputVerifier.VerifyOutputs(readPath, types, outputs, headerText);
+            try
+            {
+                OutputVerifier.VerifyOutputs(readPath, types, outputs, headerText);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return FileResult.Failed(originalPath, readPath, OutputCheckFailedPrefix + ex.Message);
+            }
 
             if (phase == Phase.Content)
             {

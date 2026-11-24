@@ -25,6 +25,11 @@ The checks run in both the `plan` phase and the `content` phase. The `renames` p
 not render outputs, so it does not run them. That means a `--dry-run` already reports
 every file that would fail verification, before you touch the tree.
 
+A row that fails any check below reports its reason after the prefix
+`output check failed: `, for example `output check failed: <output path> does not parse:
+...`. The prefix marks a split the tool built and then refused. Nothing was written. Unless
+`--require-header` was malformed, it is a bug in the tool, not in the source.
+
 ## Check 1: every output parses
 
 Each output file is parsed with Roslyn, using the preview language version and the

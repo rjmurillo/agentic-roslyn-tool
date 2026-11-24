@@ -1400,16 +1400,22 @@ the outputs were checked by copies of one rule.
 
 - It parses with the preview language version and the `FileBasedProgram` feature.
 - It excuses the diagnostics of an `#error` whose branch depends on a preprocessor
-  symbol, matched by location, so `#error version` (CS8304) is covered with CS1029. An
-  `#elif` or `#else` branch depends on every condition before it in its group. An
-  `#error` under `#if true`, or under no `#if`, still counts: every build of that file
-  fails.
+  symbol the build sets. Only the IDs an `#error` raises are excused, CS1029 and CS8304
+  for `#error version`, and only on the directive itself. An `#elif` or `#else` branch
+  depends on every condition before it in its group. A symbol the file sets with
+  `#define` or `#undef` has the same value in every build, so it does not count. An
+  `#error` under `#if true`, under such a symbol, or under no `#if`, still counts: every
+  build of that file fails.
 - When a file still has errors, it re-parses with every symbol the file's `#if` and
   `#elif` conditions name. A file that parses then is skipped with its own reason. It is
   never split, because the symbol-defined tree may not be the one the build compiles.
 - A file with a `#:` or `#!` directive is skipped with its own reason, before the
   top-level statement check. A file-based program compiles alone, even when it declares
   `Main` in a class, so a type moved out of it leaves the program.
+
+- A split that `OutputVerifier` refuses reports its reason after the prefix
+  `output check failed: `. That marks a tool bug, or a malformed `--require-header`,
+  never a problem in the source.
 
 The input and every output go through the same class, and no method takes parse options
 as a parameter. `ParseRuleOwnershipTests` fails the build if parse options, a diagnostic
@@ -1433,22 +1439,30 @@ answer is `--exclude` for the template folder.
   unchanged with the type that holds it, so the real build still reports it if it fires.
 
 **Evidence.** Over the ten repositories that exposed the bugs, the `failed` rows drop
-from 30 to 3, all aspire template files. The rule was then run over six repositories that
+from 30 to 3, all aspire template files. The ten, at these commits: aspire `f8dbeaf`,
+xunit `ad8d0dd`, Humanizer `4574b93`, Polly `ad7d87b`, MediatR `aad5f0f`,
+FluentValidation `5903fa6`, CleanArchitecture `c2781d2`, command-line-api `1b0c04a`,
+AutoMapper `79d10de`, and serilog `43105b3`. The command is the plan phase over the whole
+clone: `split-types --input <clone> --manifest <outside> --repo-root <clone>`. The rule was then run over six repositories that
 played no part in finding them: Newtonsoft.Json `52fa3ae`, nodatime `6e024dd`, Dapper
 `1880947`, nunit `da9d5b6`, MassTransit `d9f61f7`, and BenchmarkDotNet `a9cac82`. That run
 found the symbol case above (BenchmarkDotNet `HardwareIntrinsics.cs`), which the first
 fix missed. After the retry, the only `failed` rows in the six are two BenchmarkDotNet
 template files, and one Dapper file that fails an output check for an unrelated reason
-fixed separately. The repository commits for the ten are pinned in the real-repository
-check of decision 34, which makes this result rerunnable.
+fixed separately. Review then found two more ways the first `#error` rule went wrong: it
+ignored symbols the file sets itself, and matching by location alone excused a broken
+`#else` beside an `#error`. Both now fail, as the base version did.
 
 **Consequences.** "Never `failed`" cannot be proved for every file, because the tool does
 not know the build's symbols. A file that is broken with no symbols and with all of them,
-yet compiles under some other set, is still `failed`. Rule 17 says what to do when a real
+yet compiles under some other set, is still `failed`. An output check can also refuse a
+valid file when the tool builds a bad split. That row says `output check failed`, and the
+agent instructions route it to exclude and report. Rule 17 says what to do when a real
 repository shows one. The code change is easy to reverse. The release that carries it is
 not: a published version is immutable.
 
-> **Warning.** Do not excuse an `#error` by ID, or under a branch that names no symbol.
+> **Warning.** Do not excuse a diagnostic by location alone, or under a branch that names
+> no symbol the build sets.
 > Do not drop other diagnostic IDs to make a file pass. Either one marks a file the
 > compiler rejects as safe to split. Do not split the symbol-defined tree. Do not move the
 > file-based program check after the top-level statement check: a program that declares

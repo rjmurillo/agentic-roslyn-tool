@@ -18,6 +18,7 @@ public sealed class ParseRuleOwnershipTests
     [InlineData("GetDiagnostics(")]
     [InlineData(".WithFeatures(")]
     [InlineData("CSharpParseOptions parseOptions")]
+    [InlineData(".WithPreprocessorSymbols(")]
     [InlineData("LanguageVersion.")]
     public void OnlySourceParsing_DefinesTheParseRule(string token)
     {
@@ -39,7 +40,7 @@ public sealed class ParseRuleOwnershipTests
         // SourceParsing.Options itself.
         var offenders = Directory.GetFiles(SourceDir, "*.cs")
             .SelectMany(path => System.Text.RegularExpressions.Regex
-                .Matches(File.ReadAllText(path), @"\bParse(Text|CompilationUnit)\((?<args>[^;]*)")
+                .Matches(File.ReadAllText(path), @"\bParse(Text|CompilationUnit|SyntaxTree)\((?<args>[^;]*)")
                 .Select(m => (File: Path.GetFileName(path), Args: m.Groups["args"].Value)))
             .Where(x => !x.Args.Contains("SourceParsing.Options", StringComparison.Ordinal))
             .Select(x => $"{x.File}: {x.Args.Trim()}")

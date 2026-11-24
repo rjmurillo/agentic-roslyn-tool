@@ -73,6 +73,22 @@ public sealed class ErrorDirectiveTests
         }
     }
 
+    [Theory]
+    // A symbol the file sets with #define or #undef has the same value in every build.
+    [InlineData("#define X\nnamespace Sample;\n\ninternal class Host\n{\n#if X\n#error always\n#endif\n}\n", true)]
+    [InlineData("#undef X\nnamespace Sample;\n\ninternal class Host\n{\n#if !X\n#error always\n#endif\n}\n", true)]
+    [InlineData("#define X\nnamespace Sample;\n\ninternal class Host\n{\n#if X && Y\n#error x\n#endif\n}\n", false)]
+    // A broken group beside an excused #error is still broken: only the #error's own
+    // diagnostics are excused, never a neighbor's.
+    [InlineData("namespace Sample;\n\ninternal class Host\n{\n#if X\n#else\n#error need X\n#else\n#endif\n}\n", true)]
+    [InlineData("namespace Sample;\n\ninternal class Host\n{\n#if X\n#else\n#error need X\n#elif Y\n#endif\n}\n", true)]
+    public void Errors_KnowsSymbolsTheFileSetsAndExcusesOnlyTheErrorDirective(string source, bool expectErrors)
+    {
+        var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(source, SourceParsing.Options);
+
+        Assert.Equal(expectErrors, SourceParsing.Errors(tree).Length != 0);
+    }
+
     [Fact]
     public void ErrorDirective_OutsideAnyConditional_StillFails()
     {
