@@ -1382,9 +1382,9 @@ C# 14 were one.
 ### Decision 31. A file an MSBuild Compile item names is not split
 
 **Context.** v0.2.0 broke AutoMapper's build at commit `79d10deec588`. The build had 0
-errors before the run. After plan, renames, a commit, and content, it had 236. They were
-CS0115, `no suitable method found to override`, and CS0246, a type not found. Every phase
-exited 0. `src/IntegrationTests/AutoMapper.IntegrationTests.csproj` holds `<Compile
+errors before the run. After plan, renames, a commit, and content, MSBuild reported 236.
+That count lists each error twice. The 118 distinct errors were 115 CS0115, `no suitable
+method found to override`, and 3 CS0246, a type not found. Every phase exited 0. `src/IntegrationTests/AutoMapper.IntegrationTests.csproj` holds `<Compile
 Include="..\UnitTests\AutoMapperSpecBase.cs" Link="AutoMapperSpecBase.cs" />`. That file
 declares several types. The split moved them into new files in `UnitTests`, and the
 IntegrationTests project never compiles those. Its base classes were gone. The tool never
