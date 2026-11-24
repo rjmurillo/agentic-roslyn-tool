@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 44 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 480 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 483 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -93,7 +93,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 480 passed, 0 failed
+dotnet test  -c Release      # must be 483 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -206,8 +206,8 @@ weight.
     rendered text again. The `FileLocal*Tests` classes pin each rule by compiling. See
     decision 30.
 17. **A file the C# compiler accepts is never `failed`.** `failed` and exit 1 tell an
-    agent the run broke, and the packaged skill tells it to fix the cause. A false
-    `failed` on a valid file invites an agent to edit good code to please the tool.
+    agent the run broke. Before decision 33 the packaged skill told it to fix the cause.
+    A false `failed` on a valid file invites an agent to edit good code to please the tool.
     `SourceParsing` owns the whole parse rule: the options, which errors count, and
     file-based program detection. Never parse with other options and never filter
     diagnostics anywhere else. `ParseRuleOwnershipTests` fails the build if you do.
@@ -232,7 +232,8 @@ agent does not pay again.
 - **Tests written from the code's own point of view missed three real bugs.** Version
   0.2.0 passed 469 tests and its own smoke test, then failed on the first real
   repositories it met. It marked 30 valid files `failed` across aspire, xunit, Humanizer,
-  and Polly. A fixture you write proves what you thought of, not what other people write.
+  and Polly. It broke AutoMapper's build by splitting a file another project compiles by
+  path. It planned a rename onto a path another input's new file already claimed. A fixture you write proves what you thought of, not what other people write.
   Run the tool over real repositories before you call a parse or guard change done.
 - **`#:` and `#!` are .NET 10 file-based program directives.** Without the
   `FileBasedProgram` parse feature they read as errors CS9298 and CS9314. Such a file

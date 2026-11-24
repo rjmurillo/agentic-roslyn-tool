@@ -13,7 +13,10 @@ public sealed class ParseRuleOwnershipTests
 
     [Theory]
     [InlineData("CSharpParseOptions.Default")]
+    [InlineData("new CSharpParseOptions")]
     [InlineData("DiagnosticSeverity.Error")]
+    [InlineData("GetDiagnostics(")]
+    [InlineData(".WithFeatures(")]
     [InlineData("LanguageVersion.")]
     public void OnlySourceParsing_DefinesTheParseRule(string token)
     {
@@ -30,11 +33,15 @@ public sealed class ParseRuleOwnershipTests
     public void EveryParse_UsesSourceParsingOptions()
     {
         // A ParseText call with no options parses with C# defaults, not the tool's rule.
+        // Read whole files and match each call's argument list, so a call split across lines
+        // is still seen. `parseOptions` is the parameter FileSplitter fills from
+        // SourceParsing.Options and threads through OutputVerifier and FileLocalTypes.
         var offenders = Directory.GetFiles(SourceDir, "*.cs")
-            .SelectMany(path => File.ReadAllLines(path).Select(line => (File: Path.GetFileName(path), Line: line)))
-            .Where(x => x.Line.Contains("ParseText(", StringComparison.Ordinal))
-            .Where(x => !x.Line.Contains("SourceParsing.Options", StringComparison.Ordinal) && !x.Line.Contains("parseOptions", StringComparison.Ordinal))
-            .Select(x => $"{x.File}: {x.Line.Trim()}")
+            .SelectMany(path => System.Text.RegularExpressions.Regex
+                .Matches(File.ReadAllText(path), @"\bParse(Text|CompilationUnit)\((?<args>[^;]*)")
+                .Select(m => (File: Path.GetFileName(path), Args: m.Groups["args"].Value)))
+            .Where(x => !x.Args.Contains("SourceParsing.Options", StringComparison.Ordinal) && !x.Args.Contains("parseOptions", StringComparison.Ordinal))
+            .Select(x => $"{x.File}: {x.Args.Trim()}")
             .ToArray();
 
         Assert.True(offenders.Length == 0, "ParseText without the tool's options: " + string.Join(" | ", offenders));
