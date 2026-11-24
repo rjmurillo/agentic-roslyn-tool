@@ -80,6 +80,11 @@ step runs the same build). Below, `<tool>` means whichever you use.
 
 ## Rules
 
+- A `skipped` reason starting `file is named by an MSBuild Compile item` or `cannot read
+  MSBuild Compile items` is final for that file, in the plan report as in any other.
+  Never split that file by hand, even when the build reports SA1402 for it, and never
+  change `--repo-root` or the working directory to get past it. Tell the user which file
+  and which project, and wait for the user to decide.
 - Do not edit a planned file between steps. A changed file is skipped with a reason that
   starts `stale plan:`. Recover as step 5 says: rebuild the list file, then re-run the plan.
 - Do not edit the manifest. Renames and content read the plan from it, including the

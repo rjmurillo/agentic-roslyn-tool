@@ -1403,7 +1403,7 @@ processed. It reads `.csproj`, `.props`, `.targets`, `.projitems`, and `.shproj`
 and `.git`. Each file is parsed as XML, with no property evaluation and no import. Every
 `Compile` element counts, in any namespace and in any letter case, because MSBuild reads
 item types without regard to case. Each `;`-separated value of `Include`, `Update`,
-`Remove`, and `Exclude` is read.
+`Remove`, and `Exclude` is read, with attribute names in any case too.
 
 - Only the part after the last `/` or `\` is compared with the input's file name, case
   insensitively. An escaped separator, `%2F` or `%5C`, counts as one, because MSBuild
@@ -1435,13 +1435,20 @@ reason:
 - Not valid XML, or a read error. MSBuild cannot load such a file either.
 - A document type declaration. The reader refuses it, so no entity is ever expanded.
 - A file symlink. It can point outside the repository, or at a file of any size.
-- A directory symlink whose final target lies outside `--repo-root`, or nowhere. It is not
-  followed, and a project behind it could name any file. A link whose target lies inside
-  the root refuses nothing, because the walk reads those files by their real path.
+- A directory symlink whose final target the walk does not reach: one outside
+  `--repo-root`, or one inside a `bin`, `obj`, or `.git` directory. It is not followed,
+  and a project behind it could name any file. A link whose target the walk does reach
+  refuses nothing, because the walk reads those files by their real path.
 - An empty file. A named pipe reports length zero, so this check keeps the scan from
   opening one and blocking forever. An empty file is not valid XML anyway.
-- A file over 16 MiB, or one `Compile` value over 4,096 characters. Either bounds the
-  cost a hostile file can impose.
+- A file over 16 MiB, or one `Compile` value over 4,096 characters. The read goes on past
+  an overlong value, so later names still count.
+- A wildcard pattern that finds the scan already holding 10,000. Each input is matched
+  against every pattern, so the cap bounds that cost. Exact names and suffixes have no
+  cap, because each costs one lookup.
+
+An escape is read only when both characters after `%` are hex digits, as MSBuild reads it.
+A looser parse read `% D` as a carriage return, so `100% Done.cs` was not refused.
 
 A directory the scan cannot list ends the run with exit code 3, because a partial scan
 would let a split through that a missed project forbids. The message says to make the
@@ -1471,11 +1478,17 @@ sibling directory does not protect that file. `MsBuildUnreadableFileTests` pins 
 
 **Reading XML does not reverse decision 1.** No project is loaded, no property is
 evaluated, and nothing needs to build. The scan is one XML read per MSBuild file. Plan
-times were taken with `--dry-run --json`, two runs each, on one Linux workstation. A plan
-over 1,458 AutoMapper files took about 0.84 seconds with and without the scan. A synthetic
-plan over 6,400 two-type files, beside one project that lists 6,400 other names and one
-wildcard, took 1.57 seconds without the scan and 1.68 with it. No threshold was set in
+times were taken at commit `55d738c` against `origin/main` at `a172c42`. Each ran three
+times with `--dry-run --json` on one 48-core Linux workstation. No threshold was set in
 advance. The brief asked only that a 6,400-file run not slow noticeably.
+
+| Plan run | Without the scan | With the scan |
+| --- | --- | --- |
+| 1,458 AutoMapper files | 0.77 s | 0.80 s |
+| 6,400 two-type files, one project listing 6,400 other names | 1.50 s | 1.64 s |
+| 6,400 two-type files, one `.projitems` with 6,400 `$(MSBuildThisFileDirectory)` items | 1.51 s | 1.63 s |
+
+The first `.projitems` run without the scan took 1.92 s, a cold start. It is left out.
 
 **Rejected.**
 
@@ -1489,9 +1502,10 @@ advance. The brief asked only that a 6,400-file run not slow noticeably.
 
 **Consequences.**
 
-- On AutoMapper at `79d10deec588`, exactly one plan row changes. `AutoMapperSpecBase.cs`
-  goes from `split` to `skipped`, naming `src/IntegrationTests/AutoMapper.IntegrationTests.csproj`.
-  The build after the full workflow has 0 errors.
+- On AutoMapper at `79d10deec588`, exactly one plan row changes, measured at commit
+  `55d738c`. `AutoMapperSpecBase.cs` goes from `split` to `skipped`, naming
+  `src/IntegrationTests/AutoMapper.IntegrationTests.csproj`. The build after the full
+  workflow has 0 errors.
 - A value whose file name part is only a reference refuses every input in the repository.
   `@(Generated)`, `$(VersionFile)`, `Remove="@(Compile)"`, `Exclude="$(DefaultItemExcludes)"`,
   and `Remove="$(BaseIntermediateOutputPath)**"` all do. The tool cannot tell whether the
