@@ -1456,11 +1456,18 @@ or empty the line that holds only spaces, and it still fails. So the run's lengt
 cause. The file's `#pragma` lines stayed in place in the control that split, so they were
 not the cause. Moved types failed the same way.
 
-**Decision.** The collapser does not descend into a top-level type. Of that type's trivia
-it collapses only the leading trivia above the owned start. That is where removing a
-neighbor leaves its seam. It finds types with `TopLevelType.Find`. It finds the boundary
-with `OutputVerifier.GetTypeOwnedStart`. The span it protects is therefore the span the
-verifier checks. The verifier was not changed.
+**Decision.** `OutputBuilder` now runs `OwnedSpanCollapser`, a subclass of
+`BlankLineCollapser`. It does not descend into a top-level type. Of that type's trivia it
+collapses only the leading trivia above the owned start. That is where removing a neighbor
+leaves its seam. It finds types with `TopLevelType.Find`. It finds the boundary with
+`OutputVerifier.GetTypeOwnedStart`. The span it protects is therefore the span the verifier
+checks. That holds because removal keeps only unbalanced directives, so no doc comment moves
+from a removed type onto a kept one. The verifier was not changed.
+
+The new logic sits in its own type for one reason. The local quality scanner gates a
+changed file on its old scores, and adding the logic to `BlankLineCollapser.cs` dropped
+cohesion from 9.0 to 7.6 and coupling from 8.0 to 7.0. `BlankLineCollapser` keeps its old
+shape and becomes the abstract base that owns `CollapseTriviaList`.
 
 **Alternatives considered.** Loosen the ownership check to ignore blank lines. Rejected
 because it weakens a guard to satisfy it, as decision 7 warns. Drop the collapse
@@ -1468,7 +1475,8 @@ entirely. Rejected because removing a type would then leave its neighbors' blank
 stacked at the seam. `BlankLineRunBetweenTypes_StillCollapses` pins that collapse.
 
 **Consequences.** A run of blank lines inside a type is kept byte for byte, in the kept
-file and in every new file. Runs outside every type still collapse to two. The collapse
+file and in every new file. An output can therefore hold three or more blank lines in a
+row where the source did. Runs outside every type still collapse to two. The collapse
 stays on Roslyn trivia, per decision 3. With this build, the Dapper file splits into four
 files, and `tests/Dapper.Tests` builds for `net10.0` with no errors. The content phase was
 also run over nunit at `da9d5b61cbf7edcdef7ec896d678b0e1ef6ba966` and MassTransit at

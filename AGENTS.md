@@ -24,7 +24,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 44 files. |
+| `src/AgenticRoslynTool/` | The entire product. 45 files. |
 | `tests/AgenticRoslynTool.Tests/` | xUnit tests. 500 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
@@ -74,7 +74,8 @@ Every source file, so you do not have to open one to find out whether it matters
 | `PlannedFile.cs` | One output file inside a plan, before content is rendered. `Holds` says which types an output declares: its own, and in the kept file every `file` type. |
 | `PlannedOutputEntry.cs` | A planned output path paired with its owning input, used for cross file collision detection. |
 | `OutputFile.cs` | Rendered output. `BodyText` excludes any injected header; `Text` includes it. |
-| `BlankLineCollapser.cs` | Collapses the blank line runs left behind when a type is removed. Never touches a type's owned span. |
+| `BlankLineCollapser.cs` | Abstract base. Collapses the blank line runs left behind when a type is removed. |
+| `OwnedSpanCollapser.cs` | The collapse `OutputBuilder` runs. Never touches a type's owned span. Decision 35. |
 | `DirectiveInfo.cs` | One preprocessor directive and its span. |
 | `DirectiveSafety.cs` | Verdict on whether directives make a file unsafe to split. |
 | `FileResult.cs` | One manifest or report row. Owns the `split`, `skipped`, `failed` status vocabulary. |

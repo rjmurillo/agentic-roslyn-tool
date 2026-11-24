@@ -722,7 +722,7 @@ The only method that writes source files.
 
 ### Blank line collapse
 
-`BuildOutputs` runs each output through `BlankLineCollapser` before it renders text.
+`BuildOutputs` runs each output through `OwnedSpanCollapser`, a `BlankLineCollapser`, before it renders text.
 
 - Outside every type's owned span, a run of line breaks in one trivia list is cut to two.
   A comment's own line break counts as one, so a comment followed by a run keeps one
