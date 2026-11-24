@@ -42,7 +42,11 @@ internal static class CompileItemName
             return null;
         }
 
-        return new Regex("^" + ToPattern(segment) + "$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        // The text comes from files in the repository, so the engine must not backtrack. A
+        // pattern of many wildcards would otherwise take exponential time on one name.
+        return new Regex(
+            "^" + ToPattern(segment) + "$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Singleline | RegexOptions.NonBacktracking);
     }
 
     /// <summary>
@@ -114,18 +118,29 @@ internal static class CompileItemName
     private static string ToPattern(string segment)
     {
         var pattern = new StringBuilder();
+        var afterWildcard = false;
         for (var i = 0; i < segment.Length; i++)
         {
-            if (IsReferenceStart(segment, i))
+            var isReference = IsReferenceStart(segment, i);
+            if (isReference || segment[i] == '*')
             {
-                i = SkipReference(segment, i);
-                pattern.Append(".*");
+                if (isReference)
+                {
+                    i = SkipReference(segment, i);
+                }
+
+                // A run of wildcards matches what one does, so it compiles to one.
+                if (!afterWildcard)
+                {
+                    pattern.Append(".*");
+                }
+
+                afterWildcard = true;
+                continue;
             }
-            else if (segment[i] == '*')
-            {
-                pattern.Append(".*");
-            }
-            else if (segment[i] == '?')
+
+            afterWildcard = false;
+            if (segment[i] == '?')
             {
                 pattern.Append('.');
             }

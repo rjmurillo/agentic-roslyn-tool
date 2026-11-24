@@ -27,10 +27,14 @@ internal sealed class MsBuildCompileItems
 
     private static readonly string[] ItemAttributes = ["Include", "Update", "Remove", "Exclude"];
 
+    /// <summary>The largest MSBuild file read, 16 MiB. A project that lists every file is a few megabytes at most.</summary>
+    internal const long MaxFileBytes = 16L * 1024 * 1024;
+
     private static readonly XmlReaderSettings ReaderSettings = new()
     {
         DtdProcessing = DtdProcessing.Prohibit,
         XmlResolver = null,
+        MaxCharactersInDocument = MaxFileBytes,
     };
 
     // Exact names are looked up, wildcards are matched. A project that lists every file can
@@ -60,7 +64,8 @@ internal sealed class MsBuildCompileItems
     /// </summary>
     /// <remarks>
     /// Files are read in ordinal order of their relative path, so the file a reason names is
-    /// the same on every run and every platform.
+    /// the same on every run and every platform. A file that is not valid XML, cannot be
+    /// read, or is one <see cref="IsSafeToOpen"/> rejects is recorded as unreadable.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Thrown when a directory cannot be listed. A partial scan would let a split through that a missed project forbids.</exception>
     internal static MsBuildCompileItems Scan(string repoRoot)
@@ -74,7 +79,14 @@ internal sealed class MsBuildCompileItems
         {
             try
             {
-                items.Read(path, relative);
+                if (IsSafeToOpen(path))
+                {
+                    items.Read(path, relative);
+                }
+                else
+                {
+                    items._unreadable.Add((Path.GetDirectoryName(path)!, relative));
+                }
             }
             catch (Exception ex) when (ex is XmlException or IOException or UnauthorizedAccessException)
             {
@@ -119,6 +131,22 @@ internal sealed class MsBuildCompileItems
         var unreadable = _unreadable.FirstOrDefault(u => paths.Any(path =>
             path.StartsWith(u.Directory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)));
         return unreadable.File is null ? null : UnreadableReason(unreadable.File);
+    }
+
+    /// <summary>
+    /// False for a file the scan will not open: a symlink, an empty file, or one over
+    /// <see cref="MaxFileBytes"/>. Each is treated as unreadable, which refuses inputs and
+    /// never lets one through.
+    /// </summary>
+    /// <remarks>
+    /// A symlink can point outside the repository or at a file of any size. A FIFO or a
+    /// device reports a length of zero, and opening one can block the run forever. An empty
+    /// file is not valid XML either, so the zero length check costs nothing real.
+    /// </remarks>
+    private static bool IsSafeToOpen(string path)
+    {
+        var file = new FileInfo(path);
+        return file.LinkTarget is null && file.Length is > 0 and <= MaxFileBytes;
     }
 
     private static string Earliest(string? current, string candidate) =>
