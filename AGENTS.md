@@ -24,8 +24,8 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 43 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 469 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 44 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 480 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -49,6 +49,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `FileLocalNames.cs` | The name scan behind `FileLocalTypes.cs`: says whether a type, a using directive, or a rendered output names a `file` type. Matches by name alone, on purpose. |
 | `OutputBuilder.cs` | Renders the text of every output file: name, carved source, required header, trailing newline. |
 | `OutputVerifier.cs` | The correctness checks, run against in-memory outputs before anything is written. A failure here means nothing reaches disk. |
+| `SourceParsing.cs` | The one parse rule: the parse options, which errors mean a file is not valid C#, and how to spot a file-based program. Every parse goes through it. |
 | `WorkspaceWriter.cs` | The only place the tool touches the working tree. Every rename runs through `git mv`; every write preserves encoding and byte order mark. |
 | `GitCommand.cs` | Runs one git command with a time limit. Passes each argument on its own, reads both streams, and kills git and its children on expiry. |
 | `Program.cs` | Top level statements. Verb dispatch, error handling, exit codes, output selection. Decides which file a run writes: the manifest in `plan`, the report otherwise. Declares no type. |
@@ -92,7 +93,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 469 passed, 0 failed
+dotnet test  -c Release      # must be 480 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -204,6 +205,14 @@ weight.
     moved code would compile clean against that other type. `OutputVerifier` checks the
     rendered text again. The `FileLocal*Tests` classes pin each rule by compiling. See
     decision 30.
+17. **A file the C# compiler accepts is never `failed`.** `failed` and exit 1 tell an
+    agent the run broke, and the packaged skill tells it to fix the cause. A false
+    `failed` on a valid file invites an agent to edit good code to please the tool.
+    `SourceParsing` owns the whole parse rule: the options, which errors count, and
+    file-based program detection. Never parse with other options and never filter
+    diagnostics anywhere else. `ParseRuleOwnershipTests` fails the build if you do.
+    When a new C# feature or directive appears, add it there with a test taken from a
+    real repository. See decision 33.
 
 ## Conventions for anything you write
 
@@ -219,6 +228,23 @@ break most often:
 
 Each of these cost real debugging time in this repository. They are recorded so the next
 agent does not pay again.
+
+- **Tests written from the code's own point of view missed three real bugs.** Version
+  0.2.0 passed 469 tests and its own smoke test, then failed on the first real
+  repositories it met. It marked 30 valid files `failed` across aspire, xunit, Humanizer,
+  and Polly. A fixture you write proves what you thought of, not what other people write.
+  Run the tool over real repositories before you call a parse or guard change done.
+- **`#:` and `#!` are .NET 10 file-based program directives.** Without the
+  `FileBasedProgram` parse feature they read as errors CS9298 and CS9314. Such a file
+  compiles alone, so a type moved out of it leaves the program. The tool skips it, even
+  when it declares `Main` in a class and has no top-level statements.
+- **The tool defines no preprocessor symbols, so `#else` is often the live branch.** A
+  `#error Unknown target framework` in that branch raises CS1029 here and never in the
+  real build. `SourceParsing.Errors` ignores CS1029 only inside an `#if` group. A bare
+  `#error` still fails the file, because every build of it fails.
+- **`dotnet new` template sources are not C#.** Lines like `#if (UseXunit)` and
+  placeholder names do not parse. Those files are `failed`, correctly. Tell the user to
+  pass `--exclude` for the template folder. Do not change the parse rule to accept them.
 
 - **`#if DEBUG` is a poor test vehicle for "a directive spans two types".** Roslyn hides
   the guarded types from the parse tree, so the run short circuits on "one type or fewer"

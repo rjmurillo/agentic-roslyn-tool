@@ -41,7 +41,7 @@ internal static class OutputVerifier
             }
 
             var tree = CSharpSyntaxTree.ParseText(output.Text, parseOptions, path: output.Path);
-            var diagnostics = tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+            var diagnostics = SourceParsing.Errors(tree);
             if (diagnostics.Length != 0)
             {
                 throw new InvalidOperationException($"{output.Path} does not parse: {JoinDiagnostics(diagnostics)}");

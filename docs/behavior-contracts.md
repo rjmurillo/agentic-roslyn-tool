@@ -509,7 +509,8 @@ Reason text shown in italics is a template; the run substitutes real values.
 | Content phase, row has a malformed hash | skipped | `stale plan: the manifest row carries a malformed contentHash '<value>'; re-run --phase plan` |
 | Renames phase, would split a file the manifest does not mark `split` | skipped | `stale plan: the plan manifest does not mark this file as split; re-run --phase plan` |
 | Renames phase, would split a file the manifest has no row for | skipped | `stale plan: the plan manifest has no row for this file; re-run --phase plan` |
-| Parse produced an error diagnostic | failed | `input has syntax errors: <diagnostics>` |
+| Parse produced an error diagnostic, other than a `#error` inside an `#if` group | failed | `input has syntax errors: <diagnostics>` |
+| File has a `#:` or `#!` directive (a .NET 10 file-based program) | skipped | `file-based program (#: or #! directive): it compiles alone, so no type can move out of it` |
 | File has top level statements | skipped | `contains top-level statements; manual split required` |
 | One type or fewer | skipped | `nothing to split: input has <n> top-level type declaration(s)` |
 | A `file` type and at most one other type | skipped | `nothing to split: file-local types stay in their file and at most one other type is declared` |

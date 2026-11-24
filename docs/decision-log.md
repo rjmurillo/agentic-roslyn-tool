@@ -1379,6 +1379,45 @@ parses with the preview language version, so new syntax parses with no error. A 
 bind to a type with no name at the use site needs a new refusal here. Extension blocks in
 C# 14 were one.
 
+### Decision 33. One parse rule, and a valid file is never `failed`
+
+**Context.** Version 0.2.0 passed 469 tests and was then run over ten public
+repositories. It marked 30 files `failed` that their own builds compile:
+
+- 21 .NET 10 file-based programs in aspire, Humanizer, and Polly. Their `#:` and `#!`
+  lines raise CS9298 and CS9314 unless the parse enables the `FileBasedProgram` feature.
+- 9 files in xunit and Humanizer with `#error Unknown target framework` in the `#else`
+  branch of a framework check. The tool defines no preprocessor symbols, so that branch
+  is live here and raised CS1029. The real build never takes it.
+
+Each such row made the run exit 1. The packaged skill told an agent to fix the cause of a
+`failed` row, so an agent could have edited valid code to please the tool. The parse
+options and the error filter were written inline at three call sites, so the input and
+the outputs were checked by copies of one rule.
+
+**Decision.** `SourceParsing` owns the whole rule. It parses with the preview language
+version and the `FileBasedProgram` feature. It drops CS1029 when the `#error` sits inside
+an `#if` group, and keeps every other error. A bare `#error` still fails, because every
+build of that file fails. A file with a `#:` or `#!` directive is skipped with its own
+reason, before the top-level statement check. A file-based program compiles alone, even
+when it declares `Main` in a class, so a type moved out of it leaves the program. The
+input and every output go through the same class. `ParseRuleOwnershipTests` fails the
+build if parse options or an error filter appear anywhere else. The skill and the package
+`AGENTS.md` now tell an agent never to edit a file to get past `input has syntax errors`.
+
+`dotnet new` template sources stay `failed`. Lines such as `#if (UseXunit)` are not C#
+until the template engine runs. Accepting them would mean guessing at a file the compiler
+rejects. The documented answer is `--exclude` for the template folder.
+
+**Consequences.** Over the same ten repositories, the only `failed` rows left are three
+aspire template files. The 21 file-based programs are skipped with a reason that says why.
+
+> **Warning.** Do not widen the CS1029 exception to a bare `#error`, and do not drop
+> other diagnostic IDs to make a file pass. Either one marks a file the compiler rejects
+> as safe to split. Do not move the file-based program check after the top-level
+> statement check: a program that declares `Main` in a class would then be split, and
+> its moved types would vanish from the program with no error in the tool.
+
 ## Credit
 
 The approach owes a debt to Lizzy Gallagher's write up on Roslyn refactoring,

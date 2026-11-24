@@ -439,13 +439,10 @@ internal sealed class FileSplitter
             return false;
         }
 
-        var tree = CSharpSyntaxTree.ParseText(SourceText.From(source.Text, source.Encoding), ParseOptions, path: readPath);
-        return !tree.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error)
+        var tree = CSharpSyntaxTree.ParseText(SourceText.From(source.Text, source.Encoding), SourceParsing.Options, path: readPath);
+        return SourceParsing.Errors(tree).Length == 0
             && SplitPlanner.IsAlreadyApplied(planned, TopLevelType.Find(tree.GetCompilationUnitRoot()).ToArray());
     }
-
-    /// <summary>The parse options every read of a source file uses.</summary>
-    private static readonly CSharpParseOptions ParseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
 
     /// <summary>
     /// Implements <see cref="ProcessResolved"/> from the point the input's bytes are in
@@ -466,13 +463,20 @@ internal sealed class FileSplitter
             // that may already have rewritten hundreds of others.
             return FileResult.Skip(originalPath, readPath, $"input is not valid UTF-8 and has no byte order mark: {ex.Message}");
         }
-        var parseOptions = ParseOptions;
+        var parseOptions = SourceParsing.Options;
         var tree = CSharpSyntaxTree.ParseText(SourceText.From(source.Text, source.Encoding), parseOptions, path: readPath);
         var root = tree.GetCompilationUnitRoot();
-        var originalDiagnostics = tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        var originalDiagnostics = SourceParsing.Errors(tree);
         if (originalDiagnostics.Length != 0)
         {
             return FileResult.Failed(originalPath, readPath, "input has syntax errors: " + OutputVerifier.JoinDiagnostics(originalDiagnostics));
+        }
+
+        // Checked before top-level statements, because a file-based program can declare
+        // Main in a class and have none. Its types still cannot leave the file.
+        if (SourceParsing.IsFileBasedProgram(root))
+        {
+            return FileResult.Skip(originalPath, readPath, SourceParsing.FileBasedProgramReason);
         }
 
         if (root.Members.OfType<GlobalStatementSyntax>().Any())

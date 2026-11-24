@@ -263,6 +263,13 @@ are most likely to see:
 | File already has one type | skipped | `nothing to split: input has 1 top-level type declaration(s)` |
 | Path matches `--exclude` | skipped | `excluded by pattern: <pattern>` |
 | File does not parse | failed | `input has syntax errors: <diagnostics>` |
+| File is a .NET 10 file-based program (`#:` or `#!` lines) | skipped | `file-based program (#: or #! directive): it compiles alone, so no type can move out of it` |
+
+A `dotnet new` template folder holds files that are not C# until the template engine runs,
+such as `#if (UseXunit)`. They fail with `input has syntax errors`. Pass
+`--exclude <template folder>` to leave them out. A `failed` row on a file your build
+compiles is a bug in the tool. Do not edit the file to get past it. Exclude it and
+[open an issue](https://github.com/rjmurillo/agentic-roslyn-tool/issues).
 
 The same-name row covers partial types, generic or not. SA1402 allows two parts of one
 partial class in a file, but the tool sees two types that want the same file name and

@@ -27,8 +27,11 @@ every file that would fail verification, before you touch the tree.
 
 ## Check 1: every output parses
 
-Each output file is parsed with Roslyn, using the preview language version. Any error
-diagnostic fails the file with this reason. Several errors are joined by a semicolon.
+Each output file is parsed with Roslyn, using the preview language version and the
+`FileBasedProgram` feature, so `#:` and `#!` lines parse. Any error diagnostic fails the
+file with this reason, except a `#error` inside an `#if` group. The tool defines no
+preprocessor symbols, so it cannot know which branch the real build takes. Several errors
+are joined by a semicolon. `SourceParsing` holds this rule for the input and every output.
 
 ```text
 <output path> does not parse: <diagnostic id> <message>
