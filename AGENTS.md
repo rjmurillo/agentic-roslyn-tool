@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 46 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 519 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 520 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -40,7 +40,7 @@ Every source file, so you do not have to open one to find out whether it matters
 
 | File | Responsibility |
 |---|---|
-| `FileSplitter.cs` | The orchestrator. Runs a phase over the inputs and turns one input into one result row. Delegates the actual work to `InputSource`, `SplitPlanner`, `DirectiveAnalyzer`, `FileLocalTypes`, `ConditionalNullable`, `OutputBuilder`, `OutputVerifier`, and `WorkspaceWriter`, and the plan binding to `PlanBinding.cs`. Read this first. |
+| `FileSplitter.cs` | The orchestrator. Runs a phase over the inputs and turns one input into one result row. Delegates the actual work to `InputSource`, `SplitPlanner`, `DirectiveAnalyzer`, `FileLocalTypes`, `NullableGuard`, `OutputBuilder`, `OutputVerifier`, and `WorkspaceWriter`, and the plan binding to `PlanBinding.cs`. Read this first. |
 | `InputSource.cs` | Turns whatever the caller supplied, a directory, a list file, a manifest, standard input, into an ordered list of absolute paths. |
 | `SplitPlanner.cs` | Decides what a split would do: which type stays, where each moved type lands, which inputs collide, which path a phase reads. Does not act. |
 | `DirectiveAnalyzer.cs` | Decides whether preprocessor directives make a split unsafe. Returns a verdict, never acts on one. |
@@ -50,7 +50,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `OutputBuilder.cs` | Renders the text of every output file: name, carved source, required header, trailing newline. |
 | `OutputVerifier.cs` | The correctness checks, run against in-memory outputs before anything is written. A failure here means nothing reaches disk. |
 | `NullableDirectives.cs` | Folds `#nullable` directives into the context at a point, restates a kept type's source context in an output that lost it, and checks each output's context before any write. Read decision 31 first. |
-| `ConditionalNullable.cs` | Decides whether a `#nullable` under `#if`, alone or beside any `#define` or `#undef`, could give a type a different nullable context in a new file, in some build. Returns a verdict, never acts on one. |
+| `NullableGuard.cs` | Refuses a file whose movable `#nullable` shares it with an `#if`, or comes before a `using`, where the restated context could be wrong. Returns a verdict, never acts on one. |
 | `SourceDirectives.cs` | Lists a tree's preprocessor directives once and caches the list on the root, so a split walks the source tree once, not once per type. |
 | `WorkspaceWriter.cs` | The only place the tool touches the working tree. Every rename runs through `git mv`; every write preserves encoding and byte order mark. |
 | `GitCommand.cs` | Runs one git command with a time limit. Passes each argument on its own, reads both streams, and kills git and its children on expiry. |
@@ -95,7 +95,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 519 passed, 0 failed
+dotnet test  -c Release      # must be 520 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -446,16 +446,15 @@ agent does not pay again.
   members too, not only its first token: a conditional directive inside a body changes
   only what follows it, and a check at the type's start missed that once. The verifier's
   own context check shares the tool's fold, so it cannot catch a wrong fold.
-- **Refuse on what the source holds, not on what an output loses.** An earlier
-  `ConditionalNullable` compared counts of conditional `#nullable` directives before each
-  type, in the source and in its output. A conditional directive in a type's own leading
-  trivia travels with it, so the counts matched, while an unconditional directive above it
-  was lost. Then review found a `#define` change a conditional `#nullable` in the last
-  type, first through a dropped `#if` around it, then through a dropped `[assembly: ...]`
-  attribute below it. `ConditionalNullable.AffectsAType` now refuses a conditional
-  `#nullable` before the last type, and any `#define` or `#undef` beside one. Its remarks
-  hold the rule. Do not narrow it to the places a directive can be lost: review found such
-  lists incomplete in four rounds.
+- **Do not narrow `NullableGuard` to the places a directive can be lost.** Four narrower
+  rules each passed review rounds, then failed on the next shape: a conditional
+  `#nullable` that travels with its own type, a `#define` whose `#if` a split drops, a
+  `#define` above an `[assembly: ...]` attribute, a type in an `#else` branch. The guard
+  now refuses a movable `#nullable` beside any `#if`, because a file with no `#if` has one
+  build and the fold is exact there. It refuses one before a `using` too, because
+  `Restore` restates context above the type, below that `using`. Its remarks hold the
+  rule. A narrower rule needs a generator over every directive kind and placement, run
+  through `NullableContextOracle`, before review.
 - **Roslyn parses a directive in a branch that is off as an inactive directive.** It is
   never disabled text, whatever its spacing, so `# nullable enable` under `#if X` is a
   `NullableDirectiveTriviaSyntax` with `IsActive` false. Walk directives, not text, to
@@ -521,7 +520,7 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   name, with no diagnostic. The directive sits in the leading trivia of the type below
   it, and each output removes every other type with its trivia. A `#nullable` directive
   is the exception: since decision 31 each output restates the context its type had,
-  unless `ConditionalNullable` refuses the file for a conditional directive. An
+  unless `NullableGuard` refuses the file. An
   input with a `file` type is refused for all of these. Every other input still splits.
 
 - A source file whose name Roslyn reads as generated code, such as `Foo.g.cs`, has

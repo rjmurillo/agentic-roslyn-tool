@@ -62,20 +62,6 @@ public sealed class NullableDirectivesTests
     }
 
     [Theory]
-    [InlineData("#nullable enable\n", 0)]
-    [InlineData("#if X\n#nullable enable\n#endif\n", 1)]
-    [InlineData("#if X\n#nullable disable\n#else\n#nullable enable\n#endif\n", 2)]
-    [InlineData("#if X\n# nullable enable\n#nullable disable\n#endif\n", 2)]
-    [InlineData("#if false\n#if Y\n#nullable enable\n#endif\n#endif\n", 1)]
-    public void CountBefore_CountsNullableDirectivesUnderIf(string directives, int expected)
-    {
-        var root = CSharpSyntaxTree.ParseText(directives + "class A { }\n", Parse).GetCompilationUnitRoot();
-        var type = TopLevelType.Find(root).Single();
-
-        Assert.Equal(expected, ConditionalNullable.CountBefore(root, type.Node.SpanStart));
-    }
-
-    [Theory]
     [InlineData("#nullable enable\n#nullable disable warnings\n", true, false)]
     [InlineData("#nullable enable annotations\n", true, null)]
     [InlineData("#nullable disable\n#nullable restore warnings\n", false, null)]

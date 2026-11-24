@@ -39,14 +39,14 @@ public sealed class RefusedRenameLocationTests : IDisposable
     }
 
     [Fact]
-    public void PlanSkip_ConditionalNullableBeforeAType_ReportsTheOriginalPath()
+    public void PlanSkip_NullableGuard_ReportsTheOriginalPath()
     {
         var stuff = _workspace.WriteFile("Stuff.cs", "namespace N;\n\npublic class Order2\n{\n#if X\n#nullable enable\n#endif\n}\n\npublic class Line { }\n");
 
         var row = Assert.Single(Plan(stuff, requiredHeader: null));
 
         Assert.Equal("skipped", row.Status);
-        Assert.Equal(FileSplitter.ConditionalNullableReason, row.Reason);
+        Assert.Equal(FileSplitter.NullableGuardReason, row.Reason);
         AssertReportsOriginal(stuff, row);
     }
 

@@ -572,11 +572,10 @@ A directive wholly contained inside a single type is allowed and travels with th
 `DirectiveAnalyzer.ProducesEmptyDirectiveShell` is a second, later check. It refuses a split
 that would leave a directive group with no code inside it.
 
-`ConditionalNullable.AffectsAType` is a third. It refuses a file where a `#nullable`
-under `#if` starts before the last type, or where any `#define` or `#undef` sits beside a
-`#nullable` under `#if`. See "Nullable context" below. The second check
+`NullableGuard.Refuses` is a third. It refuses a file with a movable `#nullable` beside
+any `#if`, or before a `using` directive. See "Nullable context" below. The second check
 carves the tree through `OutputBuilder.Carve`, the same call that starts each output.
-`AnalyzeDirectiveSafety` and `AffectsAType` read the source and do not carve.
+`AnalyzeDirectiveSafety` and `NullableGuard` read the source and do not carve.
 
 ### BuildPlan
 
@@ -704,31 +703,28 @@ this for the type each output is named for. A kept file can also hold `file` typ
 - One `#nullable enable`, `disable`, or `restore` line when annotations and warnings end
   equal. Otherwise one line per setting that changes, with an `annotations` or `warnings`
   target.
-- No line when the contexts already match, so a file with no `#nullable` directive splits
-  byte for byte as before. So does a file with one above the namespace, unless an
-  `[assembly: ...]` attribute follows it: the attribute and its trivia stay only in the
-  kept file, so the other new files gain the restated line.
+- No line when the contexts already match, so a file with no movable `#nullable`
+  directive splits byte for byte as before. A movable directive starts at or after the
+  first span a split can remove: a type, or an `[assembly: ...]` attribute list. A
+  `#nullable` above the namespace is movable only when such an attribute follows it; the
+  attribute stays only in the kept file, so the other new files gain the restated line.
 - The lines go above the type's first comment, doc comment, or attribute, at the start of
   a line, ending in the source file's newline.
-- The tool parses with no preprocessor symbols, so it cannot restate a `#nullable` under
-  `#if`. The file is skipped with
-  `a #nullable directive under #if could set a different nullable context for a type in a new file, in some build; manual split required`
-  when a `#nullable` under `#if` starts before the last type, whether active or in a
-  branch that is off. It is also skipped when the file holds any `#define` or `#undef`
-  beside a `#nullable` under `#if`, because a split can change the definitions a new file
-  sees: it drops the `#if` around one above the first type, and it drops one above an
-  `[assembly: ...]` attribute. `ConditionalNullable.AffectsAType` decides
-  this from the source, before any output is built. It does not read conditions, so it
-  also refuses `#if false`. A conditional `#nullable` inside the last type, after its
-  start, is allowed when the file holds no `#define` or `#undef`, and travels with that
-  type.
+- The tool parses with no preprocessor symbols. A file with no `#if` has one build, so
+  the fold is exact there. A file that holds a movable `#nullable` and any `#if` is skipped
+  with `a #nullable directive a split can move shares the file with an #if directive or comes before a using directive; manual split required`.
+  So is a file whose movable `#nullable` comes before a `using` directive, which sits in a
+  later namespace above the type the restated line goes on. `NullableGuard.Refuses`
+  decides this from the source, before any output is built. It does not read conditions,
+  so `#if false` and an `#if DEBUG` around one statement count.
 - `#pragma` directives are not restated. A `#pragma warning` does not change the nullable
   context; it suppresses warnings, and that suppression is lost the same way.
 - `VerifyOutputs` checks each output with the same fold, so it catches a misplaced line,
   not a wrong fold. That check reads the body, before any `--require-header` banner. A
   banner that holds a `#nullable` line changes every new file's context, because the
-  caller asked for that banner. `NullableContextTests` checks the fold against the
-  compiler, in every build the source's `#if` symbols describe.
+  caller asked for that banner. `NullableContextOracle` checks the fold against the
+  compiler, in every build the source's `#if` symbols describe; `NullableContextTests` and
+  `NullableRefusalTests` run it.
 
 ### VerifyLineConservation
 

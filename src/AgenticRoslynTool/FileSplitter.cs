@@ -57,12 +57,11 @@ internal sealed class FileSplitter
     internal const string AlreadyAppliedReason = "already applied: every planned output exists and this file no longer declares the planned types";
 
     /// <summary>
-    /// Reason recorded when <see cref="ConditionalNullable.AffectsAType"/> refuses a file: a
-    /// <c>#nullable</c> under <c>#if</c>, alone or beside a <c>#define</c> or <c>#undef</c>,
-    /// could give a type a different nullable context in a new file, in some build. See
-    /// decision 31.
+    /// Reason recorded when <see cref="NullableGuard.Refuses"/> refuses a file: a
+    /// <c>#nullable</c> directive a split can move shares the file with an <c>#if</c> directive,
+    /// or comes before a <c>using</c> directive. See decision 31.
     /// </summary>
-    internal const string ConditionalNullableReason = "a #nullable directive under #if could set a different nullable context for a type in a new file, in some build; manual split required";
+    internal const string NullableGuardReason = "a #nullable directive a split can move shares the file with an #if directive or comes before a using directive; manual split required";
 
     /// <summary>Constructs a splitter bound to a set of parsed options.</summary>
     /// <param name="options">The options that select the input list, manifest path, repository root, phase, and optional required header.</param>
@@ -521,9 +520,9 @@ internal sealed class FileSplitter
             return FileResult.Skip(originalPath, readPath, "splitting would leave an empty directive shell; manual split required");
         }
 
-        if (ConditionalNullable.AffectsAType(root, types))
+        if (NullableGuard.Refuses(root, types))
         {
-            return FileResult.Skip(originalPath, readPath, ConditionalNullableReason);
+            return FileResult.Skip(originalPath, readPath, NullableGuardReason);
         }
 
         // No caller passes Phase.Renames. The renames phase plans through here with

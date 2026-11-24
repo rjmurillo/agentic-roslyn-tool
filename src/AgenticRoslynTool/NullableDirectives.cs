@@ -20,8 +20,8 @@ namespace AgenticRoslynTool;
 /// default, which <c>#nullable restore</c> returns to. Null stands for the project default.
 /// Copying the source directives instead does not work. A directive inside a removed type's
 /// body would then appear twice, and line conservation rightly refuses that. The fold
-/// assumes no <c>#nullable</c> under <c>#if</c> comes before a type; see
-/// <see cref="ConditionalNullable"/>, which refuses a file before this runs otherwise.
+/// parses with no symbols defined, so it is exact only for a file with one build; see
+/// <see cref="NullableGuard"/>, which refuses the other files before this runs.
 /// </remarks>
 internal static class NullableDirectives
 {
