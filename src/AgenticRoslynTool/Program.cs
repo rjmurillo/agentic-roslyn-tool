@@ -166,7 +166,8 @@ static void PrintUsage(TextWriter w)
     w.WriteLine("split-types options:");
     w.WriteLine("  --input <dir|file|csv|list|->    A directory to scan, one .cs file, a CSV with a 'file' column,");
     w.WriteLine("                                   a text file with one path per line, or '-' to read paths from stdin.");
-    w.WriteLine("  --repo-root <path>               Repository root used for git operations. Defaults to the current directory.");
+    w.WriteLine("  --repo-root <path>               Repository root used for git operations and scanned for MSBuild Compile items.");
+    w.WriteLine("                                   Defaults to the current directory.");
     w.WriteLine("  --manifest <path>                Path to the plan manifest CSV. Defaults to sa1402-split-manifest.csv beside a list");
     w.WriteLine("                                   input, or in --repo-root for a directory or stdin input. Only plan writes it.");
     w.WriteLine("                                   Must name a file. renames and content refuse a symbolic link here.");

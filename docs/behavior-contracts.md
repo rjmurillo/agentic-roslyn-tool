@@ -36,7 +36,7 @@ agentic-roslyn-tool split-types --input <dir|file.cs|csv|list|-> [options]
 | Time limit | Each `git mv` in `renames` gets 120 seconds. Past that, the tool kills git and its children and marks the row `failed`. The row's `reason` starts `rename to <path> failed: git mv did not exit within 120 seconds`. Its first sentence ends `and was killed`, or `and could not be stopped and may still be running` when git outlives the kill. It says a killed git can leave an `index.lock` file and a half-finished move, and includes git's standard error. A non-zero exit gives `git mv failed (exit <code>):` and git's message. Paths reach git as separate arguments, so quotes in a file name are safe. |
 | Exit code | 0 no failures, 1 at least one row `failed`, 2 the command line was wrong, 3 the run could not complete. Skips are not failures. |
 | Streams | Standard output carries a parseable document or nothing: the manifest CSV in `plan`, the JSON report under `--json`, and nothing in `renames` and `content` without `--json`, unless the report file could not be written, when the rows print as CSV. The manifest path, the report path, the one-line summary, and every error go to standard error. |
-| Performance | Syntax parse only, no semantic model and no MSBuild load. A 7,818 file run completed in a single pass, measured outside this repository. |
+| Performance | Syntax parse only, no semantic model and no MSBuild load. MSBuild files are read as plain XML, once per run. A 7,818 file run completed in a single pass, measured outside this repository. |
 | Data sensitivity | Reads and rewrites source files in place. No network calls. |
 | Ordering | `plan` must run before `content`. `renames`, when used, belongs between them and must be committed first. |
 
@@ -526,6 +526,8 @@ Reason text shown in italics is a template; the run substitutes real values.
 | Parse produced an error diagnostic | failed | `input has syntax errors: <diagnostics>` |
 | File has top level statements | skipped | `contains top-level statements; manual split required` |
 | One type or fewer | skipped | `nothing to split: input has <n> top-level type declaration(s)` |
+| An MSBuild `Compile` item under `--repo-root` can name the file | skipped | `file is named by an MSBuild Compile item in <path>; manual split required` |
+| An MSBuild file, or a directory symlink whose target the walk does not reach, sits in the file's directory or above it and cannot be read | skipped | `cannot read MSBuild Compile items in <path>; manual split required` |
 | A `file` type and at most one other type | skipped | `nothing to split: file-local types stay in their file and at most one other type is declared` |
 | A `file` type, and text an `#if` excludes anywhere in the file | skipped | `file-local type shares the file with conditionally excluded text; manual split required` |
 | A `file` type, and a `global using` directive | skipped | `file-local type shares the file with a global using directive; manual split required` |
@@ -534,6 +536,42 @@ Reason text shown in italics is a template; the run substitutes real values.
 | Any identifier in a using directive equals a `file` type's name | skipped | `using directive names a file-local type; manual split required` |
 | An ordinary type, or a type nested in one, names a `file` type in its base list | skipped | `type lists a file-local type among its base types; manual split required` |
 | Anything else that throws while handling one input | failed | the exception message |
+
+The two MSBuild rows run in every phase, so the renames phase renames no such file and the
+content phase writes none. `<path>` is relative to `--repo-root`, with `/` separators. When
+several files qualify, the first in ordinal order is named. A named file wins over an
+unreadable one. The scan runs once per run, after the input list is read and before any
+input is processed. The content phase scans for itself and does not trust the plan,
+because a project can change between phases.
+
+- **What is scanned.** Every `.csproj`, `.props`, `.targets`, `.projitems`, and `.shproj`
+  file under `--repo-root`. Directories named `bin`, `obj`, and `.git` are skipped. No
+  directory symlink is followed. A directory the scan cannot list ends the run with exit
+  code 3 before any file is touched. The message says to make it readable and to keep
+  `--repo-root` at the repository root.
+- **What is read.** Every `Compile` element, in any XML namespace, at any depth, in any
+  letter case. Each `;`-separated value of `Include`, `Update`, `Remove`, and `Exclude` is
+  read, with attribute names in any case too. No property is evaluated and no import is
+  followed. Names read before a file's error still count, and so do names after an
+  overlong value.
+- **How a value matches.** Only the part after the last `/` or `\` is compared, case
+  insensitively, with the input's file name. An escaped `%2F` or `%5C` is a separator too.
+  A `$(...)`, `@(...)`, or `%(...)` reference, `*`, and `?` are wildcards, and `%XX` is an
+  escaped character. A part of exactly `*.cs`, `*`, or `**` matches the new files too, so
+  it refuses nothing. The content phase asks about the path the plan recorded and the path
+  it reads, so a rename does not hide a file.
+- **What counts as unreadable.** A file that is not valid XML, holds a document type
+  declaration, cannot be opened, is a symlink, is empty, is over 16 MiB, or holds a
+  `Compile` value over 4,096 characters. So does a file whose wildcard pattern finds the
+  scan already holding 10,000. A directory symlink counts too when the walk does not
+  reach its final target. Both the target and the root are resolved to real paths, one
+  directory link at a time. The link counts when the target's real path lies outside the
+  root's, or inside a `bin`, `obj`, or `.git` directory. A loop, or a chain deeper than
+  40 links, counts too. One whose target the walk does reach refuses nothing. A
+  named pipe reports a length of zero, so the scan never opens one.
+
+`MsBuildCompileItemTests`, `MsBuildUnreadableFileTests`, `MsBuildScanSafetyTests`,
+`MsBuildLinkTests`, and `MsBuildCompilePhaseTests` pin all of it. See decision 31.
 
 The seven `file` rows apply in the order shown, and the first that holds decides the reason.
 The last three put the type's name in the row's `note`, for example `Numbers declares

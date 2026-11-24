@@ -41,6 +41,8 @@ internal sealed class FileSplitter
 
     private readonly WorkspaceWriter _writer;
 
+    private MsBuildCompileItems? _compileItems;
+
     /// <summary>
     /// Reason recorded when the content phase is handed a file the plan never covered.
     /// Published: the packaged skill counts this skip, and <see cref="AlreadyAppliedReason"/>,
@@ -196,7 +198,9 @@ internal sealed class FileSplitter
     private IReadOnlyList<FileResult> BuildResolvedPlan(CollisionNaming collisionNaming)
     {
         var results = new List<FileResult>();
-        foreach (var path in InputSource.ReadRunnableInputs(_options.InputPath).ToArray())
+        var inputs = InputSource.ReadRunnableInputs(_options.InputPath).ToArray();
+        ScanCompileItems();
+        foreach (var path in inputs)
         {
             results.Add(Process(path, Phase.Plan, null, collisionNaming));
         }
@@ -239,6 +243,10 @@ internal sealed class FileSplitter
         var manifestPlan = ManifestWriter.Read(_options.ManifestPath, requireContentHash: true);
         var collisionNaming = CollisionNamingFlag.Resolve(_options.CollisionNaming, ManifestCollisionNaming.Read(_options.ManifestPath), _options.ManifestPath);
         var plannedFiles = SplitPlanner.IndexByInputPath(manifestPlan.Where(r => r.Status == "split"));
+
+        // This phase scans for itself and does not trust the plan manifest. A project can
+        // change between phases.
+        ScanCompileItems();
 
         // Every row, under the same paths the split index uses, so an input handed over by
         // its kept path still finds the row the plan recorded for it.
@@ -486,6 +494,14 @@ internal sealed class FileSplitter
             return FileResult.Skip(originalPath, readPath, $"nothing to split: input has {types.Length} top-level type declaration(s)");
         }
 
+        // A project that names this file would not compile the new siblings. Both paths are
+        // asked, because the content phase reads the kept path after a rename.
+        var compileItems = _compileItems ?? throw new InvalidOperationException("MSBuild files were not scanned before the inputs were processed.");
+        if (compileItems.DescribeRefusal(originalPath, readPath) is { } compileItemRefusal)
+        {
+            return FileResult.Skip(originalPath, readPath, compileItemRefusal);
+        }
+
         // A file-local type stays where it is. This refuses the inputs no choice of kept
         // type could make safe. BuildPlan refuses the rest, once it knows which types move.
         if (FileLocalTypes.DescribeRefusal(types) is { } fileLocalRefusal)
@@ -542,6 +558,13 @@ internal sealed class FileSplitter
             return FileResult.Failed(originalPath, readPath, ex.Message);
         }
     }
+
+    /// <summary>
+    /// Reads the MSBuild files under the repository root once for this run, after the input
+    /// list is in hand and before any input is processed. A scan that fails ends the run
+    /// before anything is written.
+    /// </summary>
+    private void ScanCompileItems() => _compileItems = MsBuildCompileItems.Scan(_options.RepoRoot);
 
     /// <summary>
     /// Returns the first <c>--exclude</c> pattern matching <paramref name="path"/>, or null

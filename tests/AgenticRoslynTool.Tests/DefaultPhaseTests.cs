@@ -37,7 +37,7 @@ public sealed class DefaultPhaseTests
             File.WriteAllText(source, Text);
             var manifest = Path.Combine(directory, "manifest.csv");
 
-            var result = CliRunner.Run("split-types", "--input", directory, "--manifest", manifest, "--json");
+            var result = CliRunner.Run("split-types", "--input", directory, "--repo-root", directory, "--manifest", manifest, "--json");
 
             Assert.Equal(0, result.ExitCode);
             using var document = JsonDocument.Parse(result.StandardOutput);
@@ -62,7 +62,7 @@ public sealed class DefaultPhaseTests
         ws.WriteFile("Two.cs", "class Two { }\nclass B { }\n");
         var manifest = Path.Combine(ws.Root, "m.csv");
 
-        var result = CliRunner.Run("split-types", "--input", ws.Root, "--manifest", manifest);
+        var result = CliRunner.Run("split-types", "--input", ws.Root, "--repo-root", ws.Root, "--manifest", manifest);
 
         Assert.Equal(0, result.ExitCode);
         Assert.StartsWith("originalPath,keptPath,gitMove,status,reason,note,newFilePath,type,contentHash,collisionNaming", result.StandardOutput, StringComparison.Ordinal);

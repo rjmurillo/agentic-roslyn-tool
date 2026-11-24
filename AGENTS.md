@@ -24,8 +24,8 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 44 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 486 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 48 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 557 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -84,6 +84,10 @@ Every source file, so you do not have to open one to find out whether it matters
 | `ContentHash.cs` | Computes and compares the `sha256:` content hash a manifest row carries for its input. Owns the `stale plan:` refusal text. |
 | `PlanBinding.cs` | Binds the rows renames and content report to the plan manifest they read. Carries the planned hash and refuses a stale file. Decides, never acts. |
 | `CsvFieldReader.cs` | Quote aware CSV field parsing for the manifest and for CSV inputs. |
+| `MsBuildCompileItems.cs` | Reads every MSBuild file under `--repo-root` once per run, as XML only. Refuses an input a `Compile` item names, or one near an MSBuild file it cannot read. |
+| `CompileItemName.cs` | Reads the file name part of one `Compile` item value. Says which file names an exact name or a wildcard could match. |
+| `MsBuildFileFinder.cs` | Finds the MSBuild files under the root, and the directory symlinks whose target the walk does not reach. Says which files are safe to open. |
+| `MsBuildText.cs` | Reads MSBuild references, `$(...)`, `@(...)`, `%(...)`, and `%XX` escapes. |
 
 The tool splits itself cleanly. Running it over `src/AgenticRoslynTool/` reports every file
 skipped and exits 0. That is the cheapest smoke test in the repo, and it is how you confirm
@@ -93,7 +97,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 486 passed, 0 failed
+dotnet test  -c Release      # must be 557 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -224,6 +228,16 @@ agent does not pay again.
 - **`#if DEBUG` is a poor test vehicle for "a directive spans two types".** Roslyn hides
   the guarded types from the parse tree, so the run short circuits on "one type or fewer"
   before directive safety is ever consulted. Use `#region` for that test instead.
+- **A split can break a project that never shows up in the input.** AutoMapper's
+  `IntegrationTests` project links `..\UnitTests\AutoMapperSpecBase.cs` with a `Compile`
+  item. v0.2.0 split that file, and the project lost the moved base class. The build went
+  from 0 errors to 236, all reported at exit code 0. Every phase now scans MSBuild files
+  under `--repo-root` and skips a file a `Compile` item names. See decision 31.
+- **A test that leaves `--repo-root` unset scans the whole temp directory.** The repository
+  root defaults to the working directory, and `CliRunner.Run` starts the tool in the system
+  temp directory. On Linux that holds directories the scan cannot list, so the run exits 3.
+  Pass `--repo-root` with the test's own workspace in every process test that reaches a
+  split.
 - **A comment placed above a `using` is not the first type's trivia.** Roslyn attaches it
   to the `using` token, so it correctly appears in every output. To test that a comment
   travels with its type, put the comment immediately above the type declaration.
@@ -538,6 +552,9 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   The content run rewrote the kept file, so its bytes differ from the plan. The content
   phase tells its own earlier write from an outside edit and says `already applied`. The
   renames phase does not make that check. The file is left alone either way.
+- The MSBuild scan checks each input's own name, not the names of the files a split would
+  write. A `Compile Remove="Bar.cs"` left over for a file that no longer exists would
+  quietly drop a new `Bar.cs` from the build. Nothing guards that. See decision 31.
 - `CsvFieldReader` exists, but not for the reason previously recorded here. The claim was
   that `Microsoft.VisualBasic.FileIO.TextFieldParser` forces a Windows only target. That
   was tested on this machine and is false: it compiles and parses quoted commas correctly
