@@ -1417,7 +1417,10 @@ refused first no longer pushes its partners into a qualified name. On AutoMapper
 `ProjectCollectionsBug.cs` now moves `B` to `B.cs`, not `ProjectCollectionsBug.B.cs`. A
 plan with no such collision comes back as the same rows, so its manifest is byte for byte
 the same. A same name, different case pair counts as a collision on every platform, as
-it does for every other collision check.
+it does for every other collision check. The checks over-refuse in two rare shapes. A
+row refused in the second step still blocks a new file in the first. A row that plans a
+rename still claims its original path, though the rename usually lands. Both cost a
+skipped file, never a broken promise.
 
 **Reversal warning.** Drop the first step and the AutoMapper shape returns: the plan says
 `split` and content skips the row after its rename already landed. Drop the second and a

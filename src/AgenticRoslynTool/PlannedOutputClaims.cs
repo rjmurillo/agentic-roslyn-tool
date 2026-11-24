@@ -55,26 +55,23 @@ internal static class PlannedOutputClaims
 
     /// <summary>
     /// Runs after names are qualified. Refuses a row whose new file is a path that any other
-    /// row creates, renames into, or leaves in place. Repeats until no row changes, because
-    /// a refused row that planned a rename now stays at its original path.
+    /// row creates, renames into, or may leave in place.
     /// </summary>
+    /// <remarks>
+    /// One pass is enough. Every row claims its original path whatever it plans, so a
+    /// refusal only takes claims away and can never cause another.
+    /// </remarks>
     /// <param name="results">One row per input, with every collision name already chosen.</param>
-    internal static IReadOnlyList<FileResult> RefuseSharedOutputs(IReadOnlyList<FileResult> results)
-    {
-        while (true)
-        {
-            var claims = results.SelectMany(Claims).ToArray();
-            var refused = Refuse(results, claims);
-            if (ReferenceEquals(refused, results))
-            {
-                return results;
-            }
+    internal static IReadOnlyList<FileResult> RefuseSharedOutputs(IReadOnlyList<FileResult> results) =>
+        Refuse(results, results.SelectMany(Claims).ToArray());
 
-            results = refused;
-        }
-    }
-
-    /// <summary>Every path one row will occupy once all three phases have run.</summary>
+    /// <summary>Every path one row may occupy once all three phases have run.</summary>
+    /// <remarks>
+    /// A row that plans a rename still claims its original path. Its rename can be dropped
+    /// later, by <see cref="KeptRenameCollisions"/> or by a refusal, and then the file stays
+    /// where it is. A row's own claims never refuse it, so a moved type may still land on
+    /// the path its own kept file vacates.
+    /// </remarks>
     private static IEnumerable<(string Path, string Owner)> Claims(FileResult row)
     {
         if (row.Status != "split")
@@ -82,7 +79,7 @@ internal static class PlannedOutputClaims
             return [(row.OriginalPath, row.OriginalPath)];
         }
 
-        return row.NewFiles.Select(f => (f.Path, row.OriginalPath)).Prepend((row.KeptPath, row.OriginalPath));
+        return row.NewFiles.Select(f => (f.Path, row.OriginalPath)).Prepend((row.KeptPath, row.OriginalPath)).Prepend((row.OriginalPath, row.OriginalPath));
     }
 
     /// <summary>

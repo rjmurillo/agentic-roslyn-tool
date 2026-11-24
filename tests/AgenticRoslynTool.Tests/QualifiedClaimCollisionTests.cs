@@ -10,9 +10,11 @@ public sealed class QualifiedClaimCollisionTests
     private const string Shared = "\n\npublic class Shared\n{\n}\n";
 
     [Theory]
-    [InlineData(false, "A.Shared.cs")]
-    [InlineData(true, "Shared.A.cs")]
-    public void QualifiedNameOnAnInputThatStays_IsRefusedInThePlan(bool typeFirst, string occupied)
+    [InlineData(false, "A.Shared.cs", false)]
+    [InlineData(true, "Shared.A.cs", false)]
+    [InlineData(false, "A.Shared.cs", true)]
+    [InlineData(true, "Shared.A.cs", true)]
+    public void QualifiedNameOnAnInputThatStays_IsRefusedInThePlan(bool typeFirst, string occupied, bool staysFirst)
     {
         using var ws = new TempWorkspace();
         var a = ws.WriteFile("A.cs", "namespace One;\n\npublic class A\n{\n}" + Shared);
@@ -20,7 +22,7 @@ public sealed class QualifiedClaimCollisionTests
         var stays = ws.WriteFile(occupied, "namespace Three;\n\npublic class Other\n{\n}\n");
         var taken = Path.Combine(ws.Root, occupied);
 
-        var plan = RenameTargetCollisionTests.RunAllPhases(ws, typeFirst, [a, b, stays], out var content);
+        var plan = RenameTargetCollisionTests.RunAllPhases(ws, typeFirst, staysFirst ? [stays, a, b] : [a, b, stays], out var content);
 
         var aRow = plan.Single(r => r.OriginalPath == a);
         Assert.Equal(("skipped", PlannedOutputClaims.Reason), (aRow.Status, aRow.Reason));
@@ -45,6 +47,29 @@ public sealed class QualifiedClaimCollisionTests
         var resolved = SplitPlanner.ResolvePlannedOutputCollisions(results);
 
         Assert.Equal(results, resolved);
+    }
+
+    [Fact]
+    public void QualifiedNameOnARenamedInput_IsRefused()
+    {
+        // A.Shared.cs plans a rename to Foo.cs, but an earlier input may take that target,
+        // and then A.Shared.cs stays where it is. So its original path is still claimed.
+        var root = Path.Combine(Path.GetTempPath(), "art-claims");
+        var shared = Path.Combine(root, "Shared.cs");
+        var renamed = Path.Combine(root, "A.Shared.cs");
+        var a = Path.Combine(root, "A.cs");
+        var results = new[]
+        {
+            FileResult.Split(renamed, Path.Combine(root, "Foo.cs"), true, null, [new NewFileResult(Path.Combine(root, "Bar.cs"), "Bar")]),
+            FileResult.Split(a, a, false, null, [new NewFileResult(shared, "Shared")]),
+            FileResult.Split(Path.Combine(root, "B.cs"), Path.Combine(root, "B.cs"), false, null, [new NewFileResult(shared, "Shared")]),
+        };
+
+        var resolved = SplitPlanner.ResolvePlannedOutputCollisions(results);
+
+        Assert.Equal(("skipped", PlannedOutputClaims.Reason), (resolved[1].Status, resolved[1].Reason));
+        Assert.Equal($"output {renamed} is also claimed by {renamed}", resolved[1].Note);
+        Assert.Equal(new[] { "split", "skipped", "split" }, resolved.Select(r => r.Status));
     }
 
     [Fact]

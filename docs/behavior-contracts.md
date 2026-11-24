@@ -288,8 +288,9 @@ Promises:
   `note` reads `output <path> is also claimed by <input>`, once per path. The rename is
   never the one dropped. A new file is checked against rename targets under its computed
   simple name, before any qualified name is chosen, because the content phase probes
-  that name too. A qualified name is checked against every row's paths after it is
-  chosen. A plan with no such collision is unchanged. `RenameTargetCollisionTests` and
+  that name too. A qualified name is checked after it is chosen against every row's
+  original path, rename target, and new files. A row that plans a rename still claims
+  its original path, because the rename can be dropped later. A plan with no such collision is unchanged. `RenameTargetCollisionTests` and
   `QualifiedClaimCollisionTests` pin it. See decision 32.
 - Every row for a file the run read carries that file's `contentHash`. Verified by
   `ContentHashPlanTests`.
@@ -770,7 +771,8 @@ The things that would surprise a reader who only skimmed the signatures.
    disk for a qualified name. It does check one against the paths the plan owns: other
    inputs, rename targets, and new files. A hit skips the input with
    `planned output path collision with another input requires manual handling`. The
-   content phase probes the disk, and refuses with `target path already exists`. Under `type-first`, an input whose qualified name would
+   content phase probes the disk, and refuses with `target path already exists`. Under
+   `type-first`, an input whose qualified name would
    end in `.g`, `.g.i`, `.designer`, or `.generated` is skipped with
    `qualified output name would be read as generated code; manual handling required`.
 6. **The tool trusts the plan manifest as a review artifact**, and refuses to proceed when
