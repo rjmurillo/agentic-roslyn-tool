@@ -1392,13 +1392,18 @@ the fewest canonical lines above the type. `OutputFile.AddedLines` records them,
 conservation subtracts exactly those, and `VerifyOutputs` checks each output's context
 before anything is written. That check shares the fold, so it guards the placement of a
 line, not the fold itself. `NullableContextTests` proves the fold against the compiler's
-semantic model, under both project defaults.
+semantic model, under both project defaults and every set of the source's `#if` symbols.
 
 A `#nullable` under `#if` is not restated. The tool parses with no symbols, so one
-unconditional line would be wrong in some build. A file whose split would drop such a
-directive is refused instead.
+unconditional line would be wrong in some build. `ConditionalNullable.AffectsAType`
+refuses a file where one starts before the last type. Then every type keeps one context
+in every build, and the fold is exact. An earlier rule refused only when an output lost a
+conditional directive. It missed a conditional directive that travels with its own type
+while an unconditional one above it is lost: with the symbol defined, the source sets the
+type's context only through the lost directive. Five review rounds checked with no
+symbols and passed that wrong write.
 
-Three other ways were tried and rejected:
+Four other ways were tried and rejected:
 
 - `SyntaxRemoveOptions.KeepDirectives` keeps every directive of a removed type. Tested on
   a type holding `#region R` and `#nullable enable`, the other output kept an empty
@@ -1406,18 +1411,25 @@ Three other ways were tried and rejected:
 - Copying the source directives keeps a body directive's line in two files. That line is
   not prologue, so line conservation rightly refuses it.
 - Refusing every file whose types differ in nullable context. That is always safe, but
-  it skips the common case this decision fixes: a plain `#nullable enable` partway down a
-  file. Refusal is kept for the one case restating cannot get right, a directive under
-  `#if`.
+  it skips the case this decision fixes: a plain `#nullable enable` partway down a file.
+  Refusal is kept for the one case restating cannot get right, a directive under `#if`.
+- Checking each output at write time with the compiler, through a one-file compilation
+  and `GetNullableContext`. A review probe ran 3600 such compilations in about 220 ms. It
+  was not adopted, because it checks only the build it parses: with no symbols defined it
+  passes the same conditional files the fold passes. Deciding from the source, before any
+  output, covers every build. The compiler stays in the tests, where they enumerate the
+  symbols.
 
 The `KeepDirectives` result was observed on Microsoft.CodeAnalysis.CSharp 5.9.0.
 
 **Consequences.** A file that split before still splits, with one exception. A file
-with a `#nullable` under `#if` before a type that lands in another file is now skipped,
-in any branch, even `#if false`. The parse can tell `#if false` from an undefined
-symbol, but the guard does not read the condition: it counts every `#nullable` under
-`#if`, which keeps the rule simple and fails safe. Two older guards refuse some of these
-files first, with their own reasons; the rest get the new one. A new file can gain a
+where a `#nullable` under `#if` starts before the last type is now skipped, in any
+branch, even `#if false`, and even when a later unconditional directive overrides it.
+The parse can tell `#if false` from an undefined symbol, but the guard does not read the
+condition: it refuses every such directive, which keeps the rule simple and fails safe.
+Two older guards refuse some of these files first, with their own reasons; the rest get
+the new one. A conditional `#nullable` inside the last type, after its start, still
+splits and travels with that type. A new file can gain a
 `#nullable` line no source line matches, which is the point. Files with no `#nullable`
 directive, or with one above the namespace, split byte for byte as before.
 
@@ -1433,22 +1445,23 @@ context, because the caller asked for it. An earlier draft checked the full text
 that failed every split whose banner held such a line.
 
 Each type asks about the same source tree, so `SourceDirectives` lists a tree's
-directives once and caches the list on the root. Walking the tree for each type took
-54.5s against 6.1s on main for one file of 1800 types with a `#pragma` each.
-`ConditionalNullable` also skips its carve when the source holds no `#nullable` under
-`#if`. With both, that file plans in about the time main takes. A file that does hold
-such a directive still carves each output once more, so it plans more slowly than main.
+directives once and caches the list on the root. At commit 9f5c4ac, which walked the tree
+for each type, one generated file of 1800 types with a `#pragma` each planned in 54.5s
+against 6.1s on main. With the cache it plans within about 10 percent of main.
+`ConditionalNullable` reads the source once and carves nothing.
 
-Three gaps remain and are recorded in `AGENTS.md` under known issues: a `#pragma`
-directive, a source named as generated code, and a `// <auto-generated/>` comment. Each
-sets context without a `#nullable` directive, so the fold cannot see it. No test pins
-them yet; each is a known issue, not a promise.
+Three gaps remain and are recorded in `AGENTS.md` under known issues. A source named as
+generated code and a `// <auto-generated/>` comment each set context without a
+`#nullable` directive, so the fold cannot see them. A `#pragma warning` leaves the
+context alone but suppresses warnings, and that suppression is lost the same way. No test
+pins these yet; each is a known issue, not a promise.
 
-**Reversal warning.** Remove `Restore` and a type below a `#nullable` directive silently
-changes context in its new file. Exempt lines by their `#nullable` text instead of
-`AddedLines`, and a dropped body directive passes line conservation. Restate a
-conditional directive instead of refusing, and a build that defines the symbol gets the
-wrong context at exit code 0.
+**Reversal warning.** Remove `Restore` and every split with a mid-file `#nullable` fails
+verification; remove the check in `VerifyOutputs` too, and a type below the directive
+silently changes context in its new file. Exempt lines by their `#nullable` text instead
+of `AddedLines`, and a dropped body directive passes line conservation. Narrow
+`AffectsAType` to the directives an output loses, or restate a conditional directive,
+and a build that defines the symbol gets the wrong context at exit code 0.
 
 ## Credit
 

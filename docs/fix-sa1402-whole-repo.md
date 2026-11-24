@@ -259,7 +259,7 @@ are most likely to see:
 | A `file` type shares the file with a `#line`, `#nullable`, `#pragma`, `#define`, or `#undef` directive on or inside a type, or on an assembly attribute | skipped | `file-local type shares the file with a #line, #nullable, #pragma, #define, or #undef directive on or inside a type or on an assembly attribute; manual split required` |
 | A `file` type shares the file with an excluded `#if` branch | skipped | `file-local type shares the file with conditionally excluded text; manual split required` |
 | An `#if` or `#region` spans two types | skipped | `<kind> group at line <n> crosses top-level type boundaries` |
-| A `#nullable` under `#if` comes before a type that lands in another file, and no earlier check refused the file first | skipped | `a #nullable directive under #if sets a type's context and the split would drop it; manual split required` |
+| A `#nullable` under `#if` starts before the last type, and no earlier check refused the file first | skipped | `a #nullable directive under #if comes before a type, so the context of that type depends on build symbols; manual split required` |
 | Two types in one file share a name and type parameter list | skipped | `target path collision within split: <path>` |
 | File already has one type | skipped | `nothing to split: input has 1 top-level type declaration(s)` |
 | Path matches `--exclude` | skipped | `excluded by pattern: <pattern>` |

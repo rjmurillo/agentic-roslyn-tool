@@ -288,7 +288,7 @@ Promises:
   plan starts afresh. Verified by `CollisionNamingFlagTests` and `CollisionNamingRecordedTests`.
 - A `skipped` or `failed` row names the file's original path as `keptPath`, with
   `gitMove` false. A refusal never renames. That holds for a `BuildPlan` refusal, an
-  empty directive shell, a dropped conditional `#nullable`, a verification failure, and a
+  empty directive shell, a conditional `#nullable` before a type, a verification failure, and a
   collision refusal, even when the
   plan first chose a rename target. Only a `split` row names a planned rename target.
   `RefusedRenameLocationTests` pins it.
@@ -572,10 +572,10 @@ A directive wholly contained inside a single type is allowed and travels with th
 `DirectiveAnalyzer.ProducesEmptyDirectiveShell` is a second, later check. It refuses a split
 that would leave a directive group with no code inside it.
 
-`ConditionalNullable.IsDropped` is a third. It refuses a split that would drop
-a `#nullable` under `#if` that comes before a type. See "Nullable context" below. The
-second and third carve the tree through `OutputBuilder.Carve`, the same call that builds
-each output. `AnalyzeDirectiveSafety` reads the source trivia and does not carve.
+`ConditionalNullable.AffectsAType` is a third. It refuses a file where a `#nullable`
+under `#if` starts before the last type. See "Nullable context" below. The second check
+carves the tree through `OutputBuilder.Carve`, the same call that starts each output.
+`AnalyzeDirectiveSafety` and `AffectsAType` read the source and do not carve.
 
 ### BuildPlan
 
@@ -708,15 +708,19 @@ this for the type each output is named for. A kept file can also hold `file` typ
 - The lines go above the type's first comment, doc comment, or attribute, at the start of
   a line, ending in the source file's newline.
 - The tool parses with no preprocessor symbols, so it cannot restate a `#nullable` under
-  `#if`. When an output would lose one that comes before its type in the source, whether
-  active or in a branch that is off, the file is skipped with
-  `a #nullable directive under #if sets a type's context and the split would drop it; manual split required`.
-  `ConditionalNullable.IsDropped` decides this before any output is built.
-- `#pragma` directives are not restated.
+  `#if`. When one starts before the last type, whether active or in a branch that is off,
+  some type's context depends on build symbols, and the file is skipped with
+  `a #nullable directive under #if comes before a type, so the context of that type depends on build symbols; manual split required`.
+  `ConditionalNullable.AffectsAType` decides this from the source, before any output is
+  built. A conditional `#nullable` inside the last type, after its start, is allowed and
+  travels with that type.
+- `#pragma` directives are not restated. A `#pragma warning` does not change the nullable
+  context; it suppresses warnings, and that suppression is lost the same way.
 - `VerifyOutputs` checks each output with the same fold, so it catches a misplaced line,
-  not a wrong fold. `NullableContextTests` checks the fold against the compiler. It reads
-  the body, before any `--require-header` banner. A banner that holds a `#nullable` line
-  changes every new file's context, because the caller asked for that banner.
+  not a wrong fold. That check reads the body, before any `--require-header` banner. A
+  banner that holds a `#nullable` line changes every new file's context, because the
+  caller asked for that banner. `NullableContextTests` checks the fold against the
+  compiler, in every build the source's `#if` symbols describe.
 
 ### VerifyLineConservation
 

@@ -5,8 +5,9 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace AgenticRoslynTool;
 
 /// <summary>
-/// Reads the nullable context that <c>#nullable</c> directives set at a point in a file, and
-/// restates it in an output file that lost the directives that set it.
+/// Reads the nullable context that <c>#nullable</c> directives set at a point in a file,
+/// restates it in an output file that lost the directives that set it, and checks each
+/// output's context before anything is written.
 /// </summary>
 /// <remarks>
 /// A <c>#nullable</c> directive sits in the leading trivia of the type below it, or inside a
@@ -18,7 +19,9 @@ namespace AgenticRoslynTool;
 /// A context is two settings, annotations and warnings. Each is on, off, or the project
 /// default, which <c>#nullable restore</c> returns to. Null stands for the project default.
 /// Copying the source directives instead does not work. A directive inside a removed type's
-/// body would then appear twice, and line conservation rightly refuses that.
+/// body would then appear twice, and line conservation rightly refuses that. The fold
+/// assumes no <c>#nullable</c> under <c>#if</c> comes before a type; see
+/// <see cref="ConditionalNullable"/>, which refuses a file before this runs otherwise.
 /// </remarks>
 internal static class NullableDirectives
 {

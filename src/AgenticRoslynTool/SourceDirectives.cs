@@ -10,7 +10,8 @@ namespace AgenticRoslynTool;
 /// <remarks>
 /// A split asks about the same source tree once for each type it moves. Walking that tree
 /// each time made a file with many types take time that grew with the square of its type
-/// count: 54.5s against 6.1s on main for 1800 types with a <c>#pragma</c> each. So each
+/// count. At commit 9f5c4ac one generated file of 1800 types with a <c>#pragma</c> each
+/// planned in 54.5s against 6.1s on main. So each
 /// tree's directives are listed once and kept, keyed weakly on the root, which lets a tree
 /// and its list be collected together. See decision 31.
 /// </remarks>

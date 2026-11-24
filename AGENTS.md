@@ -25,7 +25,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | Path | What lives there |
 |---|---|
 | `src/AgenticRoslynTool/` | The entire product. 46 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 510 of them. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 515 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -50,7 +50,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `OutputBuilder.cs` | Renders the text of every output file: name, carved source, required header, trailing newline. |
 | `OutputVerifier.cs` | The correctness checks, run against in-memory outputs before anything is written. A failure here means nothing reaches disk. |
 | `NullableDirectives.cs` | Folds `#nullable` directives into the context at a point, restates a kept type's source context in an output that lost it, and checks each output's context before any write. Read decision 31 first. |
-| `ConditionalNullable.cs` | Decides whether a split would drop a `#nullable` under `#if`, which no unconditional line can restate. Returns a verdict, never acts on one. |
+| `ConditionalNullable.cs` | Decides whether a `#nullable` under `#if` starts before the last type, which makes some type's context depend on build symbols. Returns a verdict, never acts on one. |
 | `SourceDirectives.cs` | Lists a tree's preprocessor directives once and caches the list on the root, so a split walks the source tree once, not once per type. |
 | `WorkspaceWriter.cs` | The only place the tool touches the working tree. Every rename runs through `git mv`; every write preserves encoding and byte order mark. |
 | `GitCommand.cs` | Runs one git command with a time limit. Passes each argument on its own, reads both streams, and kills git and its children on expiry. |
@@ -95,7 +95,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 510 passed, 0 failed
+dotnet test  -c Release      # must be 515 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -437,17 +437,20 @@ agent does not pay again.
   above both sits outside every owned span. A `#nullable` line inside a type's body is not
   prologue. That is the case that needs `AddedLines`, so a test of the exemption must put
   the directive in a body, as `NullableDirectivesTests` does.
-- **Prove a nullable change with the compiler, not with `NullableDirectives`.**
-  `NullableContextOracle` reads `SemanticModel.GetNullableContext` under a project default
-  of both disable and enable. Checking one default lets `#nullable disable` pass where the
-  source said `#nullable restore`. The verifier's own context check shares the tool's
-  fold, so it cannot catch a wrong fold.
-- **Do not list the `#if` shapes that reach `ConditionalNullable`. Describe the rule.**
-  Review found shapes that a written list had missed, in more than one round: a group
-  around a type's attributes, after them, around a modifier, before a base list. The rule
-  lives in one place, the remarks on `ConditionalNullable`: two older guards run first,
-  and every group they let through reaches `ConditionalNullable.IsDropped`. A test about
-  one of these shapes should assert which reason it gets, not that it reaches one guard.
+- **Prove a nullable change with the compiler, not with `NullableDirectives`, and in more
+  than one build.** `NullableContextOracle` reads `SemanticModel.GetNullableContext` under
+  a project default of both disable and enable, and under every set of the symbols the
+  source's `#if` conditions name. Checking one default lets `#nullable disable` pass where
+  the source said `#nullable restore`. Checking with no symbols missed a wrong write for
+  five review rounds, because the tool also folds with no symbols. The verifier's own
+  context check shares the tool's fold, so it cannot catch a wrong fold.
+- **Refuse on what the source holds, not on what an output loses.** An earlier
+  `ConditionalNullable` compared counts of conditional `#nullable` directives before each
+  type, in the source and in its output. A conditional directive in a type's own leading
+  trivia travels with it, so the counts matched, while an unconditional directive above it
+  was lost. `ConditionalNullable.AffectsAType` refuses any `#nullable` under `#if` that
+  starts before the last type. Its remarks hold the rule. Do not restate it as a list of
+  places a group can sit: review found such lists incomplete in three rounds.
 - **Roslyn parses a directive in a branch that is off as an inactive directive.** It is
   never disabled text, whatever its spacing, so `# nullable enable` under `#if X` is a
   `NullableDirectiveTriviaSyntax` with `IsActive` false. Walk directives, not text, to
@@ -511,7 +514,8 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   `CallerFilePath` value in the third type changed from `Mapped.cs` to the new file's
   name, with no diagnostic. The directive sits in the leading trivia of the type below
   it, and each output removes every other type with its trivia. A `#nullable` directive
-  is the exception: since decision 31 each output restates the context its type had. An
+  is the exception: since decision 31 each output restates the context its type had,
+  unless a `#nullable` under `#if` starts before the last type, which is refused. An
   input with a `file` type is refused for all of these. Every other input still splits.
 
 - A source file whose name Roslyn reads as generated code, such as `Foo.g.cs`, has

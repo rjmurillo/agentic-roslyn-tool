@@ -96,10 +96,10 @@ internal static class OutputBuilder
     /// <summary>
     /// Removes every type <paramref name="file"/> does not hold from the source tree, keeping
     /// any directive left unbalanced. <see cref="PlannedFile.Holds"/> decides, so the kept file
-    /// keeps its <c>file</c> types. <see cref="BuildOutputs"/>,
-    /// <see cref="DirectiveAnalyzer.ProducesEmptyDirectiveShell"/>, and
-    /// <see cref="ConditionalNullable.IsDropped"/> carve through here, so those guards judge
-    /// the same tree the output is built from.
+    /// keeps its <c>file</c> types. <see cref="BuildOutputs"/> and
+    /// <see cref="DirectiveAnalyzer.ProducesEmptyDirectiveShell"/> both start from this carve.
+    /// <see cref="BuildOutputs"/> then clears assembly attributes on the outputs that are not
+    /// kept and collapses blank lines, which the guard does not see.
     /// </summary>
     internal static CompilationUnitSyntax Carve(CompilationUnitSyntax root, IReadOnlyList<TopLevelType> types, PlannedFile file)
     {

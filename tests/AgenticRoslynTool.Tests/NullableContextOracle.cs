@@ -8,14 +8,20 @@ namespace AgenticRoslynTool.Tests;
 /// Reads the nullable context at each top level type through the compiler's own semantic
 /// model. The tool never builds one, so this is an oracle outside the code under test.
 /// </summary>
+/// <remarks>
+/// It checks every build the source can describe: each project default, and each set of
+/// the symbols its <c>#if</c> conditions name. The tool folds directives with no symbols
+/// defined, so an oracle that did the same would share its blind spot. Review found a wrong
+/// write that only a defined symbol shows, after five rounds that checked without one.
+/// </remarks>
 internal static class NullableContextOracle
 {
     private static readonly CSharpParseOptions Parse = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
 
     /// <summary>Maps each top level type key to the nullable context at its first token.</summary>
-    internal static Dictionary<string, NullableContext> ContextByType(string text, NullableContextOptions projectDefault)
+    internal static Dictionary<string, NullableContext> ContextByType(string text, NullableContextOptions projectDefault, IEnumerable<string>? symbols = null)
     {
-        var tree = CSharpSyntaxTree.ParseText(text, Parse);
+        var tree = CSharpSyntaxTree.ParseText(text, Parse.WithPreprocessorSymbols(symbols ?? Array.Empty<string>()));
         var model = Compile(tree, projectDefault).GetSemanticModel(tree);
         return TopLevelType.Find(tree.GetCompilationUnitRoot())
             .ToDictionary(type => type.Key, type => model.GetNullableContext(type.Node.SpanStart));
@@ -33,30 +39,54 @@ internal static class NullableContextOracle
 
     /// <summary>
     /// Asserts that every type keeps, in its output file, the nullable context it had in
-    /// the source file. Reads every <c>.cs</c> file under <paramref name="root"/>. Checks
-    /// under a project default of both disable and enable, so a <c>#nullable disable</c>
-    /// written where the source had <c>#nullable restore</c> fails.
+    /// the source file. Reads every <c>.cs</c> file under <paramref name="root"/>.
     /// </summary>
     internal static void AssertPreserved(string source, string root)
     {
-        foreach (var projectDefault in new[] { NullableContextOptions.Disable, NullableContextOptions.Enable })
+        var outputs = Directory.GetFiles(root, "*.cs").Select(File.ReadAllText).ToArray();
+        Assert.Null(FindChange(source, outputs));
+    }
+
+    /// <summary>
+    /// The first type whose context differs between the source and the outputs, worded with
+    /// the build that shows it, or null when every build agrees. Builds are each project
+    /// default, disable and enable, crossed with each set of the source's <c>#if</c> symbols.
+    /// Checking one default lets <c>#nullable disable</c> pass where the source said
+    /// <c>#nullable restore</c>.
+    /// </summary>
+    internal static string? FindChange(string source, IReadOnlyList<string> outputs)
+    {
+        foreach (var symbols in PreprocessorSymbolSets.Of(source, Parse))
         {
-            var expected = ContextByType(source, projectDefault);
-            var actual = new Dictionary<string, NullableContext>();
-            foreach (var path in Directory.GetFiles(root, "*.cs"))
+            foreach (var projectDefault in new[] { NullableContextOptions.Disable, NullableContextOptions.Enable })
             {
-                foreach (var (key, context) in ContextByType(File.ReadAllText(path), projectDefault))
+                var expected = ContextByType(source, projectDefault, symbols);
+                var actual = new Dictionary<string, NullableContext>();
+                foreach (var output in outputs)
                 {
-                    actual.Add(key, context);
+                    foreach (var (key, context) in ContextByType(output, projectDefault, symbols))
+                    {
+                        actual.Add(key, context);
+                    }
+                }
+
+                var build = $"default {projectDefault}, symbols [{string.Join(",", symbols)}]";
+                if (!expected.Keys.Order().SequenceEqual(actual.Keys.Order()))
+                {
+                    return $"{build}: source declares [{string.Join(",", expected.Keys.Order())}], outputs declare [{string.Join(",", actual.Keys.Order())}]";
+                }
+
+                foreach (var (key, context) in expected)
+                {
+                    if (context != actual[key])
+                    {
+                        return $"{key} under {build}: source context {context}, output context {actual[key]}";
+                    }
                 }
             }
-
-            Assert.Equal(expected.Keys.Order(), actual.Keys.Order());
-            foreach (var (key, context) in expected)
-            {
-                Assert.True(context == actual[key], $"{key} under {projectDefault}: source context {context}, output context {actual[key]}");
-            }
         }
+
+        return null;
     }
 
     private static CSharpCompilation Compile(SyntaxTree tree, NullableContextOptions projectDefault)
