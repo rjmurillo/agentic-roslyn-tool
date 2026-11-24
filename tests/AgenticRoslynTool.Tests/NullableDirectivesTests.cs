@@ -47,7 +47,7 @@ public sealed class NullableDirectivesTests
         var types = Types(Source);
         var outputs = Outputs(types, "class C { }\n", Array.Empty<string>());
 
-        var ex = Assert.Throws<InvalidOperationException>(() => OutputVerifier.VerifyNullableContext("in.cs", outputs, Parse));
+        var ex = Assert.Throws<InvalidOperationException>(() => NullableDirectives.Verify("in.cs", outputs, Parse));
         Assert.Contains("nullable context for C is annotations restore, warnings restore in C.cs, but annotations enable, warnings enable in the source", ex.Message);
     }
 

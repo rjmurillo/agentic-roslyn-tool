@@ -49,7 +49,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `FileLocalNames.cs` | The name scan behind `FileLocalTypes.cs`: says whether a type, a using directive, or a rendered output names a `file` type. Matches by name alone, on purpose. |
 | `OutputBuilder.cs` | Renders the text of every output file: name, carved source, required header, trailing newline. |
 | `OutputVerifier.cs` | The correctness checks, run against in-memory outputs before anything is written. A failure here means nothing reaches disk. |
-| `NullableDirectives.cs` | Folds `#nullable` directives into the context at a point, and restates a kept type's source context in an output that lost it. Read decision 31 first. |
+| `NullableDirectives.cs` | Folds `#nullable` directives into the context at a point, restates a kept type's source context in an output that lost it, and checks each output's context before any write. Read decision 31 first. |
 | `ConditionalNullable.cs` | Decides whether a split would drop a `#nullable` under `#if`, which no unconditional line can restate. Returns a verdict, never acts on one. |
 | `SourceDirectives.cs` | Lists a tree's preprocessor directives once and caches the list on the root, so a split walks the source tree once, not once per type. |
 | `WorkspaceWriter.cs` | The only place the tool touches the working tree. Every rename runs through `git mv`; every write preserves encoding and byte order mark. |

@@ -30,7 +30,7 @@ internal static class OutputVerifier
     /// leaves that file names one, and every output keeps the input's state directives
     /// (see <see cref="FileLocalTypes.DescribeViolation"/>); and
     /// (7) each output's type keeps its source nullable context
-    /// (see <see cref="VerifyNullableContext"/>).
+    /// (see <see cref="NullableDirectives.Verify"/>).
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown as soon as any invariant fails, so the failure is surfaced without partial output being written.</exception>
     internal static void VerifyOutputs(string readPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions, string? requiredHeader)
@@ -87,38 +87,7 @@ internal static class OutputVerifier
             throw new InvalidOperationException(violation);
         }
 
-        VerifyNullableContext(readPath, outputs, parseOptions);
-    }
-
-    /// <summary>
-    /// Checks that each output's own type reads the same nullable context in the output body
-    /// as it did in the source. The body is parsed again from <see cref="OutputFile.BodyText"/>,
-    /// so a misplaced or dropped <c>#nullable</c> line fails the file before it is written.
-    /// </summary>
-    /// <remarks>
-    /// It reads the body, not <see cref="OutputFile.Text"/>, for the reason line conservation
-    /// does. A <c>--require-header</c> that holds a <c>#nullable</c> line changes the context
-    /// on purpose, because the caller asked for that header. This check uses the same fold as
-    /// <see cref="NullableDirectives.Restore"/>, so it catches a misplaced line, not a wrong
-    /// fold. Tests prove the fold against the compiler. It checks the type the output is
-    /// named for. A kept file can also hold <c>file</c> types, but
-    /// <see cref="FileLocalDirectives"/> refuses any such input with a state directive on or
-    /// inside a type, so every type in it shares the prologue's context.
-    /// </remarks>
-    /// <exception cref="InvalidOperationException">Thrown when an output lacks its own type, or when that type's annotations or warnings setting differs from the source.</exception>
-    internal static void VerifyNullableContext(string readPath, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions)
-    {
-        foreach (var output in outputs)
-        {
-            var expected = NullableDirectives.SourceStateOf(output.Type);
-            var root = CSharpSyntaxTree.ParseText(output.BodyText, parseOptions, path: output.Path).GetCompilationUnitRoot();
-            var written = TopLevelType.FindMatch(root, output.Type);
-            var actual = NullableDirectives.StateAt(root, written.Node.SpanStart);
-            if (actual != expected)
-            {
-                throw new InvalidOperationException($"{readPath}: nullable context for {output.Type.Key} is {NullableDirectives.Describe(actual)} in {output.Path}, but {NullableDirectives.Describe(expected)} in the source");
-            }
-        }
+        NullableDirectives.Verify(readPath, outputs, parseOptions);
     }
 
     /// <summary>Returns the text of a type's declaration together with its owned leading trivia (doc comments and attributes).</summary>

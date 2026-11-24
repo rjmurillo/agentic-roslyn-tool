@@ -128,6 +128,37 @@ internal static class NullableDirectives
     }
 
     /// <summary>
+    /// Checks that each output's own type reads the same nullable context in the output body
+    /// as it did in the source. The body is parsed again from <see cref="OutputFile.BodyText"/>,
+    /// so a misplaced or dropped <c>#nullable</c> line fails the file before it is written.
+    /// </summary>
+    /// <remarks>
+    /// It reads the body, not <see cref="OutputFile.Text"/>, for the reason line conservation
+    /// does. A <c>--require-header</c> that holds a <c>#nullable</c> line changes the context
+    /// on purpose, because the caller asked for that header. This check uses the same fold as
+    /// <see cref="Restore"/>, so it catches a misplaced line, not a wrong
+    /// fold. Tests prove the fold against the compiler. It checks the type the output is
+    /// named for. A kept file can also hold <c>file</c> types, but
+    /// <see cref="FileLocalDirectives"/> refuses any such input with a state directive on or
+    /// inside a type, so every type in it shares the prologue's context.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">Thrown when an output lacks its own type, or when that type's annotations or warnings setting differs from the source.</exception>
+    internal static void Verify(string readPath, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions)
+    {
+        foreach (var output in outputs)
+        {
+            var expected = SourceStateOf(output.Type);
+            var root = CSharpSyntaxTree.ParseText(output.BodyText, parseOptions, path: output.Path).GetCompilationUnitRoot();
+            var written = TopLevelType.FindMatch(root, output.Type);
+            var actual = StateAt(root, written.Node.SpanStart);
+            if (actual != expected)
+            {
+                throw new InvalidOperationException($"{readPath}: nullable context for {output.Type.Key} is {Describe(actual)} in {output.Path}, but {Describe(expected)} in the source");
+            }
+        }
+    }
+
+    /// <summary>
     /// Inserts directive lines at the start of the line that holds a type's first comment,
     /// attribute, or keyword. That keeps a doc comment next to its type, so the owned text
     /// the verifier counts is unchanged. A directive already in the type's leading trivia
