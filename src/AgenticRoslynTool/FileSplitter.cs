@@ -520,7 +520,7 @@ internal sealed class FileSplitter
             return FileResult.Skip(originalPath, readPath, "splitting would leave an empty directive shell; manual split required");
         }
 
-        if (NullableGuard.Refuses(root, types))
+        if (NullableGuard.Refuses(root, types, plan.KeptPath))
         {
             return FileResult.Skip(originalPath, readPath, NullableGuardReason);
         }

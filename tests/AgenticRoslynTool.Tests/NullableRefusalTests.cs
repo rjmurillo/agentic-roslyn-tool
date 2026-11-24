@@ -144,6 +144,17 @@ public sealed class NullableRefusalTests
         Assert.Equal(FileSplitter.NullableGuardReason, PlanRow(GeneratedBody, "Alpha.g.cs").Reason);
     }
 
+    [Fact]
+    public void KeptFileRenamedToAGeneratedName_RefusesThePlan()
+    {
+        // Foo.cs keeps TemporaryGeneratedFile_K and is renamed to its name. The content phase
+        // reads the renamed file as generated and refuses it, so the plan must refuse first,
+        // or renames would move a file that content then leaves unsplit.
+        var row = PlanRow("namespace Demo;\n\npublic class TemporaryGeneratedFile_K { }\n\n#nullable enable\npublic class Beta { public string? B; }\n", "Foo.cs");
+
+        Assert.Equal(FileSplitter.NullableGuardReason, row.Reason);
+    }
+
     [Theory]
     [InlineData("Alpha.g.cs")]
     [InlineData("Alpha.Designer.cs")]
