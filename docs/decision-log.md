@@ -1390,8 +1390,8 @@ Nothing was overwritten, but the plan promised a split that could not happen. Th
 renamed file was also left unsplit. Qualified names had the same blind spot. A qualified
 name was never checked against another input's path.
 
-**Decision.** Every path a `split` row creates or renames into is unique across the plan,
-ignoring case. `PlannedOutputClaims` enforces it in two steps around the name pass.
+**Decision.** No `split` row plans a new file on a path another input owns, ignoring
+case. `PlannedOutputClaims` enforces it in two steps around the name pass.
 Before names are qualified, a row whose computed new file is another row's rename target
 is skipped. After they are qualified, a row whose new file is any path another row
 creates, renames into, or leaves in place is skipped. The reason is `planned output path
@@ -1417,10 +1417,17 @@ refused first no longer pushes its partners into a qualified name. On AutoMapper
 `ProjectCollectionsBug.cs` now moves `B` to `B.cs`, not `ProjectCollectionsBug.B.cs`. A
 plan with no such collision comes back as the same rows, so its manifest is byte for byte
 the same. A same name, different case pair counts as a collision on every platform, as
-it does for every other collision check. The checks over-refuse in two rare shapes. A
-row refused in the second step still blocks a new file in the first. A row that plans a
-rename still claims its original path, though the rename usually lands. Both cost a
-skipped file, never a broken promise.
+it does for every other collision check. The checks over-refuse in three rare shapes. A
+row refused by a later step still blocks a new file in the first. A row that plans a
+rename still claims its original path, though the rename usually lands. Two rows that
+each rename onto the other's new file are both refused, though refusing one would free
+the other. Picking one would depend on input order. Each shape costs a skipped file,
+never a broken promise. AutoMapper hit none of them.
+
+Two renames to one target are outside this check. `KeptRenameCollisions` compares
+them the way the disk does, so `Foo.cs` and `foo.cs` are two targets on Linux, and
+`KeptRenameCollisionTests` pins that. Such a pair splits on Linux and collides on a
+checkout that ignores case. That rule predates this decision and is left alone.
 
 **Reversal warning.** Drop the first step and the AutoMapper shape returns: the plan says
 `split` and content skips the row after its rename already landed. Drop the second and a

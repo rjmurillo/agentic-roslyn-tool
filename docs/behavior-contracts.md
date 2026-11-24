@@ -285,13 +285,16 @@ Promises:
   row's rename target, another row's new file, and an input that stays where it is.
   Paths are compared ignoring case. The row with the new file is skipped with
   `planned output path collision with another input requires manual handling`. Its
-  `note` reads `output <path> is also claimed by <input>`, once per path. The rename is
-  never the one dropped. A new file is checked against rename targets under its computed
-  simple name, before any qualified name is chosen, because the content phase probes
-  that name too. A qualified name is checked after it is chosen against every row's
-  original path, rename target, and new files. A row that plans a rename still claims
-  its original path, because the rename can be dropped later. A plan with no such collision is unchanged. `RenameTargetCollisionTests` and
-  `QualifiedClaimCollisionTests` pin it. See decision 32.
+  `note` reads `output <path> is also claimed by <input>`, once per path. In a
+  rename against new file conflict, the new file's row is the one skipped. A new file
+  is checked against rename targets under its computed simple name, before any
+  qualified name is chosen, because the content phase probes that name too. A
+  qualified name is checked after it is chosen against every row's original path,
+  rename target, and new files. A row that plans a rename still claims its original
+  path, because the rename can be dropped later. Two renames to one target follow
+  the rule above, not this one. A plan with no such collision is unchanged.
+  `RenameTargetCollisionTests` and `QualifiedClaimCollisionTests` pin it. See
+  decision 32.
 - Every row for a file the run read carries that file's `contentHash`. Verified by
   `ContentHashPlanTests`.
 - Every row carries the run's `collisionNaming`: the flag's value, or `file-first` when

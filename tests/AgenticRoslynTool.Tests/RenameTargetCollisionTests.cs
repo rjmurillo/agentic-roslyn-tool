@@ -68,6 +68,23 @@ public sealed class RenameTargetCollisionTests
         Assert.Equal(new[] { "A.cs", "B.cs", "Foo.cs", stayed }.Order(StringComparer.Ordinal), FileNamingRuns.CsFiles(ws));
     }
 
+    [Fact]
+    public void TwoInputsThatRenameOntoEachOthersNewFile_AreBothRefused()
+    {
+        // P.cs keeps A and moves B. Q.cs keeps B and moves A. Each rename target is the
+        // other's new file. Refusing one would free the other, but which one would depend
+        // on input order, so both are refused. Decision 32 records this shape.
+        using var ws = new TempWorkspace();
+        var p = ws.WriteFile("P.cs", "namespace One;\n\npublic class A\n{\n}\n\npublic class B\n{\n}\n");
+        var q = ws.WriteFile("Q.cs", "namespace Two;\n\npublic class B\n{\n}\n\npublic class A\n{\n}\n");
+
+        var plan = RunAllPhases(ws, false, [p, q], out var content);
+
+        Assert.All(plan, r => Assert.Equal(("skipped", PlannedOutputClaims.Reason), (r.Status, r.Reason)));
+        AssertContentKeepsThePlansPromise(plan, content);
+        Assert.Equal(new[] { "P.cs", "Q.cs" }, FileNamingRuns.CsFiles(ws));
+    }
+
     internal static FileResult[] RunAllPhases(TempWorkspace ws, bool typeFirst, string[] inputs, out FileResult[] content)
     {
         var naming = typeFirst ? CollisionNaming.TypeFirst : CollisionNaming.FileFirst;

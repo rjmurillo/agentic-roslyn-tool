@@ -79,7 +79,12 @@ internal static class PlannedOutputClaims
             return [(row.OriginalPath, row.OriginalPath)];
         }
 
-        return row.NewFiles.Select(f => (f.Path, row.OriginalPath)).Prepend((row.KeptPath, row.OriginalPath)).Prepend((row.OriginalPath, row.OriginalPath));
+        return
+        [
+            (row.OriginalPath, row.OriginalPath),
+            (row.KeptPath, row.OriginalPath),
+            .. row.NewFiles.Select(f => (f.Path, row.OriginalPath)),
+        ];
     }
 
     /// <summary>
