@@ -573,7 +573,8 @@ A directive wholly contained inside a single type is allowed and travels with th
 that would leave a directive group with no code inside it.
 
 `ConditionalNullable.AffectsAType` is a third. It refuses a file where a `#nullable`
-under `#if` starts before the last type. See "Nullable context" below. The second check
+under `#if` starts before the last type, or where a `#define` or `#undef` under `#if`
+sits beside any `#nullable` under `#if`. See "Nullable context" below. The second check
 carves the tree through `OutputBuilder.Carve`, the same call that starts each output.
 `AnalyzeDirectiveSafety` and `AffectsAType` read the source and do not carve.
 
@@ -703,17 +704,22 @@ this for the type each output is named for. A kept file can also hold `file` typ
 - One `#nullable enable`, `disable`, or `restore` line when annotations and warnings end
   equal. Otherwise one line per setting that changes, with an `annotations` or `warnings`
   target.
-- No line when the contexts already match, so a file with no `#nullable` directive, or
-  with one above the namespace, splits byte for byte as before.
+- No line when the contexts already match, so a file with no `#nullable` directive splits
+  byte for byte as before. So does a file with one above the namespace, unless an
+  `[assembly: ...]` attribute follows it: the attribute and its trivia stay only in the
+  kept file, so the other new files gain the restated line.
 - The lines go above the type's first comment, doc comment, or attribute, at the start of
   a line, ending in the source file's newline.
 - The tool parses with no preprocessor symbols, so it cannot restate a `#nullable` under
-  `#if`. When one starts before the last type, whether active or in a branch that is off,
-  some type's context depends on build symbols, and the file is skipped with
-  `a #nullable directive under #if comes before a type, so the context of that type depends on build symbols; manual split required`.
-  `ConditionalNullable.AffectsAType` decides this from the source, before any output is
-  built. A conditional `#nullable` inside the last type, after its start, is allowed and
-  travels with that type.
+  `#if`. The file is skipped with
+  `a #nullable or #define directive under #if could change the nullable context of a type in some build; manual split required`
+  when a `#nullable` under `#if` starts before the last type, whether active or in a
+  branch that is off. It is also skipped when the file holds a `#define` or `#undef` under
+  `#if` and any `#nullable` under `#if`, because a split drops the `#if` around such a
+  definition when it removes the first type. `ConditionalNullable.AffectsAType` decides
+  this from the source, before any output is built. It does not read conditions, so it
+  also refuses `#if false`. A conditional `#nullable` inside the last type, after its
+  start, is allowed when no definition is conditional, and travels with that type.
 - `#pragma` directives are not restated. A `#pragma warning` does not change the nullable
   context; it suppresses warnings, and that suppression is lost the same way.
 - `VerifyOutputs` checks each output with the same fold, so it catches a misplaced line,

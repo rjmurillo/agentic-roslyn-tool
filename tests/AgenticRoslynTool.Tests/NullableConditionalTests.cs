@@ -38,8 +38,20 @@ public sealed class NullableConditionalTests
     }
 
     [Theory]
+    [InlineData("#if !X\n#define EXTRA\n[System.Serializable]\n#endif\n#nullable enable\npublic class Alpha { }\n\npublic class Beta\n{\n#if EXTRA\n#nullable disable\n#endif\n    public string? S;\n}\n")]
+    [InlineData("#if !X\n#undef EXTRA\n[System.Serializable]\n#endif\npublic class Alpha { }\n\npublic class Beta\n{\n#if EXTRA\n#nullable disable\n#endif\n    public string? S;\n}\n")]
+    public void ConditionalDefineBesideAConditionalNullable_RefusesThePlan(string source)
+    {
+        // A split drops the #if around a #define or #undef that sits above the first type, so
+        // the symbol changes in every new file. A #nullable under #if that reads the symbol then
+        // sets a different context in some build, even inside the last type.
+        Assert.Equal(FileSplitter.ConditionalNullableReason, PlanRow(source).Reason);
+    }
+
+    [Theory]
     [InlineData("#nullable enable\npublic class Alpha { }\n\n#if !X\n#nullable disable\n[System.Serializable]\n#endif\npublic class Beta { public string? S; }\n")]
     [InlineData("#nullable disable\n#if !X\npublic class Alpha { }\n#nullable enable\n#endif\npublic class Beta { public string? S; }\n")]
+    [InlineData("#if !X\n#define EXTRA\n[System.Serializable]\n#endif\n#nullable enable\npublic class Alpha { }\n\npublic class Beta\n{\n#if EXTRA\n#nullable disable\n#endif\n    public string? S;\n}\n")]
     public void Oracle_SeesAContextThatOnlyADefinedSymbolChanges(string source)
     {
         // Without the guard the split writes these files, and they hold the same context as the

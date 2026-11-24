@@ -1396,12 +1396,16 @@ semantic model, under both project defaults and every set of the source's `#if` 
 
 A `#nullable` under `#if` is not restated. The tool parses with no symbols, so one
 unconditional line would be wrong in some build. `ConditionalNullable.AffectsAType`
-refuses a file where one starts before the last type. Then every type keeps one context
-in every build, and the fold is exact. An earlier rule refused only when an output lost a
-conditional directive. It missed a conditional directive that travels with its own type
-while an unconditional one above it is lost: with the symbol defined, the source sets the
-type's context only through the lost directive. Five review rounds checked with no
-symbols and passed that wrong write.
+refuses a file where one starts before the last type. It also refuses a file that holds
+both a `#nullable` and a `#define` or `#undef` under `#if`: removing the first type drops
+the `#if` around such a definition, so a conditional `#nullable` that reads the symbol
+sets a different context in the new file. With both refusals, every build reads the same
+`#nullable` directives before each type in the source and in its new file, and the fold
+is exact. An earlier rule refused only when an output lost a conditional directive. It
+missed a conditional directive that travels with its own type while an unconditional one
+above it is lost: with the symbol defined, the source sets the type's context only
+through the lost directive. Five review rounds checked with no symbols and passed that
+wrong write.
 
 Four other ways were tried and rejected:
 
@@ -1415,23 +1419,28 @@ Four other ways were tried and rejected:
   Refusal is kept for the one case restating cannot get right, a directive under `#if`.
 - Checking each output at write time with the compiler, through a one-file compilation
   and `GetNullableContext`. A review probe ran 3600 such compilations in about 220 ms. It
-  was not adopted, because it checks only the build it parses: with no symbols defined it
-  passes the same conditional files the fold passes. Deciding from the source, before any
-  output, covers every build. The compiler stays in the tests, where they enumerate the
-  symbols.
+  was not adopted. Before the source checks existed it would have checked only the build
+  it parses, and passed the same conditional files the fold passes. With them, every file
+  that reaches the write reads the same directives in every build, so the fold already
+  gives the compiler's answer for `#nullable` directives, and the tool keeps its rule of
+  building no semantic model at run time. The compiler stays in the tests, where they
+  enumerate the symbols.
 
 The `KeepDirectives` result was observed on Microsoft.CodeAnalysis.CSharp 5.9.0.
 
 **Consequences.** A file that split before still splits, with one exception. A file
 where a `#nullable` under `#if` starts before the last type is now skipped, in any
-branch, even `#if false`, and even when a later unconditional directive overrides it.
-The parse can tell `#if false` from an undefined symbol, but the guard does not read the
-condition: it refuses every such directive, which keeps the rule simple and fails safe.
-Two older guards refuse some of these files first, with their own reasons; the rest get
-the new one. A conditional `#nullable` inside the last type, after its start, still
-splits and travels with that type. A new file can gain a
-`#nullable` line no source line matches, which is the point. Files with no `#nullable`
-directive, or with one above the namespace, split byte for byte as before.
+branch, even `#if false`, and even when a later unconditional directive overrides it. So
+is a file that holds both a `#nullable` and a `#define` or `#undef` under `#if`. The parse
+can tell `#if false` from an undefined symbol, but the guard does not read conditions:
+it refuses every such directive, which keeps the rule simple and fails safe. Earlier
+checks refuse some of these files first, with their own reasons. A conditional
+`#nullable` inside the last type, after its start, still splits and travels with that
+type when no definition is conditional. A new file can gain a `#nullable` line no source
+line matches, which is the point. Files with no `#nullable` directive split byte for
+byte as before. So do files with one above the namespace, unless an `[assembly: ...]`
+attribute follows it: that attribute stays only in the kept file, and its trivia with it,
+so the other new files now gain the restated line where they used to lose the context.
 
 `Restore` restates the context of the type each output is named for. Decision 30 lets a
 kept file also hold `file` types, but it refuses any such input with a `#nullable` on or
@@ -1445,9 +1454,11 @@ context, because the caller asked for it. An earlier draft checked the full text
 that failed every split whose banner held such a line.
 
 Each type asks about the same source tree, so `SourceDirectives` lists a tree's
-directives once and caches the list on the root. At commit 9f5c4ac, which walked the tree
-for each type, one generated file of 1800 types with a `#pragma` each planned in 54.5s
-against 6.1s on main. With the cache it plans within about 10 percent of main.
+directives once and caches the list on the root. An earlier version on this branch
+walked the tree for each type: one generated file of 1800 types with a `#pragma` each
+planned in 54.5s against 6.1s on main. With the cache, three such generated files, with
+no directive, one `#nullable` at the top, and a `#pragma` on every type, plan between 2
+and 14 percent slower than main.
 `ConditionalNullable` reads the source once and carves nothing.
 
 Three gaps remain and are recorded in `AGENTS.md` under known issues. A source named as

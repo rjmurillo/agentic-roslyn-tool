@@ -39,7 +39,7 @@ public sealed class RefusedRenameLocationTests : IDisposable
     }
 
     [Fact]
-    public void PlanSkip_DroppedConditionalNullable_ReportsTheOriginalPath()
+    public void PlanSkip_ConditionalNullableBeforeAType_ReportsTheOriginalPath()
     {
         var stuff = _workspace.WriteFile("Stuff.cs", "namespace N;\n\npublic class Order2\n{\n#if X\n#nullable enable\n#endif\n}\n\npublic class Line { }\n");
 

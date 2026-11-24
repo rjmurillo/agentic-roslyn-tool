@@ -57,10 +57,11 @@ internal sealed class FileSplitter
     internal const string AlreadyAppliedReason = "already applied: every planned output exists and this file no longer declares the planned types";
 
     /// <summary>
-    /// Reason recorded when a <c>#nullable</c> directive under <c>#if</c> starts before the
-    /// last type, so some type's context depends on build symbols. See decision 31.
+    /// Reason recorded when <see cref="ConditionalNullable.AffectsAType"/> refuses a file: a
+    /// <c>#nullable</c>, <c>#define</c>, or <c>#undef</c> under <c>#if</c> could give a type a
+    /// different nullable context in a new file, in some build. See decision 31.
     /// </summary>
-    internal const string ConditionalNullableReason = "a #nullable directive under #if comes before a type, so the context of that type depends on build symbols; manual split required";
+    internal const string ConditionalNullableReason = "a #nullable or #define directive under #if could change the nullable context of a type in some build; manual split required";
 
     /// <summary>Constructs a splitter bound to a set of parsed options.</summary>
     /// <param name="options">The options that select the input list, manifest path, repository root, phase, and optional required header.</param>

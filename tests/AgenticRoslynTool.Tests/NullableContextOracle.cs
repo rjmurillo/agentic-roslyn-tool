@@ -18,13 +18,17 @@ internal static class NullableContextOracle
 {
     private static readonly CSharpParseOptions Parse = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
 
-    /// <summary>Maps each top level type key to the nullable context at its first token.</summary>
-    internal static Dictionary<string, NullableContext> ContextByType(string text, NullableContextOptions projectDefault, IEnumerable<string>? symbols = null)
+    /// <summary>
+    /// Maps each top level type key to the nullable context at each of its
+    /// <see cref="NullableCheckPoints"/>, in order.
+    /// </summary>
+    internal static Dictionary<string, NullableContext[]> ContextByType(string text, NullableContextOptions projectDefault, IEnumerable<string>? symbols = null)
     {
         var tree = CSharpSyntaxTree.ParseText(text, Parse.WithPreprocessorSymbols(symbols ?? Array.Empty<string>()));
         var model = Compile(tree, projectDefault).GetSemanticModel(tree);
-        return TopLevelType.Find(tree.GetCompilationUnitRoot())
-            .ToDictionary(type => type.Key, type => model.GetNullableContext(type.Node.SpanStart));
+        return TopLevelType.Find(tree.GetCompilationUnitRoot()).ToDictionary(
+            type => type.Key,
+            type => NullableCheckPoints.Of(type).Select(model.GetNullableContext).ToArray());
     }
 
     /// <summary>Returns the error and warning ids the compiler reports for one file.</summary>
@@ -60,27 +64,30 @@ internal static class NullableContextOracle
         {
             foreach (var projectDefault in new[] { NullableContextOptions.Disable, NullableContextOptions.Enable })
             {
+                var build = $"default {projectDefault}, symbols [{string.Join(",", symbols)}]";
                 var expected = ContextByType(source, projectDefault, symbols);
-                var actual = new Dictionary<string, NullableContext>();
+                var actual = new Dictionary<string, NullableContext[]>();
                 foreach (var output in outputs)
                 {
-                    foreach (var (key, context) in ContextByType(output, projectDefault, symbols))
+                    foreach (var (key, contexts) in ContextByType(output, projectDefault, symbols))
                     {
-                        actual.Add(key, context);
+                        if (!actual.TryAdd(key, contexts))
+                        {
+                            return $"{build}: {key} is declared in more than one output";
+                        }
                     }
                 }
 
-                var build = $"default {projectDefault}, symbols [{string.Join(",", symbols)}]";
                 if (!expected.Keys.Order().SequenceEqual(actual.Keys.Order()))
                 {
                     return $"{build}: source declares [{string.Join(",", expected.Keys.Order())}], outputs declare [{string.Join(",", actual.Keys.Order())}]";
                 }
 
-                foreach (var (key, context) in expected)
+                foreach (var (key, contexts) in expected)
                 {
-                    if (context != actual[key])
+                    if (!contexts.SequenceEqual(actual[key]))
                     {
-                        return $"{key} under {build}: source context {context}, output context {actual[key]}";
+                        return $"{key} under {build}: source contexts [{string.Join(", ", contexts)}], output contexts [{string.Join(", ", actual[key])}]";
                     }
                 }
             }
