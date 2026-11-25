@@ -37,7 +37,7 @@ internal static class OutputVerifier
     {
         foreach (var output in outputs)
         {
-            if (!OutputBuilder.StartsWithHeader(output.Text, requiredHeader))
+            if (OutputBuilder.MatchHeaderEnd(output.Text, requiredHeader) is null)
             {
                 throw new InvalidOperationException($"{output.Path} does not start with required file header");
             }
@@ -130,7 +130,7 @@ internal static class OutputVerifier
     /// before any <c>--require-header</c> injection. That is deliberate: counting
     /// <see cref="OutputFile.Text"/> instead would let an injected header line mask a
     /// dropped source line. Each output's <see cref="OutputFile.AddedLines"/> are subtracted
-    /// first, one for one, through <see cref="CountOutputLines"/>.
+    /// first, one for one, through <see cref="CountLinesAfterCheckingAdditions"/>.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Thrown when a non-whitespace input line is not preserved across the outputs, when an output line that was not in the prologue appears more times in the outputs than in the input, or when an added line is not a <c>#nullable</c> directive the output holds.</exception>
     internal static void VerifyLineConservation(string readPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs)
@@ -138,7 +138,7 @@ internal static class OutputVerifier
         var sourceText = inputTypes[0].Node.SyntaxTree.GetText().ToString();
         var prologueLines = GetPrologueLines(sourceText, inputTypes);
         var originalLines = CountNonWhitespaceLines(sourceText);
-        var outputLines = CountOutputLines(outputs);
+        var outputLines = CountLinesAfterCheckingAdditions(outputs);
 
         foreach (var (line, count) in originalLines)
         {
@@ -197,7 +197,7 @@ internal static class OutputVerifier
     /// subtraction can never hide a duplicated source line of any other kind.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Thrown when an added line is not a <c>#nullable</c> directive, or is missing from its output.</exception>
-    internal static Dictionary<string, int> CountOutputLines(IReadOnlyList<OutputFile> outputs)
+    internal static Dictionary<string, int> CountLinesAfterCheckingAdditions(IReadOnlyList<OutputFile> outputs)
     {
         var result = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var output in outputs)

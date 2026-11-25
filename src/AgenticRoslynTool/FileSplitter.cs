@@ -56,13 +56,6 @@ internal sealed class FileSplitter
     /// </summary>
     internal const string AlreadyAppliedReason = "already applied: every planned output exists and this file no longer declares the planned types";
 
-    /// <summary>
-    /// Reason recorded when <see cref="NullableGuard.Refuses"/> refuses a file: a
-    /// <c>#nullable</c> directive a split can move shares the file with an <c>#if</c> directive,
-    /// comes before a <c>using</c> directive, or sits in a generated file. See decision 31.
-    /// </summary>
-    internal const string NullableGuardReason = "a #nullable directive a split can move shares the file with an #if directive, comes before a using directive, or sits in a generated file; manual split required";
-
     /// <summary>Constructs a splitter bound to a set of parsed options.</summary>
     /// <param name="options">The options that select the input list, manifest path, repository root, phase, and optional required header.</param>
     public FileSplitter(Options options)
@@ -522,7 +515,7 @@ internal sealed class FileSplitter
 
         if (NullableGuard.Refuses(root, types, plan.KeptPath))
         {
-            return FileResult.Skip(originalPath, readPath, NullableGuardReason);
+            return FileResult.Skip(originalPath, readPath, NullableGuard.Reason);
         }
 
         // No caller passes Phase.Renames. The renames phase plans through here with

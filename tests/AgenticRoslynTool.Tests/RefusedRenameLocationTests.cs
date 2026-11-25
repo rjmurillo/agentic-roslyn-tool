@@ -46,7 +46,7 @@ public sealed class RefusedRenameLocationTests : IDisposable
         var row = Assert.Single(Plan(stuff, requiredHeader: null));
 
         Assert.Equal("skipped", row.Status);
-        Assert.Equal(FileSplitter.NullableGuardReason, row.Reason);
+        Assert.Equal(NullableGuard.Reason, row.Reason);
         AssertReportsOriginal(stuff, row);
     }
 

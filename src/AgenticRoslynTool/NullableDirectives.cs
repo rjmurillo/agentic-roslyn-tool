@@ -181,8 +181,9 @@ internal static class NullableDirectives
     private static CompilationUnitSyntax InsertAbove(CompilationUnitSyntax root, MemberDeclarationSyntax node, IReadOnlyList<string> lines, string newLine, string header)
     {
         var leading = node.GetLeadingTrivia();
-        var text = leading.ToFullString();
-        var banner = header.Length > 0 && node.FullSpan.Start == 0 && OutputBuilder.StartsWithHeader(text.TrimStart(), header) ? text.Length - text.TrimStart().Length + header.Length : 0;
+        var banner = header.Length > 0 && node.FullSpan.Start == 0
+            ? OutputBuilder.MatchHeaderEnd(leading.ToFullString(), header, allowLeadingWhitespace: true) ?? 0
+            : 0;
         var index = leading.TakeWhile(trivia => trivia.FullSpan.Start < banner || trivia.IsKind(SyntaxKind.WhitespaceTrivia) || trivia.IsKind(SyntaxKind.EndOfLineTrivia)).Count();
 
         while (index > 0 && leading[index - 1].IsKind(SyntaxKind.WhitespaceTrivia))

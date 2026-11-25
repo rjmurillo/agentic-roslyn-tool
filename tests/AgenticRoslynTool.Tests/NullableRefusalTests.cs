@@ -6,9 +6,8 @@ namespace AgenticRoslynTool.Tests;
 
 /// <summary>
 /// Pins the rule in <c>NullableGuard</c>: a <c>#nullable</c> that a split can move is refused
-/// when the file holds any <c>#if</c>, or when it comes before a <c>using</c> directive. Each
-/// refused row is a shape that review found the restated context gets wrong in some build or
-/// for some line; the oracle rows show the unchecked split really does.
+/// beside an <c>#if</c>, before a <c>using</c> directive, or in a generated file. Compiler
+/// checks show what an unchecked split changes. Other rows pin intentional over-refusal.
 /// </summary>
 public sealed class NullableRefusalTests
 {
@@ -22,7 +21,7 @@ public sealed class NullableRefusalTests
     public void NullableAndAnIf_RefusesThePlan(string types)
     {
         var source = Namespace + types;
-        Assert.Equal(FileSplitter.NullableGuardReason, PlanRow(source).Reason);
+        Assert.Equal(NullableGuard.Reason, PlanRow(source).Reason);
 
         var outputs = FileLocalCompiler.SplitUnchecked("/work/Alpha.cs", source).Select(output => output.Text).ToArray();
         Assert.Contains("symbols [", NullableContextOracle.FindChange(source, outputs));
@@ -36,7 +35,7 @@ public sealed class NullableRefusalTests
         // Intended over-refusal. The guard does not read conditions, and it does not ask
         // which type a directive travels with. Neither row loses context unchecked.
         var source = Namespace + types;
-        Assert.Equal(FileSplitter.NullableGuardReason, PlanRow(source).Reason);
+        Assert.Equal(NullableGuard.Reason, PlanRow(source).Reason);
 
         var outputs = FileLocalCompiler.SplitUnchecked("/work/Alpha.cs", source).Select(output => output.Text).ToArray();
         Assert.Null(NullableContextOracle.FindChange(source, outputs));
@@ -44,15 +43,15 @@ public sealed class NullableRefusalTests
 
     [Theory]
     [InlineData(TravelsWithItsType)]
-    [InlineData("#nullable enable\npublic class Alpha { }\n\n#if !X\n#nullable disable warnings\n[System.Serializable]\n#endif\npublic class Beta { public string? S; }\n")]
+    [InlineData(RestoresWarningsUnderIf)]
     [InlineData(LostAboveAType)]
     [InlineData(DefineUnderIf)]
-    [InlineData("#if !X\n#undef EXTRA\n[System.Serializable]\n#endif\npublic class Alpha { }\n\npublic class Beta\n{\n#if EXTRA\n#nullable disable\n#endif\n    public string? S;\n}\n")]
-    [InlineData("#define EXTRA\n[assembly: System.CLSCompliant(false)]\n#nullable enable\nnamespace N;\n\npublic class Alpha { }\n\npublic class Beta\n{\n#if EXTRA\n#nullable disable\n#endif\n    public string? S;\n}\n")]
+    [InlineData(UndefUnderIf)]
+    [InlineData(DefineAboveAssemblyAttribute)]
     [InlineData(TypeUnderElse)]
     public void ShapeReviewFound_RefusesThePlan(string source)
     {
-        Assert.Equal(FileSplitter.NullableGuardReason, PlanRow(source).Reason);
+        Assert.Equal(NullableGuard.Reason, PlanRow(source).Reason);
     }
 
     [Theory]
@@ -62,7 +61,7 @@ public sealed class NullableRefusalTests
     {
         // The second row's #nullable sits above an [assembly:] attribute, which only the kept
         // file keeps, so the using alias in Beta's file would lose it.
-        Assert.Equal(FileSplitter.NullableGuardReason, PlanRow(source).Reason);
+        Assert.Equal(NullableGuard.Reason, PlanRow(source).Reason);
     }
 
     [Theory]
@@ -72,7 +71,7 @@ public sealed class NullableRefusalTests
     {
         // With no symbols the #nullable line is inside a comment or a string, so the parse
         // the tool reads holds no #nullable. With X defined it is a live directive above Beta.
-        Assert.Equal(FileSplitter.NullableGuardReason, PlanRow(source).Reason);
+        Assert.Equal(NullableGuard.Reason, PlanRow(source).Reason);
     }
 
     [Theory]
@@ -87,7 +86,7 @@ public sealed class NullableRefusalTests
         // Each row is a line the compiler reads as #nullable but a [ \t] and \n scan did not.
         var source = UnderIfInAlpha(lineStart);
 
-        Assert.Equal(FileSplitter.NullableGuardReason, PlanRow(source).Reason);
+        Assert.Equal(NullableGuard.Reason, PlanRow(source).Reason);
 
         var outputs = FileLocalCompiler.SplitUnchecked("/work/Alpha.cs", source).Select(output => output.Text).ToArray();
         Assert.Contains("symbols [", NullableContextOracle.FindChange(source, outputs));
@@ -102,7 +101,7 @@ public sealed class NullableRefusalTests
         // The plan refuses these sooner, as an empty directive shell, so ask the guard itself.
         var root = CSharpSyntaxTree.ParseText(UnderIfInAlpha(lineStart)).GetCompilationUnitRoot();
 
-        Assert.True(NullableGuard.Refuses(root, TopLevelType.Find(root).ToArray()));
+        Assert.True(NullableGuard.Refuses(root, TopLevelType.Find(root).ToArray(), root.SyntaxTree.FilePath));
     }
 
     [Theory]
@@ -110,9 +109,9 @@ public sealed class NullableRefusalTests
     [InlineData(LostAboveAType)]
     [InlineData(DefineUnderIf)]
     [InlineData(TypeUnderElse)]
-    [InlineData("#nullable enable\npublic class Alpha { }\n\n#if !X\n#nullable disable warnings\n[System.Serializable]\n#endif\npublic class Beta { public string? S; }\n")]
-    [InlineData("#if !X\n#undef EXTRA\n[System.Serializable]\n#endif\npublic class Alpha { }\n\npublic class Beta\n{\n#if EXTRA\n#nullable disable\n#endif\n    public string? S;\n}\n")]
-    [InlineData("#define EXTRA\n[assembly: System.CLSCompliant(false)]\n#nullable enable\nnamespace N;\n\npublic class Alpha { }\n\npublic class Beta\n{\n#if EXTRA\n#nullable disable\n#endif\n    public string? S;\n}\n")]
+    [InlineData(RestoresWarningsUnderIf)]
+    [InlineData(UndefUnderIf)]
+    [InlineData(DefineAboveAssemblyAttribute)]
     [InlineData(HiddenInAComment)]
     [InlineData(HiddenInARawString)]
     public void Oracle_SeesWhatTheUncheckedSplitGetsWrongInABuildWithASymbol(string source)
@@ -131,7 +130,7 @@ public sealed class NullableRefusalTests
         // In generated code no directive means disabled, but #nullable restore means the
         // project default. The fold reads both as the default. The oracle reads contexts, and
         // both read as inherited, so this row asks the compiler for diagnostics instead.
-        Assert.Equal(FileSplitter.NullableGuardReason, PlanRow(source).Reason);
+        Assert.Equal(NullableGuard.Reason, PlanRow(source).Reason);
 
         var gamma = FileLocalCompiler.SplitUnchecked("/work/Alpha.cs", source).Single(output => output.Path.EndsWith("Gamma.cs", StringComparison.Ordinal));
         const Microsoft.CodeAnalysis.NullableContextOptions enable = Microsoft.CodeAnalysis.NullableContextOptions.Enable;
@@ -141,7 +140,13 @@ public sealed class NullableRefusalTests
     [Fact]
     public void NullableInAFileWithAGeneratedName_RefusesThePlan()
     {
-        Assert.Equal(FileSplitter.NullableGuardReason, PlanRow(GeneratedBody, "Alpha.g.cs").Reason);
+        var source = GeneratedRestoreAdded.Replace("// <auto-generated/>\n", string.Empty, StringComparison.Ordinal);
+        Assert.Equal(NullableGuard.Reason, PlanRow(source, "Alpha.g.cs").Reason);
+
+        var gamma = FileLocalCompiler.SplitUnchecked("/work/Alpha.cs", source).Single(output => output.Path.EndsWith("Gamma.cs", StringComparison.Ordinal));
+        const Microsoft.CodeAnalysis.NullableContextOptions enable = Microsoft.CodeAnalysis.NullableContextOptions.Enable;
+        Assert.Contains("CS8669", NullableContextOracle.DiagnosticIds(source, enable, "Alpha.g.cs"));
+        Assert.Contains("CS8600", NullableContextOracle.DiagnosticIds(gamma.Text, enable, "Gamma.g.cs"));
     }
 
     [Fact]
@@ -152,7 +157,7 @@ public sealed class NullableRefusalTests
         // or renames would move a file that content then leaves unsplit.
         var row = PlanRow("namespace Demo;\n\npublic class TemporaryGeneratedFile_K { }\n\n#nullable enable\npublic class Beta { public string? B; }\n", "Foo.cs");
 
-        Assert.Equal(FileSplitter.NullableGuardReason, row.Reason);
+        Assert.Equal(NullableGuard.Reason, row.Reason);
     }
 
     [Theory]
@@ -169,7 +174,7 @@ public sealed class NullableRefusalTests
         Assert.Contains("CS8669", NullableContextOracle.DiagnosticIds("class C { string? s; }", Microsoft.CodeAnalysis.NullableContextOptions.Enable, path));
 
         var root = CSharpSyntaxTree.ParseText(GeneratedBody, path: path).GetCompilationUnitRoot();
-        Assert.True(NullableGuard.Refuses(root, TopLevelType.Find(root).ToArray()));
+        Assert.True(NullableGuard.Refuses(root, TopLevelType.Find(root).ToArray(), root.SyntaxTree.FilePath));
     }
 
     [Theory]
@@ -219,6 +224,12 @@ public sealed class NullableRefusalTests
 
         Assert.Equal(1, CountLine(Read(ws, "Gamma.cs"), "#nullable enable"));
     }
+
+    private const string RestoresWarningsUnderIf = "#nullable enable\npublic class Alpha { }\n\n#if !X\n#nullable disable warnings\n[System.Serializable]\n#endif\npublic class Beta { public string? S; }\n";
+
+    private const string UndefUnderIf = "#if !X\n#undef EXTRA\n[System.Serializable]\n#endif\npublic class Alpha { }\n\npublic class Beta\n{\n#if EXTRA\n#nullable disable\n#endif\n    public string? S;\n}\n";
+
+    private const string DefineAboveAssemblyAttribute = "#define EXTRA\n[assembly: System.CLSCompliant(false)]\n#nullable enable\nnamespace N;\n\npublic class Alpha { }\n\npublic class Beta\n{\n#if EXTRA\n#nullable disable\n#endif\n    public string? S;\n}\n";
 
     private const string TravelsWithItsType = "#nullable enable\npublic class Alpha { }\n\n#if !X\n#nullable disable\n[System.Serializable]\n#endif\npublic class Beta { public string? S; }\n";
 

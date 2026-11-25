@@ -52,7 +52,7 @@ internal static class FileLocalDirectives
             return (GlobalUsingReason, null);
         }
 
-        var removable = types.Select(type => type.Node.FullSpan).Concat(root.AttributeLists.Select(list => list.FullSpan)).ToArray();
+        var removable = SourceDirectives.RemovableSpans(root, types).ToArray();
         foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
         {
             if (DescribeKind(trivia) is { } kind && removable.Any(span => span.Contains(trivia.SpanStart)))

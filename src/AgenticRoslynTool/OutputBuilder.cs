@@ -130,35 +130,36 @@ internal static class OutputBuilder
     }
 
     /// <summary>
-    /// Reports whether <paramref name="text"/> already opens with <paramref name="header"/>.
+    /// Returns the offset after a matching header, or null when it is absent.
     /// The match is anchored at the end of a line, so a file starting with <c>// B-extra</c>
     /// does not satisfy a required header of <c>// B</c>, while trailing spaces on the banner
     /// line still count as the same banner. Callers may hold the header in either form the
-    /// pipeline produces: bare, or followed by blank lines. This is the single predicate
+    /// pipeline produces: bare, or followed by blank lines. This is the single probe
     /// behind both <see cref="EnsureHeader"/> and <see cref="OutputVerifier.VerifyOutputs"/>;
     /// they must agree or a file would have the banner declared present and then be rejected
     /// for not having it.
     /// </summary>
-    internal static bool StartsWithHeader(string text, string? header)
+    internal static int? MatchHeaderEnd(string text, string? header, bool allowLeadingWhitespace = false)
     {
         var probe = header?.Trim() ?? string.Empty;
+        var body = allowLeadingWhitespace ? text.AsSpan().TrimStart() : text.AsSpan();
         if (probe.Length == 0)
         {
-            return true;
+            return 0;
         }
 
-        if (!text.StartsWith(probe, StringComparison.Ordinal))
+        if (!body.StartsWith(probe, StringComparison.Ordinal))
         {
-            return false;
+            return null;
         }
 
         var index = probe.Length;
-        while (index < text.Length && text[index] is ' ' or '\t')
+        while (index < body.Length && body[index] is ' ' or '\t')
         {
             index++;
         }
 
-        return index == text.Length || text[index] is '\r' or '\n';
+        return index == body.Length || body[index] is '\r' or '\n' ? text.Length - body.Length + probe.Length : null;
     }
 
     /// <summary>
@@ -176,7 +177,7 @@ internal static class OutputBuilder
         }
 
         var trimmed = text.TrimStart();
-        return StartsWithHeader(trimmed, header) ? trimmed : header + trimmed;
+        return MatchHeaderEnd(text, header, allowLeadingWhitespace: true) is not null ? trimmed : header + trimmed;
     }
 
     internal static string EnsureTrailingNewLine(string text, string newLine, bool hasFinalNewLine)

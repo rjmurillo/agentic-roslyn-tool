@@ -723,7 +723,7 @@ this for the type each output is named for. A kept file can also hold `file` typ
   `[assembly: ...]` attribute list. That includes a `#nullable` above such an attribute,
   which stays only in the kept file, so the other new files gain the restated line. It
   also includes a `#nullable` between the attribute and the namespace, which every file
-  keeps; the guard over-refuses that one.
+  keeps. The guard counts that directive as movable even though it stays.
 - The lines go above the type's first comment, doc comment, or attribute, at the start of
   a line, ending in the source file's newline. `EncodedSource` knows CRLF and LF only, so
   in a file with lone carriage returns the added line ends in LF. It compiles the same. A `--require-header` banner that opens the
@@ -829,9 +829,9 @@ Off unless `--require-header <text>` is passed.
 - `EnsureHeader` does not add the header when the text already begins with it, so a file
   that already carries the banner keeps its existing spacing and does not get a second
   copy.
-- The probe is `StartsWithHeader`, anchored at the end of a line, so `// B-extra` does not
-  satisfy a required `// B`. Spaces and tabs after the banner line are tolerated. Injection
-  and verification call the same predicate, so a banner cannot be declared present and then
+- The probe is `MatchHeaderEnd`, anchored at the end of a line, so `// B-extra` does not
+  satisfy a required `// B`. Spaces and tabs after the banner line are tolerated. Injection, nullable restatement,
+  and verification share the same probe, so a banner cannot be declared present and then
   rejected for being absent.
 
 ## Critical behavioral rules

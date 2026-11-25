@@ -17,6 +17,10 @@ namespace AgenticRoslynTool;
 /// </remarks>
 internal static class SourceDirectives
 {
+    /// <summary>Spans where the split can remove a node and its attached directives.</summary>
+    internal static IEnumerable<Microsoft.CodeAnalysis.Text.TextSpan> RemovableSpans(CompilationUnitSyntax root, IReadOnlyList<TopLevelType> types) =>
+        types.Select(type => type.Node.FullSpan).Concat(root.AttributeLists.Select(list => list.FullSpan));
+
     private static readonly ConditionalWeakTable<CSharpSyntaxNode, DirectiveTriviaSyntax[]> Listed = new();
 
     /// <summary>Every directive in <paramref name="root"/> that starts before <paramref name="position"/>.</summary>

@@ -91,7 +91,7 @@ internal static class SplitPlanner
         var refusedNames = collisionNaming != CollisionNaming.TypeFirst
             ? new Dictionary<string, string>(PathComparison.Comparer)
             : resolvedPaths
-                .Where(kvp => CollisionNames.HasGeneratedCodeName(kvp.Value))
+                .Where(kvp => CollisionNames.HasGeneratedCodeSuffix(kvp.Value))
                 .GroupBy(kvp => kvp.Key.OriginalPath, kvp => kvp.Value, PathComparison.Comparer)
                 .ToDictionary(g => g.Key, g => string.Join("; ", g.Order(StringComparer.Ordinal)), PathComparison.Comparer);
         var notesBySource = collisionGroups

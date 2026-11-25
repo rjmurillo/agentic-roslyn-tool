@@ -22,6 +22,27 @@ public sealed class NullableDirectivesTests
     }
 
     [Fact]
+    public void LineConservation_KeepsAnIdenticalSourceLineWhenItSubtractsTheAddedCopy()
+    {
+        const string body = "class C\n{\n#nullable enable\n}\n";
+        var types = Types("class A { }\n" + BodyB + body);
+        var outputs = Outputs(types, "#nullable enable\n" + body, new[] { "#nullable enable" });
+
+        OutputVerifier.VerifyLineConservation("in.cs", types, outputs);
+    }
+
+    [Fact]
+    public void FindMatch_DistinguishesFileLocalTypesFromOrdinaryTypes()
+    {
+        var root = CSharpSyntaxTree.ParseText("file class C { }\nclass C { }\n", Parse).GetCompilationUnitRoot();
+        var ordinary = Assert.Single(Types("class C { }"));
+        var fileLocal = CSharpSyntaxTree.ParseText("file class C { }", Parse).GetCompilationUnitRoot();
+
+        Assert.False(TopLevelType.FindMatch(root, ordinary).HasFileModifier);
+        Assert.Throws<InvalidOperationException>(() => TopLevelType.FindMatch(fileLocal, ordinary));
+    }
+
+    [Fact]
     public void LineConservation_RefusesTheSameLineWhenItIsNotDeclaredAdded()
     {
         var types = Types(Source);
