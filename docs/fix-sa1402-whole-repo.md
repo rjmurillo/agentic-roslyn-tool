@@ -264,12 +264,12 @@ are most likely to see:
 | Two types in one file share a name and type parameter list | skipped | `target path collision within split: <path>` |
 | File already has one type | skipped | `nothing to split: input has 1 top-level type declaration(s)` |
 | Path matches `--exclude` | skipped | `excluded by pattern: <pattern>` |
-| File does not parse | failed | `input has syntax errors: <diagnostics>` |
+| File does not parse and no conditional names a symbol | failed | `input has syntax errors: <diagnostics>` |
 | Parse reports errors and an `#if` or `#elif` condition names a symbol | skipped | `input has syntax errors under default preprocessor symbols; build symbols may change the parse; manual review required` |
 | File is a .NET 10 file-based program (`#:` or `#!` lines) | skipped | `file-based program (#: or #! directive): it compiles alone, so no type can move out of it` |
 
 A `dotnet new` template folder holds files that are not C# until the template engine runs,
-such as `#if (UseXunit)`. They fail with `input has syntax errors`. Pass
+such as `#if (UseXunit)`. These files can fail or be skipped. Pass
 `--exclude <template folder>` to leave them out. A `failed` row on a file your build
 compiles is a bug in the tool. Do not edit the file to get past it. Exclude it and
 [open an issue](https://github.com/rjmurillo/agentic-roslyn-tool/issues).
