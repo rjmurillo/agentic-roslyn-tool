@@ -25,6 +25,22 @@ public sealed class OutputCheckPrefixTests
     }
 
     [Fact]
+    public void HeaderWithAFileBasedDirective_FailsTheOutputCheck()
+    {
+        // The parse accepts #: so a file-based program can be read. A project build rejects it
+        // with CS9298, so a required header that injects one must never reach disk.
+        using var ws = new TempWorkspace();
+        var path = ws.WriteFile("Stuff.cs", "namespace N;\n\npublic class Order2 { }\n\npublic class Line { }\n");
+        var options = new Options(ws.WriteInputList(path), Path.Combine(ws.Root, "m.csv"), ws.Root, Phase.Plan, "#:property RootNamespace=Injected");
+
+        var row = Assert.Single(new FileSplitter(options).Run());
+
+        Assert.Equal("failed", row.Status);
+        Assert.StartsWith(FileSplitter.OutputCheckFailedPrefix, row.Reason);
+        Assert.Contains("#: or #! directive", row.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void InputSyntaxError_StartsWithTheSyntaxErrorsPrefix()
     {
         using var ws = new TempWorkspace();

@@ -46,8 +46,9 @@ every output.
 When `--require-header` is set, each output must also start with that header, or the file
 fails with `<output path> does not start with required file header`.
 
-The input is held to the same rule. An input file with syntax errors is recorded as
-`failed` before any split is planned, with the reason `input has syntax errors: ...`.
+The input is held to the same rule. If errors remain and a conditional names a symbol,
+the tool skips the input without trying another symbol set. Other input syntax errors
+produce `failed` before planning. Outputs must not contain `#:` or `#!` directives.
 
 ## Check 2: trivia ownership
 

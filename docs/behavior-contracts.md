@@ -523,10 +523,8 @@ Reason text shown in italics is a template; the run substitutes real values.
 | Content phase, row has a malformed hash | skipped | `stale plan: the manifest row carries a malformed contentHash '<value>'; re-run --phase plan` |
 | Renames phase, would split a file the manifest does not mark `split` | skipped | `stale plan: the plan manifest does not mark this file as split; re-run --phase plan` |
 | Renames phase, would split a file the manifest has no row for | skipped | `stale plan: the plan manifest has no row for this file; re-run --phase plan` |
-| Parse produced an error diagnostic, other than an `#error` whose branch names a symbol the build sets (not one the file sets itself outside a symbol-dependent `#if`), and the file still fails with every symbol its `#if` lines name defined | failed | `input has syntax errors: <diagnostics>` |
-| Parse fails with no symbols defined, and the retry's child process crashes, runs past 30 seconds, or cannot start | skipped | `does not parse with no preprocessor symbols, and the retry with its symbols did not finish; manual split required` |
-| Parse fails with no symbols defined, and the file's `#if` lines name more than 256 distinct symbols | skipped | `does not parse with no preprocessor symbols, and its #if lines name too many symbols to retry; manual split required` |
-| Parse fails with no symbols defined, and succeeds with every symbol the file's `#if` lines name | skipped | `parses only with the preprocessor symbols its #if lines name, which this tool does not define; manual split required` |
+| Parse produced an error diagnostic, other than an `#error` whose branch names a symbol the build sets (not one the file sets itself outside a symbol-dependent `#if`), and no `#if` or `#elif` condition names a symbol | failed | `input has syntax errors: <diagnostics>` |
+| Parse reports errors and an `#if` or `#elif` condition names a symbol | skipped | `input has syntax errors under default preprocessor symbols; build symbols may change the parse; manual review required` |
 | File has a `#:` or `#!` directive (a .NET 10 file-based program) | skipped | `file-based program (#: or #! directive): it compiles alone, so no type can move out of it` |
 | File has top level statements | skipped | `contains top-level statements; manual split required` |
 | One type or fewer | skipped | `nothing to split: input has <n> top-level type declaration(s)` |

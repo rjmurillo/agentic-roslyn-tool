@@ -1471,9 +1471,8 @@ the outputs were checked by copies of one rule.
   still counts as a build symbol. An
   `#error` under `#if true`, under such a symbol, or under no `#if`, still counts: every
   build of that file fails.
-- When a file still has errors, it re-parses with every symbol the file's `#if` and
-  `#elif` conditions name. A file that parses then is skipped with its own reason. It is
-  never split, because the symbol-defined tree may not be the one the build compiles.
+- If errors remain and an `#if` or `#elif` condition names a symbol, skip the file.
+  The tool does not know which symbols the project defines. It never retries the parse.
 - A file with a `#:` or `#!` directive is skipped with its own reason, before the
   top-level statement check. A file-based program compiles alone, even when it declares
   `Main` in a class, so a type moved out of it leaves the program.
@@ -1488,9 +1487,7 @@ filter, or a `ParseText` call without `SourceParsing.Options` appears anywhere e
 skill, the package `AGENTS.md`, and the user guides now say never to edit a source file
 to get past the tool, and to report a `failed` row on a file the build compiles.
 
-`dotnet new` template sources stay `failed`. Lines such as `#if (UseXunit)` are not C#
-until the template engine runs, and they fail with and without symbols. The documented
-answer is `--exclude` for the template folder.
+Template sources can fail or be skipped. Leave them out before planning.
 
 **Alternatives rejected.**
 
@@ -1514,58 +1511,22 @@ played no part in finding them: Newtonsoft.Json `52fa3ae`, nodatime `6e024dd`, D
 found the symbol case above (BenchmarkDotNet `HardwareIntrinsics.cs`), which the first
 fix missed. After the retry, the only `failed` rows in the six are two BenchmarkDotNet
 template files, and one Dapper file that fails an output check for an unrelated reason
-fixed separately. Review then found two more ways the first `#error` rule went wrong: it
-ignored symbols the file sets itself, and matching by location alone excused a broken
-`#else` beside an `#error`. Both now fail, as the base version did. Review probes, not a
-repository, found two more cases: a `#define` inside `#if !NET`, and a `#define` that a
-later `#if NET && !FOO` unsets. Each was taken as set in every build, which failed a valid
-file. A symbol any symbol-dependent branch sets or unsets now counts as a build symbol. A
-fifth round measured the `#error` check as quadratic: one crafted file with 80,000 guarded
-`#error` lines took between 230 and 311 seconds across two runs. Each diagnostic now finds
-its directive by binary search, and that file takes about 53 seconds, close to the same
-file with `#warning` lines. A sixth round found the symbol retry grew faster than quadratic
-with distinct symbols: 160,000 took 278 seconds. A file whose `#if` lines name more than
-256 distinct symbols is now skipped without the retry, with its own reason. The same round found that the retry parses code the first parse skipped, so 200,000
-nested parentheses under `#if A` overflowed the stack and ended the run. Rounds seven to nine
-tried guards inside the process: a thread with a 256 MB stack and a 10-second wait, then a
-bracket depth count on the lexer. Each caught one shape and missed the next. A deeper nest
-still overflowed the larger stack. Abandoned parses piled up threads and memory. The lexer
-itself recurses inside interpolated strings. Generic arguments, `<` chains, and `is not`
-chains nest with no bracket at all. The maintainer chose to run the retry in a child
-process. The tool starts itself with a hidden verb and sends the symbols and the text over
-standard input. A crash, a stall past 30 seconds, or a failed start ends only the child, and
-its file is skipped unjudged, with its own reason. Six crafted files that each crashed an
-in-process retry now take 9 seconds in all, and the run goes on. Each retried file costs
-about 130 milliseconds for the child to start: 50 such files took 6.6 seconds, against
-0.2 seconds with no retry. A real retry, such as BenchmarkDotNet's, finishes in under a
-second, so the 30-second limit only stops crafted input. When the tool is not the entry
-assembly, as under a test host, the child runs through the dotnet host named in
-`DOTNET_HOST_PATH`, because the host on Windows is `testhost.exe`. The same round
-found that an unconditional `#define` after a conditional `#undef` did not fix the symbol
-again. It now does, from that point in the file. The six repositories informed the symbol
-retry, so their result is no longer independent evidence for it. Confirming it needs
-repositories that played no part in tuning it.
+fixed in PR #72.
 
-**Consequences.** "Never `failed`" cannot be proved for every file, because the tool does
-not know the build's symbols. A file that is broken with no symbols and with all of them,
-yet compiles under some other set, is still `failed`. An output check can also refuse a
-valid file when the tool builds a bad split. That row says `output check failed`, and the
-agent instructions route it to exclude and report. If the child process cannot start at
-all, every file that needs the retry is skipped unjudged, so a run that would exit 1 can
-exit 0. Each such row names the cause. The symbol retry has the opposite
-cost: a file broken in every real build, but parsing with all its symbols defined, is
-skipped and the run can exit 0. That is safe, because a skipped file is never changed,
-and the skip reason names the cause. Rule 17 says what to do when a real
-repository shows one. The code change is easy to reverse. The release that carries it is
-not: a published version is immutable.
+**Why we removed the retry.** The original retry defined every named symbol. That still
+missed builds where one symbol is defined and another is not. D13 replaced the retry
+with a skip. This also removes the worker process chosen in D11 and avoids parsing
+branches that the first parse did not activate. The tool may now skip broken files.
+Review skipped rows and build the project to check them.
+
+The output verifier rejects file-based directives. They can parse here but fail in a
+project build. Leave standalone files without those markers out of the input list.
 
 > **Warning.** Do not excuse a diagnostic by location alone, or under a branch that names
 > no symbol the build sets.
 > Do not drop other diagnostic IDs to make a file pass. Either one marks a file the
-> compiler rejects as safe to split. Do not split the symbol-defined tree. Do not move the
-> file-based program check after the top-level statement check: a program that declares
-> `Main` in a class would then be split, and its moved types would vanish from the
-> program with no error in the tool.
+> compiler rejects as safe to split. Do not re-parse with guessed symbols or allow file-based
+> directives in split outputs.
 
 ### Decision 35. The blank line collapse stays out of every type's owned span
 

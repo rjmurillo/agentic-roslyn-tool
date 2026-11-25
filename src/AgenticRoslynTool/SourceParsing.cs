@@ -28,21 +28,8 @@ internal static class SourceParsing
     /// <summary>The skip reason for a .NET 10 file-based program.</summary>
     internal const string FileBasedProgramReason = "file-based program (#: or #! directive): it compiles alone, so no type can move out of it";
 
-    /// <summary>The skip reason for a file that parses only once its preprocessor symbols are defined.</summary>
-    internal const string SymbolDependentReason = "parses only with the preprocessor symbols its #if lines name, which this tool does not define; manual split required";
-
-    /// <summary>The skip reason for a file whose <c>#if</c> lines name too many symbols to retry.</summary>
-    internal const string TooManySymbolsReason = "does not parse with no preprocessor symbols, and its #if lines name too many symbols to retry; manual split required";
-
-    /// <summary>The skip reason for a file whose retry crashed, ran too long, or could not start.</summary>
-    internal const string RetryUnjudgedReason = "does not parse with no preprocessor symbols, and the retry with its symbols did not finish; manual split required";
-
-    /// <summary>
-    /// The most distinct symbols the retry defines. Real files name a handful. A crafted file
-    /// with 160,000 made the retry parse take minutes, so past this count the file is skipped
-    /// unjudged, never failed.
-    /// </summary>
-    internal const int MaxRetrySymbols = 256;
+    /// <summary>The skip reason for syntax errors that may depend on build symbols.</summary>
+    internal const string SymbolDependentReason = "input has syntax errors under default preprocessor symbols; build symbols may change the parse; manual review required";
 
     /// <summary>The diagnostic IDs an <c>#error</c> directive raises.</summary>
     private static readonly HashSet<string> ErrorDirectiveIds = new(StringComparer.Ordinal) { "CS1029", "CS8304" };
@@ -84,52 +71,13 @@ internal static class SourceParsing
             .ToArray();
     }
 
-    /// <summary>
-    /// For a <paramref name="tree"/> with errors, the reason to skip it rather than fail it,
-    /// or null when it is broken under its symbols too. With no symbols, a group of branches
-    /// that all name symbols leaves no branch live, and the code around it can stop parsing.
-    /// The real build defines one of them. So the file is parsed again with every symbol its
-    /// <c>#if</c> and <c>#elif</c> conditions name, and a file that parses then is skipped:
-    /// splitting it would split a tree the build never sees. The retry runs in a child
-    /// process (<see cref="SymbolRetry"/>), so a crash or a stall there skips only this file.
-    /// A file that names more than <see cref="MaxRetrySymbols"/> symbols is skipped without
-    /// the retry.
-    /// </summary>
-    internal static string? SymbolRetrySkipReason(SyntaxTree tree, TimeSpan? timeLimit = null)
-    {
-        var symbols = tree.GetCompilationUnitRoot().DescendantTrivia()
+    /// <summary>Checks whether a conditional names a symbol without re-parsing any source.</summary>
+    internal static bool HasSymbolConditions(CompilationUnitSyntax root) =>
+        root.DescendantTrivia()
             .Select(t => t.GetStructure())
-            .Select(s => s switch { IfDirectiveTriviaSyntax i => i.Condition, ElifDirectiveTriviaSyntax e => e.Condition, _ => null })
+            .Select(d => d switch { IfDirectiveTriviaSyntax i => i.Condition, ElifDirectiveTriviaSyntax e => e.Condition, _ => null })
             .OfType<ExpressionSyntax>()
-            .SelectMany(c => c.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
-            .Select(n => n.Identifier.ValueText)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        if (symbols.Length == 0)
-        {
-            return null;
-        }
-
-        if (symbols.Length > MaxRetrySymbols)
-        {
-            return TooManySymbolsReason;
-        }
-
-        return SymbolRetry.Run(tree.GetText().ToString(), symbols, timeLimit) switch
-        {
-            SymbolRetry.Outcome.Parses => SymbolDependentReason,
-            SymbolRetry.Outcome.Broken => null,
-            _ => RetryUnjudgedReason,
-        };
-    }
-
-    /// <summary>
-    /// True when <paramref name="text"/> parses with <paramref name="symbols"/> defined.
-    /// Only the child process <see cref="SymbolRetry"/> starts calls this, because a deep nest
-    /// in code the first parse skipped can overflow the stack here.
-    /// </summary>
-    internal static bool ParsesWithSymbols(string text, string[] symbols) =>
-        Errors(CSharpSyntaxTree.ParseText(text, SourceParsing.Options.WithPreprocessorSymbols(symbols))).Length == 0;
+            .Any(condition => condition.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Any());
 
     /// <summary>Renders diagnostics as one semicolon-separated string for a row's reason.</summary>
     internal static string Describe(IEnumerable<Diagnostic> diagnostics) =>

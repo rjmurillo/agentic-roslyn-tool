@@ -1,0 +1,87 @@
+{
+  "author_family": "anthropic",
+  "branch": "fix/file-based-program",
+  "counts": {
+    "dropped": 2,
+    "kept": 3,
+    "overlap": 1,
+    "raw": 5,
+    "sol_only": 2
+  },
+  "critic_sha256": "b3fe5950453f9ad0dc56c0701bd8eef2b4831cc52c30d0e209df106efc285890",
+  "dropped": [
+    {
+      "finding": {
+        "claim": "lets an unreachable `#undef` make a fixed symbol appear build-dependent",
+        "file": "src/AgenticRoslynTool/SourceParsing.cs",
+        "fix": "preserve fixed symbols through branches that can never execute.",
+        "id": "S4",
+        "line": 172,
+        "repro": "`#define FIXED`, then nest `#undef FIXED` inside `#if BUILD` and `#if false`. A later `#if FIXED` containing `#error always` fails compilation with or without `BUILD`, but the tool skips the file",
+        "severity": "nit"
+      },
+      "reason": "nit"
+    },
+    {
+      "finding": {
+        "claim": "promises that `--exclude <keptPath>` leaves out one file",
+        "file": "package/skills/split-types/SKILL.md",
+        "fix": "tell callers to remove the exact path from the input list when excluding one file, and mirror that guidance in the packaged `AGENTS.md`.",
+        "id": "S5",
+        "line": 54,
+        "repro": "on Linux, plan with broken `Broken.cs` and splittable `broken.cs`, then pass the failed row's absolute path to `--exclude`. Both files are skipped and the plan exits 0",
+        "severity": "nit"
+      },
+      "reason": "nit"
+    }
+  ],
+  "failure_class": "",
+  "findings": [
+    {
+      "claim": "treats a failed all-symbols retry as proof the file is invalid",
+      "evidence": "Skip inputs with errors and named conditionals; remove the retry process.",
+      "file": "src/AgenticRoslynTool/SourceParsing.cs",
+      "fix": "skip when syntax may depend on a symbol assignment the tool has not checked.",
+      "id": "S1",
+      "line": 121,
+      "outcome": "fixed",
+      "repro": "put `1` behind `#if FEATURE_A && !FEATURE_B` in `int Value => 1;`. A .NET 10 project defining only `FEATURE_A` builds successfully, but the tool exits 1 with CS1525",
+      "severity": "blocker",
+      "sol_only": false
+    },
+    {
+      "claim": "now accepts file-based directives in ordinary project outputs",
+      "evidence": "Refuse file-based directives in outputs; regression test passes.",
+      "file": "src/AgenticRoslynTool/OutputVerifier.cs",
+      "fix": "reject outputs containing file-based directives before writing.",
+      "id": "S2",
+      "line": 43,
+      "outcome": "fixed",
+      "repro": "plan and apply a split of `class Foo { } class Bar { }` with `--require-header '#:property RootNamespace=Injected'`. Both phases exit 0, then the project build fails with CS9298 in both files. The base rejects the plan",
+      "severity": "blocker",
+      "sol_only": true
+    },
+    {
+      "claim": "misses file-based programs without directives",
+      "evidence": "Document excluding unmarked standalone files in README and both packaged guides.",
+      "file": "src/AgenticRoslynTool/SourceParsing.cs",
+      "fix": "document that automatic detection requires a marker and tell callers to exclude unmarked standalone files before planning.",
+      "id": "S3",
+      "line": 144,
+      "outcome": "fixed",
+      "repro": "run `dotnet run --file Unmarked.cs` on a file with `static void Main() => new Helper().Print();` and a sibling `Helper` class. The run succeeds before the split and fails with CS0246 afterward",
+      "severity": "should",
+      "sol_only": true
+    }
+  ],
+  "head_sha": "a44698c9cfb8e08df2b9100e63ded0182513d77e",
+  "key": "fix/file-based-program",
+  "model": "gpt-6.2-sol",
+  "overlap_rule": "same file and line within 3 of a critic path:line or range",
+  "pr": "68",
+  "round": 1,
+  "schema_version": 2,
+  "status": "ok",
+  "timestamp": "2026-11-24T09:28:51Z",
+  "verdict": "CHANGES"
+}

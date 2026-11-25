@@ -27,6 +27,8 @@ step runs the same build). Below, `<tool>` means whichever you use.
 1. Pick a scratch folder outside the repository that no other run uses, shown here as
    `<dir>`. List the C# files there:
    `git -c core.quotePath=false ls-files '*.cs' > <dir>/split.txt`
+   Remove any file the repository runs with `dotnet run --file` but that has no `#:` or
+   `#!` line. The tool cannot tell it from project code, and splitting it breaks it.
 2. Plan. This changes no source file:
    `<tool> split-types --phase plan --input <dir>/split.txt --manifest <dir>/split.csv --json`
    If the repository enforces SA1649, add `--collision-naming type-first` to this step only.
@@ -51,11 +53,11 @@ step runs the same build). Below, `<tool>` means whichever you use.
      - `input has syntax errors`: if the build does not compile that file, such as a
        `dotnet new` template, re-run steps 1 and 2 with `--exclude` and the folder's path
        from the repository root. If the build compiles it, the tool is wrong: re-run steps
-       1 and 2 with `--exclude` and that row's `keptPath`, so only that file is left out.
+       1 and 2 after removing the exact `keptPath` from the rebuilt input list.
      - `output check failed`: the tool's own check refused a split it built, and wrote
        nothing. If the run passed `--require-header` and that header is not a
        comment, fix the header and re-run step 2. In every other case the tool is wrong:
-       exclude that row's `keptPath` the same way.
+       remove the exact `keptPath` from the rebuilt list and re-plan.
      - When the tool is wrong, tell the user to report it at
        https://github.com/rjmurillo/agentic-roslyn-tool/issues.
      - Any other reason, such as a failed rename: fix that cause, which is never the

@@ -24,8 +24,8 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 47 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 553 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 46 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 547 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -50,7 +50,6 @@ Every source file, so you do not have to open one to find out whether it matters
 | `OutputBuilder.cs` | Renders the text of every output file: name, carved source, required header, trailing newline. |
 | `OutputVerifier.cs` | The correctness checks, run against in-memory outputs before anything is written. A failure here means nothing reaches disk. |
 | `SourceParsing.cs` | The one parse rule: the parse options, which errors mean a file is not valid C#, and how to spot a file-based program. Every parse goes through it. |
-| `SymbolRetry.cs` | Runs the symbol retry parse in a child process, so a crash or a stall there skips one file instead of ending the run. |
 | `WorkspaceWriter.cs` | The only place the tool touches the working tree. Every rename runs through `git mv`; every write preserves encoding and byte order mark. |
 | `GitCommand.cs` | Runs one git command with a time limit. Passes each argument on its own, reads both streams, and kills git and its children on expiry. |
 | `Program.cs` | Top level statements. Verb dispatch, error handling, exit codes, output selection. Decides which file a run writes: the manifest in `plan`, the report otherwise. Declares no type. |
@@ -96,7 +95,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 553 passed, 0 failed
+dotnet test  -c Release      # must be 547 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -213,11 +212,11 @@ weight.
     A false `failed` on a valid file invites an agent to edit good code to please the tool.
     The tool cannot prove this for every file, because it parses without the build's
     symbols. So when the parse cannot tell, it skips with a reason, and the parse check
-    fails only a file broken with and without the symbols its `#if` lines name. A failed
+    fails only when no `#if` or `#elif` condition names a symbol. A failed
     output check is a tool bug, never a source problem, unless `--require-header` was not a
     comment, and its reason starts
     `output check failed: ` so agents route it to exclude and report. `SourceParsing` owns the
-    whole parse rule: the options, which errors count, the symbol retry, and file-based
+    whole parse rule: the options, which errors count, the conditional skip, and file-based
     program detection. Never parse with other options and never filter diagnostics
     anywhere else. `ParseRuleOwnershipTests` fails the build if you do. When a real
     repository shows a new false `failed`, fix it there, with a test taken from that
@@ -260,20 +259,11 @@ agent does not pay again.
   because every build of it fails. A `#define` inside `#if !NET` runs only in some builds,
   so its symbol still depends on the build, and so does one that any such branch unsets,
   until an unconditional `#define` or `#undef` later in the file fixes it again.
-- **With no symbols, a file can stop parsing at all.** `#if NET6_0_OR_GREATER` followed
-  by `#elif NETSTANDARD` and no `#else` leaves no branch live here, and the expression
-  around it breaks. BenchmarkDotNet has one. `SourceParsing.SymbolRetrySkipReason`
-  re-parses with every symbol the file's `#if` lines name, and a file that parses then is
-  skipped, not failed. Never split the symbol-defined tree: the build may not see it.
-  Past 256 distinct symbols the retry does not run, because its parse time grows faster
-  than the symbol count. The retry runs in a child process (`SymbolRetry`), because it
-  parses code the first parse skipped and Roslyn recurses: deep parentheses, generic
-  arguments, interpolated strings, and `is not` chains each overflowed the stack in-process.
-  A crash or a stall past 30 seconds ends only the child, and the file is skipped unjudged.
-  Do not move the retry back in-process behind a guard; rounds 7 to 9 tried a bigger stack,
-  a timer, and a depth count, and each missed a shape.
+- **A parse without build symbols can reject valid source.** Named conditions can
+  leave no active branch. If syntax errors remain, skip the file without another parse.
+  Defining every symbol cannot prove the file broken. See decision 33.
 - **`dotnet new` template sources are not C#.** Lines like `#if (UseXunit)` and
-  placeholder names do not parse. Those files are `failed`, correctly. Tell the user to
+  placeholder names need template expansion. Such files can be `failed` or `skipped`. Tell the user to
   pass `--exclude` for the template folder. Do not change the parse rule to accept them.
 
 - **`#if DEBUG` is a poor test vehicle for "a directive spans two types".** Roslyn hides

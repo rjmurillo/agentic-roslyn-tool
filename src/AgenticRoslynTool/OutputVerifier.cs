@@ -46,6 +46,14 @@ internal static class OutputVerifier
             {
                 throw new InvalidOperationException($"{output.Path} does not parse: {SourceParsing.Describe(diagnostics)}");
             }
+
+            // The parse accepts #: and #! so a file-based program input can be read and
+            // skipped. A project build rejects them (CS9298), so no output may carry one,
+            // for example through --require-header.
+            if (SourceParsing.IsFileBasedProgram(tree.GetCompilationUnitRoot()))
+            {
+                throw new InvalidOperationException($"{output.Path} holds a #: or #! directive, which a project build rejects");
+            }
         }
 
         // A declaration's text appears once across the outputs. An input with a file-local
