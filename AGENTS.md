@@ -35,6 +35,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | `.github/workflows/ci.yml` | The CI gate. Build, test, pack, and check the package's entry names on push and pull request. |
 | `.github/scripts/verify-package-contents.sh` | Fails when the `.nupkg` lacks an agent file, by exact entry name. CI and the release workflow both run it. |
 | `.qualityrc.json` | One waiver for a local review scanner some agents run. Not read by the build or by CI. |
+| `.cursor/BUGBOT.md` | Review rules for Cursor Bugbot. Lists behavior a reviewer must not flag as a bug, each with the doc that explains it. |
 
 Every source file, so you do not have to open one to find out whether it matters:
 
@@ -376,6 +377,11 @@ agent does not pay again.
   versions from the `Directory.Packages.props` diff and refuses major bumps. Renovate's
   14 day release age applies only to Renovate updates. A daily schedule retries open
   Dependabot pull requests if the event run did not enable auto-merge.
+- **The auto-merge workflow runs on `pull_request`, never `pull_request_target`.** A job
+  `if` limits the event run to pull requests that `dependabot[bot]` opened, and the job
+  grants itself `contents: write` and `pull-requests: write`. `pull_request_target` would
+  hand a write token to a run started by any pull request. Keep the trigger and the author
+  check together.
 - **No ruleset has a bypass actor, on purpose.** Agents here run with the maintainer's
   token, so anything the maintainer can bypass, an agent can bypass too. Every change to
   `main` goes through a pull request and the required checks. Code owner review is off
@@ -448,6 +454,9 @@ agent does not pay again.
   members too, not only its first token: a conditional directive inside a body changes
   only what follows it, and a check at the type's start missed that once. The verifier's
   own context check shares the tool's fold, so it cannot catch a wrong fold.
+  `PreprocessorSymbolSets.Of` collects the `#if` names again under every symbol set found
+  so far, until no new name appears. A comment opened in one build can hide a condition
+  from another build's parse. Do not cut that loop to one pass.
 - **Do not narrow `NullableGuard` to the places a directive can be lost.** Four narrower
   rules each passed review rounds, then failed on the next shape: a conditional
   `#nullable` that travels with its own type, a `#define` whose `#if` a split drops, a
@@ -616,4 +625,5 @@ reply or a pull request body. Neither survives.
 | A trap, an invariant, or a build rule | This file |
 | What a phase or a guard promises | `docs/behavior-contracts.md` |
 | Why a design choice was made, and what breaks if reversed | `docs/decision-log.md` |
+| Behavior a code reviewer keeps flagging by mistake | `.cursor/BUGBOT.md`, one line that links to the doc above that explains it |
 | What a specific type or method does | An XML doc comment on that member |
