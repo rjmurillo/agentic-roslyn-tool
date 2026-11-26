@@ -377,11 +377,10 @@ agent does not pay again.
   versions from the `Directory.Packages.props` diff and refuses major bumps. Renovate's
   14 day release age applies only to Renovate updates. A daily schedule retries open
   Dependabot pull requests if the event run did not enable auto-merge.
-- **The auto-merge workflow runs on `pull_request`, never `pull_request_target`.** A job
-  `if` limits the event run to pull requests that `dependabot[bot]` opened, and the job
-  grants itself `contents: write` and `pull-requests: write`. `pull_request_target` would
-  hand a write token to a run started by any pull request. Keep the trigger and the author
-  check together.
+- **Keep `on: pull_request` in the auto-merge workflow.** The event run enables
+  auto-merge as soon as Dependabot opens a pull request. The daily schedule is only the
+  retry. Drop the event trigger and a security fix waits up to a day. The job `if` keeps
+  the event run to pull requests that `dependabot[bot]` opened.
 - **No ruleset has a bypass actor, on purpose.** Agents here run with the maintainer's
   token, so anything the maintainer can bypass, an agent can bypass too. Every change to
   `main` goes through a pull request and the required checks. Code owner review is off

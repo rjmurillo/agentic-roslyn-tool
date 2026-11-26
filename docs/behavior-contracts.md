@@ -565,6 +565,8 @@ shape the plan phase never produces, such as two rows for the same type.
 
 The exclusion check runs first, before the existence check, so an excluded path does not
 have to exist. Exclusion patterns come only from `--exclude`, which defaults to empty.
+Every phase matches a pattern against the path the input lists, before any lookup in the
+manifest. A kept path the manifest maps that input to is never matched.
 The tool ships with no built in opinion about which directories hold generated code.
 
 Two matching caveats. Backslashes in a pattern and in a path are both treated as directory
