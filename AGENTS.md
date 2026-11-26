@@ -454,7 +454,8 @@ agent does not pay again.
   `#define` above an `[assembly: ...]` attribute, a type in an `#else` branch. The guard
   now refuses a movable `#nullable` beside any `#if`, because a file with no `#if` has one
   build and the fold is exact there. It refuses one before any `using` too, because
-  `Restore` restates context above the type, below that `using`. With an `#if`, it reads
+  `Restore` restates context above the type, below that `using`. It refuses one beside any
+  `#line`, because a restated line shifts every mapped line below it. With an `#if`, it reads
   `#nullable` lines from the text: a comment opened under `#if` hid one from the parse in
   round five. The scan finds lines and whitespace with `SyntaxFacts`, not `[ \t]` and
   `\n`: a no-break space, a form feed, and a lone carriage return each hid one from a

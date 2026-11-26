@@ -587,7 +587,7 @@ A directive wholly contained inside a single type is allowed and travels with th
 that would leave a directive group with no code inside it.
 
 `NullableGuard.Refuses` is a third. It refuses a file with a movable `#nullable` beside
-any `#if`, before a `using` directive, or in a file the compiler reads as generated. See "Nullable context" below. The second check
+any `#if` or `#line`, before a `using` directive, or in a file the compiler reads as generated. See "Nullable context" below. The second check
 carves the tree through `OutputBuilder.Carve`, the same call that starts each output.
 `AnalyzeDirectiveSafety` and `NullableGuard` read the source and do not carve.
 

@@ -6,7 +6,7 @@ namespace AgenticRoslynTool.Tests;
 
 /// <summary>
 /// Pins the rule in <c>NullableGuard</c>: a <c>#nullable</c> that a split can move is refused
-/// beside an <c>#if</c>, before a <c>using</c> directive, or in a generated file. Compiler
+/// beside an <c>#if</c> or a <c>#line</c>, before a <c>using</c> directive, or in a generated file. Compiler
 /// checks show what an unchecked split changes. Other rows pin intentional over-refusal.
 /// </summary>
 public sealed class NullableRefusalTests
