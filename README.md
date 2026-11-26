@@ -254,7 +254,7 @@ failed. A row an earlier run already applied is reported as `skipped` with a rea
 starts with `already applied`, and its files are not written again. A file that changed
 for any other reason since the plan is `skipped` with a `stale plan:` reason.
 
-The content phase moves each non-primary top-level type into its own file. Each type keeps its owned XML comments, attributes, and ordinary comments. Every emitted file also receives the source using directives and namespace declaration.
+The content phase moves each non-primary top-level type into its own file. Each type keeps its owned XML comments, attributes, and ordinary comments. Every emitted file also receives the source using directives and namespace declaration. When a removed type carried away a `#nullable` directive, the file also gets the `#nullable` line that gives its type the context it had.
 
 ## Safety and verification
 
@@ -264,6 +264,7 @@ Before writing files, the tool:
 * Rejects splits that cross `#if` or `#region` boundaries unsafely.
 * Verifies that each type retains its owned trivia.
 * Checks line conservation across the split.
+* Checks that each type keeps the nullable context it had in the source.
 
 How each check works, what it proves, and what it does not:
 [docs/verification.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/verification.md).
@@ -318,6 +319,7 @@ One production run processed 7,818 files and split 461 of them. Roslyn parsed ev
 * Two types that share a simple name inside a *single* file are not split. Unless they differ by generic arity or by type parameter names, which is resolved as `Name{T}.cs`, the file is skipped with `target path collision within split` and needs manual handling. Under `--file-naming metadata` only arity tells them apart: `Box<T>` and `Box<U>` both map to ``Box`1.cs``, so that file is skipped too. (details: [docs/sa1402-sa1649-naming.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/sa1402-sa1649-naming.md))
 * Two or more parts of one partial type in the same file, generic or not, make the tool skip that file with `target path collision within split`. The parts are not merged, and other types in that file stay where they are.
 * A type declared with the `file` modifier never leaves its file, and that file is never renamed, because the compiler builds the type's metadata name from the file's name. The tool moves the ordinary types out and leaves the `file` type with the kept type. SA1402 then still flags that file, once for each `file` class or record when the kept type is a class or record too, and the row's `note` says so. Suppress it for that file in `.editorconfig`, or with a pragma. The file is skipped when a type that would move names a `file` type, when a `file` type declares extension members, when a using directive names one, when a type lists one among its base types, when the file has an excluded `#if` branch, a `global using` directive, or a `#line`, `#nullable`, `#pragma`, `#define`, or `#undef` directive on or inside a type or on an assembly attribute, or when it has only one other type. (details: [docs/fix-sa1402-whole-repo.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/fix-sa1402-whole-repo.md#files-that-hold-a-file-type))
+* A file is skipped when a `#nullable` directive a split could move shares it with any `#if` or `#line`, comes before a `using` directive, or sits in a file the compiler reads as generated. In those files the tool cannot restate the context exactly, so split them by hand. (details: [docs/behavior-contracts.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/behavior-contracts.md#nullable-context))
 * The tool does not prune using directives. A seemingly unused using can supply an extension method or target-typed conversion. Removing it would turn a mechanical edit into a semantic change.
 * The tool uses the Roslyn Syntax API without a semantic model. It does not resolve types across projects.
 

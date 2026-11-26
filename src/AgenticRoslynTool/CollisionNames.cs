@@ -43,8 +43,16 @@ internal static class CollisionNames
         return Path.Combine(directory, sourceBaseName + "." + targetFileName);
     }
 
-    /// <summary>True when Roslyn would treat a file at <paramref name="path"/> as generated code, going by its name alone.</summary>
-    internal static bool HasGeneratedCodeName(string path) =>
+    /// <summary>Matches the generated-name rules used by the nullable guard.</summary>
+    internal static bool HasGeneratedCodeName(string path)
+    {
+        // Roslyn treats all three characters as separators on every platform.
+        var name = path[(path.LastIndexOfAny(['/', '\\', ':']) + 1)..];
+        return name.StartsWith("TemporaryGeneratedFile_", StringComparison.OrdinalIgnoreCase) || HasGeneratedCodeSuffix(name);
+    }
+
+    /// <summary>Matches a generated suffix. Type-first collision checks use only this rule.</summary>
+    internal static bool HasGeneratedCodeSuffix(string path) =>
         GeneratedCodeSuffixes.Any(suffix => Path.GetFileNameWithoutExtension(path).EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>

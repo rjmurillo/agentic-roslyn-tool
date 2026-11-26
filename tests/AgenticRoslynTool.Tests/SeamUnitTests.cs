@@ -56,8 +56,8 @@ public sealed class SeamUnitTests
     {
         var source = "class A\r\n{\r\n    int x;\r\n}\r\nclass B { }\r\n";
         var (_, types) = Parse(source);
-        var complete = new OutputFile("A.cs", types[0], "class A\r\n{\r\n    int x;\r\n}\r\n", "class A\r\n{\r\n    int x;\r\n}\r\n");
-        var truncated = new OutputFile("B.cs", types[1], "\r\n", "\r\n");
+        var complete = new OutputFile("A.cs", types[0], "class A\r\n{\r\n    int x;\r\n}\r\n", "class A\r\n{\r\n    int x;\r\n}\r\n", Array.Empty<string>());
+        var truncated = new OutputFile("B.cs", types[1], "\r\n", "\r\n", Array.Empty<string>());
 
         var ex = Assert.Throws<InvalidOperationException>(
             () => OutputVerifier.VerifyLineConservation("in.cs", types, new[] { complete, truncated }));
@@ -70,8 +70,8 @@ public sealed class SeamUnitTests
     {
         var source = "class A\r\n{\r\n    int x;\r\n}\r\nclass B { }\r\n";
         var (_, types) = Parse(source);
-        var first = new OutputFile("A.cs", types[0], "class A\r\n{\r\n    int x;\r\n}\r\n", "class A\r\n{\r\n    int x;\r\n}\r\n");
-        var second = new OutputFile("B.cs", types[1], "class B { }\r\n", "class B { }\r\n");
+        var first = new OutputFile("A.cs", types[0], "class A\r\n{\r\n    int x;\r\n}\r\n", "class A\r\n{\r\n    int x;\r\n}\r\n", Array.Empty<string>());
+        var second = new OutputFile("B.cs", types[1], "class B { }\r\n", "class B { }\r\n", Array.Empty<string>());
 
         OutputVerifier.VerifyLineConservation("in.cs", types, new[] { first, second });
     }

@@ -67,6 +67,18 @@ internal sealed class TopLevelType
         }
     }
 
+    /// <summary>
+    /// Finds <paramref name="type"/> again in another tree, such as an output after the other
+    /// types were removed. It matches the key and the <c>file</c> modifier, because a kept file
+    /// can hold <c>class Helper</c> beside <c>file class Helper</c>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when no type in the tree matches.</exception>
+    public static TopLevelType FindMatch(CompilationUnitSyntax root, TopLevelType type)
+    {
+        return Find(root).FirstOrDefault(t => StringComparer.Ordinal.Equals(t.Key, type.Key) && t.HasFileModifier == type.HasFileModifier)
+            ?? throw new InvalidOperationException($"output does not declare {type.Key}");
+    }
+
     private static IEnumerable<TopLevelType> FromMember(MemberDeclarationSyntax member)
     {
         if (Create(member) is { } type)

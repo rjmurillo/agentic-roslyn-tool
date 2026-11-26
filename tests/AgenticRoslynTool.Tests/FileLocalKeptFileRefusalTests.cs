@@ -45,20 +45,25 @@ public sealed class FileLocalKeptFileRefusalTests : FileLocalTestBase
     }
 
     [Theory]
-    [InlineData(Alpha + Nullable + Sibling + "file class AlphaHelper\n{\n" + Name + "}\n", 7)]
-    [InlineData(Alpha + "internal class Sibling\n{\n" + Nullable + "}\n\nfile class AlphaHelper\n{\n" + Name + "}\n", 9)]
-    [InlineData(Alpha + Nullable + "file class AlphaHelper\n{\n}\n\ninternal class Sibling\n{\n" + Name + "}\n", 7)]
-    [InlineData(Nullable + "[assembly: System.CLSCompliant(false)]\n\n" + Alpha + "internal class Sibling\n{\n" + Name + "}\n\nfile class AlphaHelper\n{\n}\n", 1)]
-    public void NullableDirective_WhereverASplitWouldDropIt_RefusesTheInput(string source, int line)
+    [InlineData(Alpha + Nullable + Sibling + "file class AlphaHelper\n{\n" + Name + "}\n", 7, true)]
+    [InlineData(Alpha + "internal class Sibling\n{\n" + Nullable + "}\n\nfile class AlphaHelper\n{\n" + Name + "}\n", 9, true)]
+    [InlineData(Alpha + Nullable + "file class AlphaHelper\n{\n}\n\ninternal class Sibling\n{\n" + Name + "}\n", 7, false)]
+    [InlineData(Nullable + "[assembly: System.CLSCompliant(false)]\n\n" + Alpha + "internal class Sibling\n{\n" + Name + "}\n\nfile class AlphaHelper\n{\n}\n", 1, false)]
+    public void NullableDirective_WhereverASplitWouldDropIt_RefusesTheInput(string source, int line, bool keptFileLosesIt)
     {
         // Above a moved type, inside one, above the file-local type, and on an assembly
-        // attribute. In each place some output loses the directive, and a type below it
-        // raises a warning it did not raise before.
+        // attribute. Every place is refused. An unchecked split shows why for the first two:
+        // the file-local type in the kept file loses the context and raises CS8632.
+        // NullableDirectives.Restore restates the context only for the type a file is named
+        // for, so it puts the line back above a moved Sibling, and the last two compile
+        // clean. They are still refused, because the rule is about every output keeping the
+        // input's state directives, not about one warning.
         var alpha = Write("Alpha.cs", source);
 
         AssertRefused(alpha, FileLocalDirectives.DirectiveStateReason, "#nullable directive at line " + line);
 
-        Assert.Contains(FileLocalCompiler.Diagnostics(CompileUncheckedSplit(alpha)), d => d.StartsWith("CS8632 ", StringComparison.Ordinal));
+        var diagnostics = FileLocalCompiler.Diagnostics(CompileUncheckedSplit(alpha));
+        Assert.Equal(keptFileLosesIt, diagnostics.Any(d => d.StartsWith("CS8632 ", StringComparison.Ordinal)));
     }
 
     [Fact]

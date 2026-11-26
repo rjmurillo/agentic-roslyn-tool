@@ -61,8 +61,8 @@ public sealed class FileLocalVerifierTests
         var input = TopLevelType.Find(CSharpSyntaxTree.ParseText(Source, ParseOptions, path: ReadPath).GetCompilationUnitRoot()).ToArray();
         var keptText = keptPrefix + Kept;
         var movedText = movedPrefix + Prologue + "internal class Caller\n{\n}\n";
-        var kept = new OutputFile(ReadPath, input[0], keptText, keptText);
-        var moved = new OutputFile("/work/Caller.cs", input[0], movedText, movedText);
+        var kept = new OutputFile(ReadPath, input[0], keptText, keptText, Array.Empty<string>());
+        var moved = new OutputFile("/work/Caller.cs", input[0], movedText, movedText, Array.Empty<string>());
 
         var violation = FileLocalTypes.DescribeViolation(ReadPath, input, [kept, moved], ParseOptions);
 
@@ -89,7 +89,7 @@ public sealed class FileLocalVerifierTests
     public void InputWithNoFileLocalType_IsNotHeldToTheReadPath()
     {
         var input = TopLevelType.Find(CSharpSyntaxTree.ParseText(Prologue + "internal class Alpha\n{\n}\n\ninternal class Beta\n{\n}\n", ParseOptions).GetCompilationUnitRoot()).ToArray();
-        var renamed = new OutputFile("/work/AlphaRenamed.cs", input[0], Prologue + "internal class Alpha\n{\n}\n", string.Empty);
+        var renamed = new OutputFile("/work/AlphaRenamed.cs", input[0], Prologue + "internal class Alpha\n{\n}\n", string.Empty, Array.Empty<string>());
 
         Assert.Null(FileLocalTypes.DescribeViolation(ReadPath, input, [renamed], ParseOptions));
     }
@@ -99,7 +99,7 @@ public sealed class FileLocalVerifierTests
     private static string? Describe(params (string Path, string Text)[] outputs)
     {
         var input = TopLevelType.Find(CSharpSyntaxTree.ParseText(Kept, ParseOptions, path: ReadPath).GetCompilationUnitRoot()).ToArray();
-        var files = outputs.Select(output => new OutputFile(output.Path, input[0], output.Text, output.Text)).ToArray();
+        var files = outputs.Select(output => new OutputFile(output.Path, input[0], output.Text, output.Text, Array.Empty<string>())).ToArray();
         return FileLocalTypes.DescribeViolation(ReadPath, input, files, ParseOptions);
     }
 }

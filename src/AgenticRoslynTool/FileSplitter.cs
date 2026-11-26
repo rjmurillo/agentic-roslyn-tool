@@ -513,6 +513,11 @@ internal sealed class FileSplitter
             return FileResult.Skip(originalPath, readPath, "splitting would leave an empty directive shell; manual split required");
         }
 
+        if (NullableGuard.Refuses(root, types, plan.KeptPath))
+        {
+            return FileResult.Skip(originalPath, readPath, NullableGuard.Reason);
+        }
+
         // No caller passes Phase.Renames. The renames phase plans through here with
         // Phase.Plan and runs its git mv later, in ApplyPlannedRename.
         try

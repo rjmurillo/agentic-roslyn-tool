@@ -31,7 +31,7 @@ internal sealed class EncodedSource
     /// </summary>
     public bool EmitPreamble { get; }
 
-    /// <summary>The dominant newline sequence in the source, either <c>"\r\n"</c> or <c>"\n"</c>. Ties (no newlines seen) fall back to <see cref="Environment.NewLine"/>.</summary>
+    /// <summary>The dominant newline sequence in the source, <c>"\r\n"</c>, <c>"\n"</c>, or <c>"\r"</c> when the text holds only lone carriage returns. A text with no newline falls back to <see cref="Environment.NewLine"/>.</summary>
     public string NewLine { get; }
 
     /// <summary>True when the source ended with a newline. Preserved on output so a final-newline convention is not silently changed.</summary>
@@ -48,7 +48,7 @@ internal sealed class EncodedSource
         var encoding = DetectEncoding(bytes, out var emitPreamble, out var preambleLength);
         var text = encoding.GetString(bytes, preambleLength, bytes.Length - preambleLength);
         var newLine = DetectNewLine(text);
-        var hasFinalNewLine = text.EndsWith("\r\n", StringComparison.Ordinal) || text.EndsWith("\n", StringComparison.Ordinal);
+        var hasFinalNewLine = text.EndsWith('\n') || (newLine == "\r" && text.EndsWith('\r'));
         return new EncodedSource(text, encoding, emitPreamble, newLine, hasFinalNewLine);
     }
 
@@ -92,7 +92,12 @@ internal sealed class EncodedSource
             return "\r\n";
         }
 
-        return lf >= 0 ? "\n" : Environment.NewLine;
+        if (lf >= 0)
+        {
+            return "\n";
+        }
+
+        return text.Contains('\r', StringComparison.Ordinal) ? "\r" : Environment.NewLine;
     }
 }
 

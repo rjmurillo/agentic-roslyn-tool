@@ -65,7 +65,9 @@ internal static class OutputBuilder
     /// (attributes stay only in the kept file), and the tree is run through
     /// <see cref="OwnedSpanCollapser"/> before serialization. The collapser leaves each
     /// remaining type's owned span untouched, because the verifier requires that text to
-    /// appear unchanged. The header is injected
+    /// appear unchanged. Last, <see cref="NullableDirectives.Restore"/> restates the
+    /// nullable context each kept type had in the source, which a removed type may have
+    /// carried away. The header is injected
     /// after body text is captured so line-conservation counting is not confused by
     /// it.
     /// </summary>
@@ -75,22 +77,36 @@ internal static class OutputBuilder
         var outputs = new List<OutputFile>();
         foreach (var file in plan.Files)
         {
-            var remove = types.Where(t => !file.Holds(t)).Select(t => t.Node).ToArray();
-            var newRoot = root.RemoveNodes(remove, SyntaxRemoveOptions.KeepUnbalancedDirectives) ?? root;
+            var newRoot = Carve(root, types, file);
             if (!file.IsKept)
             {
                 newRoot = newRoot.WithAttributeLists(default);
             }
 
             newRoot = OwnedSpanCollapser.Collapse(newRoot);
-            var rendered = newRoot.ToFullString();
+            var (restoredRoot, addedLines) = NullableDirectives.Restore(newRoot, file.Type, source.NewLine, headerText);
+            var rendered = restoredRoot.ToFullString();
             var body = EnsureTrailingNewLine(rendered, source.NewLine, source.HasFinalNewLine);
             var text = EnsureHeader(rendered, header);
             text = EnsureTrailingNewLine(text, source.NewLine, source.HasFinalNewLine);
-            outputs.Add(new OutputFile(file.Path, file.Type, text, body));
+            outputs.Add(new OutputFile(file.Path, file.Type, text, body, addedLines));
         }
 
         return outputs.ToArray();
+    }
+
+    /// <summary>
+    /// Removes every type <paramref name="file"/> does not hold from the source tree, keeping
+    /// any directive left unbalanced. <see cref="PlannedFile.Holds"/> decides, so the kept file
+    /// keeps its <c>file</c> types. <see cref="BuildOutputs"/> and
+    /// <see cref="DirectiveAnalyzer.ProducesEmptyDirectiveShell"/> both start from this carve.
+    /// <see cref="BuildOutputs"/> then clears assembly attributes on the outputs that are not
+    /// kept and collapses blank lines, which the guard does not see.
+    /// </summary>
+    internal static CompilationUnitSyntax Carve(CompilationUnitSyntax root, IReadOnlyList<TopLevelType> types, PlannedFile file)
+    {
+        var remove = types.Where(t => !file.Holds(t)).Select(t => t.Node).ToArray();
+        return root.RemoveNodes(remove, SyntaxRemoveOptions.KeepUnbalancedDirectives) ?? root;
     }
 
     /// <summary>
@@ -114,35 +130,36 @@ internal static class OutputBuilder
     }
 
     /// <summary>
-    /// Reports whether <paramref name="text"/> already opens with <paramref name="header"/>.
+    /// Returns the offset after a matching header, or null when it is absent.
     /// The match is anchored at the end of a line, so a file starting with <c>// B-extra</c>
     /// does not satisfy a required header of <c>// B</c>, while trailing spaces on the banner
     /// line still count as the same banner. Callers may hold the header in either form the
-    /// pipeline produces: bare, or followed by blank lines. This is the single predicate
+    /// pipeline produces: bare, or followed by blank lines. This is the single probe
     /// behind both <see cref="EnsureHeader"/> and <see cref="OutputVerifier.VerifyOutputs"/>;
     /// they must agree or a file would have the banner declared present and then be rejected
     /// for not having it.
     /// </summary>
-    internal static bool StartsWithHeader(string text, string? header)
+    internal static int? MatchHeaderEnd(string text, string? header, bool allowLeadingWhitespace = false)
     {
         var probe = header?.Trim() ?? string.Empty;
+        var body = allowLeadingWhitespace ? text.AsSpan().TrimStart() : text.AsSpan();
         if (probe.Length == 0)
         {
-            return true;
+            return 0;
         }
 
-        if (!text.StartsWith(probe, StringComparison.Ordinal))
+        if (!body.StartsWith(probe, StringComparison.Ordinal))
         {
-            return false;
+            return null;
         }
 
         var index = probe.Length;
-        while (index < text.Length && text[index] is ' ' or '\t')
+        while (index < body.Length && body[index] is ' ' or '\t')
         {
             index++;
         }
 
-        return index == text.Length || text[index] is '\r' or '\n';
+        return index == body.Length || body[index] is '\r' or '\n' ? text.Length - body.Length + probe.Length : null;
     }
 
     /// <summary>
@@ -160,7 +177,7 @@ internal static class OutputBuilder
         }
 
         var trimmed = text.TrimStart();
-        return StartsWithHeader(trimmed, header) ? trimmed : header + trimmed;
+        return MatchHeaderEnd(text, header, allowLeadingWhitespace: true) is not null ? trimmed : header + trimmed;
     }
 
     internal static string EnsureTrailingNewLine(string text, string newLine, bool hasFinalNewLine)
