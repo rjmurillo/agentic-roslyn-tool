@@ -135,14 +135,16 @@ public sealed class NullableContextTests
     [Fact]
     public void LoneCarriageReturnFile_RestatesWithoutALineFeed()
     {
-        // A file with only lone carriage returns once got a line feed on the restated line.
+        // A file with only lone carriage returns once got a line feed on the restated line,
+        // and lost its final carriage return in every output.
         using var ws = new TempWorkspace();
         var source = "#nullable enable\rclass Alpha { }\rclass Beta {\r    public string? Value = null;\r}\r";
 
         SplitPreserved(ws, source);
 
         Assert.DoesNotContain((byte)'\n', File.ReadAllBytes(Path.Combine(ws.Root, "Beta.cs")));
-        Assert.StartsWith("#nullable enable\rclass Beta {\r", Read(ws, "Beta.cs"), StringComparison.Ordinal);
+        Assert.Equal("#nullable enable\rclass Beta {\r    public string? Value = null;\r}\r", Read(ws, "Beta.cs"));
+        Assert.Equal("#nullable enable\rclass Alpha { }\r", Read(ws, "Alpha.cs"));
     }
 
     [Fact]

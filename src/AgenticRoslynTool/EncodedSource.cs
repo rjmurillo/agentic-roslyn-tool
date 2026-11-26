@@ -48,7 +48,7 @@ internal sealed class EncodedSource
         var encoding = DetectEncoding(bytes, out var emitPreamble, out var preambleLength);
         var text = encoding.GetString(bytes, preambleLength, bytes.Length - preambleLength);
         var newLine = DetectNewLine(text);
-        var hasFinalNewLine = text.EndsWith("\r\n", StringComparison.Ordinal) || text.EndsWith("\n", StringComparison.Ordinal);
+        var hasFinalNewLine = text.EndsWith('\n') || (newLine == "\r" && text.EndsWith('\r'));
         return new EncodedSource(text, encoding, emitPreamble, newLine, hasFinalNewLine);
     }
 
