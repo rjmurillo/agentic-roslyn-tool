@@ -15,10 +15,13 @@ that explains it. Paths are plain text on purpose, so Bugbot does not load whole
   `target path collision within split`. The tool never merges parts. See
   `docs/sa1402-sa1649-naming.md`, section "Two types in one file that map to one file name".
 - An enum or a delegate is a top level type and moves like a class. The kept type is the
-  one whose name matches the file, or the first type when none matches. See
+  one whose name matches the file, or the first type when none matches. With a `file` type in
+  the file, the rule runs over the ordinary types only. When no name matched,
+  `FileLocalTypes.PlanAround` may keep a different ordinary type, such as one that names the
+  `file` type. See
   `docs/behavior-contracts.md`, sections "What counts as a top level type" and "BuildPlan".
-- The content phase matches `--exclude` against the manifest row's original path, never
-  the kept path. See `docs/behavior-contracts.md`, section "Input rejection, before parsing".
+- The content phase matches `--exclude` against the manifest row's original path, even
+  when the input lists the kept path. See `docs/behavior-contracts.md`, section "Input rejection, before parsing".
 - SA1649 under the `metadata` convention rejects both `Foo{T}.cs` and `Foo.cs` for
   `Foo<T>`. It expects ``Foo`1.cs``. See `docs/sa1402-sa1649-naming.md`, section
   "If you use the metadata convention".
