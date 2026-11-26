@@ -192,9 +192,9 @@ required banner when that banner opens the file, and reads
 Deleting one brings back the loss of context the split caused.
 
 The check reads the same fold the tool used to add the lines, so it catches a misplaced
-line, not a wrong fold. The plan refuses the files where the fold could be wrong: a
-`#nullable` a split can move, in a file with any `#if`, above any `using` directive, or in
-a file the compiler reads as generated. See [decision-log.md, decision 31](decision-log.md#decision-31-the-split-restates-the-sources-nullable-context).
+line, not a wrong fold. The plan refuses the files where a restated line could be wrong: a
+`#nullable` a split can move, in a file with any `#if` or `#line`, above any `using`
+directive, or in a file the compiler reads as generated. See [decision-log.md, decision 31](decision-log.md#decision-31-the-split-restates-the-sources-nullable-context).
 
 ## Before the checks: the input must be the one that was planned
 
