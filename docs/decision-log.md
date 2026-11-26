@@ -1453,9 +1453,10 @@ Four other ways were tried and rejected:
 The `KeepDirectives` result was observed on Microsoft.CodeAnalysis.CSharp 5.9.0.
 
 **Consequences.** A file that split before still splits, unless it holds a movable
-`#nullable` and an `#if`, a later `using` directive, or a generated name or opening
-comment. Those are now skipped with
-`a #nullable directive a split can move shares the file with an #if directive, comes before a using directive, or sits in a generated file; manual split required`,
+`#nullable` and an `#if` or a `#line`, a later `using` directive, or a generated name or
+opening comment. A restated line inside a `#line` mapping shifts each mapped line below
+it, so a `CallerLineNumber` value would change with no diagnostic. Those are now skipped with
+`a #nullable directive a split can move shares the file with an #if or #line directive, comes before a using directive, or sits in a generated file; manual split required`,
 unless an earlier check refuses them first with its own reason. That over-refuses: an
 `#if DEBUG` around one statement is enough, and the guard does not read conditions, so
 `#if false` counts. So does a `#nullable` between an `[assembly: ...]` list and the

@@ -148,6 +148,17 @@ public sealed class NullableContextTests
     }
 
     [Fact]
+    public void OracleSymbols_IncludeAConditionACommentHidesWithNoSymbols()
+    {
+        // With no symbols, the comment opened under #if !A hides #if B. With A defined, the
+        // comment is gone and B is a live condition, so the oracle must also check A with B.
+        var source = "#if !A\n/*\n#endif\n#if B\nclass X { }\n#endif\n#if !A\n*/\n#endif\n";
+        var parse = Microsoft.CodeAnalysis.CSharp.CSharpParseOptions.Default;
+
+        Assert.Contains(PreprocessorSymbolSets.Of(source, parse), set => set.SequenceEqual(["A", "B"]));
+    }
+
+    [Fact]
     public void DirectiveAboveTheNamespace_IsNotAddedAgain()
     {
         using var ws = new TempWorkspace();
