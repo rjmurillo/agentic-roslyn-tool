@@ -39,6 +39,8 @@ step runs the same build). Below, `<tool>` means whichever you use.
    front. Pass each element as its own argument; do not join them into one string. Each
    run prints a new report with a new `nextArgs`. Repeat until `nextArgs` is `null`.
    After a `renames` step, commit only the renamed files before you run the next step.
+   Check `git diff --cached --name-status` first. If it lists no rename, `git commit`
+   would exit 1, so skip that commit.
 5. When `nextArgs` is `null`, the split is done only when the report's `phase` is
    `content`, `summary.failed` is `0`, and every `skipped` row's reason is
    `not present as split in plan manifest` or starts with `already applied`. Those two mean
