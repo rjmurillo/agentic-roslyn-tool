@@ -120,6 +120,32 @@ public sealed class NullableContextTests
     }
 
     [Fact]
+    public void UnicodeLineSeparatorAboveAMovedType_StillSplits()
+    {
+        // The compiler reads U+2028 as a line break. A verifier that split lines on CR and
+        // LF alone joined the restated line to it and refused a correct split.
+        using var ws = new TempWorkspace();
+        var source = "class Alpha\n{\n#nullable enable\n}\n" + (char)0x2028 + "class Beta { string? b; }\n";
+
+        SplitPreserved(ws, source);
+
+        Assert.DoesNotContain("CS8632", NullableContextOracle.DiagnosticIds(Read(ws, "Beta.cs")));
+    }
+
+    [Fact]
+    public void LoneCarriageReturnFile_RestatesWithoutALineFeed()
+    {
+        // A file with only lone carriage returns once got a line feed on the restated line.
+        using var ws = new TempWorkspace();
+        var source = "#nullable enable\rclass Alpha { }\rclass Beta {\r    public string? Value = null;\r}\r";
+
+        SplitPreserved(ws, source);
+
+        Assert.DoesNotContain((byte)'\n', File.ReadAllBytes(Path.Combine(ws.Root, "Beta.cs")));
+        Assert.StartsWith("#nullable enable\rclass Beta {\r", Read(ws, "Beta.cs"), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DirectiveAboveTheNamespace_IsNotAddedAgain()
     {
         using var ws = new TempWorkspace();

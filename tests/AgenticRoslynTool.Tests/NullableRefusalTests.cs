@@ -145,8 +145,11 @@ public sealed class NullableRefusalTests
 
         var gamma = FileLocalCompiler.SplitUnchecked("/work/Alpha.cs", source).Single(output => output.Path.EndsWith("Gamma.cs", StringComparison.Ordinal));
         const Microsoft.CodeAnalysis.NullableContextOptions enable = Microsoft.CodeAnalysis.NullableContextOptions.Enable;
-        Assert.Contains("CS8669", NullableContextOracle.DiagnosticIds(source, enable, "Alpha.g.cs"));
-        Assert.Contains("CS8600", NullableContextOracle.DiagnosticIds(gamma.Text, enable, "Gamma.g.cs"));
+        Assert.Contains("#nullable restore\nclass Gamma", gamma.Text, StringComparison.Ordinal);
+        var before = NullableContextOracle.DiagnosticIds(source, enable, "Alpha.g.cs");
+        var after = NullableContextOracle.DiagnosticIds(gamma.Text, enable, gamma.Path);
+        Assert.True(before.Contains("CS8669") && !before.Contains("CS8600"), string.Join(",", before));
+        Assert.True(after.Contains("CS8600") && !after.Contains("CS8669"), string.Join(",", after));
     }
 
     [Fact]

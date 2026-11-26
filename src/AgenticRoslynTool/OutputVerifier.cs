@@ -173,16 +173,13 @@ internal static class OutputVerifier
             .OrderBy(range => range.Start)
             .ToArray();
         var result = new HashSet<string>(StringComparer.Ordinal);
-        var position = 0;
-        foreach (var line in SplitLines(sourceText))
+        foreach (var line in Microsoft.CodeAnalysis.Text.SourceText.From(sourceText).Lines)
         {
-            var lineEnd = position + line.Length;
-            if (!string.IsNullOrWhiteSpace(line) && !ownedRanges.Any(range => position < range.End && lineEnd > range.Start))
+            var text = line.ToString();
+            if (!string.IsNullOrWhiteSpace(text) && !ownedRanges.Any(range => line.Start < range.End && line.End > range.Start))
             {
-                result.Add(line);
+                result.Add(text);
             }
-
-            position = lineEnd + GetLineBreakLength(sourceText, lineEnd);
         }
 
         return result;
@@ -243,40 +240,13 @@ internal static class OutputVerifier
         return result;
     }
 
-    internal static IEnumerable<string> SplitLines(string text)
-    {
-        var start = 0;
-        for (var i = 0; i < text.Length; i++)
-        {
-            if (text[i] != '\r' && text[i] != '\n')
-            {
-                continue;
-            }
-
-            yield return text[start..i];
-            if (text[i] == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
-            {
-                i++;
-            }
-
-            start = i + 1;
-        }
-
-        if (start < text.Length)
-        {
-            yield return text[start..];
-        }
-    }
-
-    internal static int GetLineBreakLength(string text, int lineEnd)
-    {
-        if (lineEnd >= text.Length)
-        {
-            return 0;
-        }
-
-        return text[lineEnd] == '\r' && lineEnd + 1 < text.Length && text[lineEnd + 1] == '\n' ? 2 : 1;
-    }
+    /// <summary>Splits text at every line break the compiler reads, including U+0085, U+2028, and U+2029.</summary>
+    /// <remarks>
+    /// A split on CR and LF alone joined a restated <c>#nullable</c> line to the U+2028 before
+    /// it, so the verifier refused a correct output.
+    /// </remarks>
+    internal static IEnumerable<string> SplitLines(string text) =>
+        Microsoft.CodeAnalysis.Text.SourceText.From(text).Lines.Select(line => line.ToString());
 
     /// <summary>Counts non-overlapping occurrences of <paramref name="value"/> in <paramref name="text"/>, using ordinal comparison.</summary>
     internal static int CountOccurrences(string text, string value)

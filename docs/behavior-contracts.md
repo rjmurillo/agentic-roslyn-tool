@@ -725,8 +725,8 @@ this for the type each output is named for. A kept file can also hold `file` typ
   also includes a `#nullable` between the attribute and the namespace, which every file
   keeps. The guard counts that directive as movable even though it stays.
 - The lines go above the type's first comment, doc comment, or attribute, at the start of
-  a line, ending in the source file's newline. `EncodedSource` knows CRLF and LF only, so
-  in a file with lone carriage returns the added line ends in LF. It compiles the same. A `--require-header` banner that opens the
+  a line, ending in the source file's newline. In a file with only lone
+  carriage returns, the added line ends in a carriage return too. A `--require-header` banner that opens the
   file stays first: the lines go below it, so the file never gets a second banner.
 - The tool parses with no preprocessor symbols. A file with no `#if` has one build, so
   the fold is exact there. A file that holds a movable `#nullable` and any `#if` is skipped
@@ -814,8 +814,9 @@ Two limits worth knowing before you rely on this:
   bytes rather than substituting replacement characters. A file in a legacy code page is a
   hard failure, not a silent corruption.
 - **Newline detection returns the first style it finds**, not the most common one. A file
-  with mixed endings is normalized to whichever appeared first. A file with no newline at
-  all falls back to `Environment.NewLine`, which is platform dependent.
+  with mixed endings is normalized to whichever appeared first. A file with only lone carriage
+  returns keeps them. A file with no newline at all falls back to `Environment.NewLine`,
+  which is platform dependent.
 
 The promise is that a file the tool touches shows a diff only where content actually
 changed, never a whole file diff caused by a newline or a byte order mark flip.

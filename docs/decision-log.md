@@ -1460,8 +1460,9 @@ unless an earlier check refuses them first with its own reason. That over-refuse
 `#if DEBUG` around one statement is enough, and the guard does not read conditions, so
 `#if false` counts. So does a `#nullable` between an `[assembly: ...]` list and the
 namespace beside a `using`, which every new file keeps. In one local run over two corpora, 7959 and 4638
-files, the guard refused 2 files that main had split correctly in every build, and
-changed nothing else. A new file can gain a `#nullable` line no source line matches,
+files, the plan reports changed status for 2 files: main split them, and the guard
+refused them. No other row changed status. These plan reports do not prove those 2 splits
+were correct in every build. A new file can gain a `#nullable` line no source line matches,
 which is the point. Files with no movable `#nullable` split byte for byte as before. A
 `#nullable` above an `[assembly: ...]` attribute is movable, because that attribute stays
 only in the kept file, so with no `#if` and no later `using` the other new files now gain
@@ -1495,8 +1496,8 @@ output name that reads as generated. A `#pragma warning` leaves the context alon
 warnings, and that suppression is lost the same way. Each of these is a known issue, not a
 promise.
 
-**Reversal warning.** Remove `Restore` and every split with a mid-file `#nullable` fails
-verification; remove the check in `VerifyOutputs` too, and a type below the directive
+**Reversal warning.** Remove `Restore` and every split whose output loses nullable context
+during carving fails verification; remove the check in `VerifyOutputs` too, and a type below the directive
 silently changes context in its new file. Exempt lines by their `#nullable` text instead
 of `AddedLines`, and a dropped body directive passes line conservation. Narrow
 `NullableGuard` to the places a directive can be lost, and review history says a build
