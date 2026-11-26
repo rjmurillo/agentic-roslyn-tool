@@ -565,8 +565,10 @@ shape the plan phase never produces, such as two rows for the same type.
 
 The exclusion check runs first, before the existence check, so an excluded path does not
 have to exist. Exclusion patterns come only from `--exclude`, which defaults to empty.
-Every phase matches a pattern against the path the input lists, before any lookup in the
-manifest. A kept path the manifest maps that input to is never matched.
+The plan and renames phases match a pattern against the path the input lists. The content
+phase looks up the manifest first, then matches the row's original path. An input with no
+`split` row is skipped as not planned and never reaches the match. No phase matches a kept
+path.
 The tool ships with no built in opinion about which directories hold generated code.
 
 Two matching caveats. Backslashes in a pattern and in a path are both treated as directory

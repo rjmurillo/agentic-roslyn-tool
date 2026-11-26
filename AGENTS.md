@@ -624,5 +624,5 @@ reply or a pull request body. Neither survives.
 | A trap, an invariant, or a build rule | This file |
 | What a phase or a guard promises | `docs/behavior-contracts.md` |
 | Why a design choice was made, and what breaks if reversed | `docs/decision-log.md` |
-| Behavior a code reviewer keeps flagging by mistake | `.cursor/BUGBOT.md`, one line that links to the doc above that explains it |
+| Behavior a code reviewer keeps flagging by mistake | `.cursor/BUGBOT.md`, one line that names, as plain text, the doc above that explains it |
 | What a specific type or method does | An XML doc comment on that member |
