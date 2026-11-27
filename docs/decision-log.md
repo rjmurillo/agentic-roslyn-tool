@@ -1626,7 +1626,7 @@ Template sources can fail or be skipped. Leave them out before planning.
   unchanged with the type that holds it, so the real build still reports it if it fires.
 
 **Evidence.** The ten repositories that exposed the bugs had 30 `failed` rows before this
-fix. The rule was then run over six repositories that played no part in finding them.
+fix, measured at earlier commits than the ones listed below. The rule was then run over six repositories that played no part in finding them.
 That run found the symbol case above (BenchmarkDotNet `HardwareIntrinsics.cs`), which the
 first fix missed. The command is the plan phase over the whole clone:
 `split-types --input <clone> --manifest <outside> --repo-root <clone> --dry-run`.
@@ -1643,7 +1643,8 @@ serilog `43da049`, Newtonsoft.Json `52fa3ae`, nodatime `6e024dd`, Dapper `188094
   So the cost of the skip is four rows in about 22,000.
 - No row skips because a split would lose a `#define` or `#undef`.
 - 21 rows skip as file-based programs.
-- Split counts match the runs before this change: aspire 855, MassTransit 718, nunit 110.
+- Split counts match a sweep run just before review round 12: aspire 855, MassTransit 718,
+  nunit 110.
 
 **Why we removed the retry.** An earlier version of this fix parsed a second time with
 every named symbol defined. That still missed builds where one symbol is defined and

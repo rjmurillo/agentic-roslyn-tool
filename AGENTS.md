@@ -223,8 +223,8 @@ weight.
     output check is a tool bug, never a source problem, unless `--require-header` was not a
     comment, and its reason starts
     `output check failed: ` so agents route it to exclude and report. `SourceParsing` owns the
-    whole parse rule: the options, which errors count, the conditional skip, and file-based
-    program detection. Never parse with other options and never filter diagnostics
+    whole parse rule: the options, which errors count, and file-based program detection.
+    `PreprocessorSymbols` answers which symbols a condition names for it. Never parse with other options and never filter diagnostics
     anywhere else. `ParseRuleOwnershipTests` fails the build if you do. When a real
     repository shows a new false `failed`, fix it there, with a test taken from that
     repository. See decision 33.
