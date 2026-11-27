@@ -28,14 +28,16 @@ internal static class OutputVerifier
     /// (5) the set of top-level types in the outputs matches the input set exactly; and
     /// (6) a <c>file</c> type stays in the file it was read from, no output that
     /// leaves that file names one, and every output keeps the input's state directives
-    /// (see <see cref="FileLocalTypes.DescribeViolation"/>).
+    /// (see <see cref="FileLocalTypes.DescribeViolation"/>); and
+    /// (7) each output's type keeps its source nullable context
+    /// (see <see cref="NullableDirectives.Verify"/>).
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown as soon as any invariant fails, so the failure is surfaced without partial output being written.</exception>
     internal static void VerifyOutputs(string readPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs, string? requiredHeader)
     {
         foreach (var output in outputs)
         {
-            if (!OutputBuilder.StartsWithHeader(output.Text, requiredHeader))
+            if (OutputBuilder.MatchHeaderEnd(output.Text, requiredHeader) is null)
             {
                 throw new InvalidOperationException($"{output.Path} does not start with required file header");
             }
@@ -92,6 +94,8 @@ internal static class OutputVerifier
         {
             throw new InvalidOperationException(violation);
         }
+
+        NullableDirectives.Verify(readPath, outputs);
     }
 
     /// <summary>Returns the text of a type's declaration together with its owned leading trivia (doc comments and attributes).</summary>
@@ -133,15 +137,16 @@ internal static class OutputVerifier
     /// This method counts <see cref="OutputFile.BodyText"/>, which is the output text
     /// before any <c>--require-header</c> injection. That is deliberate: counting
     /// <see cref="OutputFile.Text"/> instead would let an injected header line mask a
-    /// dropped source line.
+    /// dropped source line. Each output's <see cref="OutputFile.AddedLines"/> are subtracted
+    /// first, one for one, through <see cref="CountLinesAfterCheckingAdditions"/>.
     /// </remarks>
-    /// <exception cref="InvalidOperationException">Thrown when a non-whitespace input line is not preserved across the outputs, or when an output line that was not in the prologue appears more times in the outputs than in the input.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when a non-whitespace input line is not preserved across the outputs, when an output line that was not in the prologue appears more times in the outputs than in the input, or when an added line is not a <c>#nullable</c> directive the output holds.</exception>
     internal static void VerifyLineConservation(string readPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs)
     {
         var sourceText = inputTypes[0].Node.SyntaxTree.GetText().ToString();
         var prologueLines = GetPrologueLines(sourceText, inputTypes);
         var originalLines = CountNonWhitespaceLines(sourceText);
-        var outputLines = CountOutputLines(outputs);
+        var outputLines = CountLinesAfterCheckingAdditions(outputs);
 
         foreach (var (line, count) in originalLines)
         {
@@ -176,27 +181,49 @@ internal static class OutputVerifier
             .OrderBy(range => range.Start)
             .ToArray();
         var result = new HashSet<string>(StringComparer.Ordinal);
-        var position = 0;
-        foreach (var line in SplitLines(sourceText))
+        foreach (var line in Microsoft.CodeAnalysis.Text.SourceText.From(sourceText).Lines)
         {
-            var lineEnd = position + line.Length;
-            if (!string.IsNullOrWhiteSpace(line) && !ownedRanges.Any(range => position < range.End && lineEnd > range.Start))
+            var text = line.ToString();
+            if (!string.IsNullOrWhiteSpace(text) && !ownedRanges.Any(range => line.Start < range.End && line.End > range.Start))
             {
-                result.Add(line);
+                result.Add(text);
             }
-
-            position = lineEnd + GetLineBreakLength(sourceText, lineEnd);
         }
 
         return result;
     }
 
-    internal static Dictionary<string, int> CountOutputLines(IReadOnlyList<OutputFile> outputs)
+    /// <summary>
+    /// Counts the non-whitespace lines of every output's <see cref="OutputFile.BodyText"/>,
+    /// less one copy of each line in its <see cref="OutputFile.AddedLines"/>.
+    /// </summary>
+    /// <remarks>
+    /// It refuses an added line that is not a single <c>#nullable</c> directive, so the
+    /// subtraction can never hide a duplicated source line of any other kind.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">Thrown when an added line is not a <c>#nullable</c> directive, or is missing from its output.</exception>
+    internal static Dictionary<string, int> CountLinesAfterCheckingAdditions(IReadOnlyList<OutputFile> outputs)
     {
         var result = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var output in outputs)
         {
-            foreach (var (line, count) in CountNonWhitespaceLines(output.BodyText))
+            var lines = CountNonWhitespaceLines(output.BodyText);
+            foreach (var added in output.AddedLines)
+            {
+                if (!NullableDirectives.IsDirectiveLine(added))
+                {
+                    throw new InvalidOperationException($"{output.Path}: added line is not a #nullable directive: {added}");
+                }
+
+                if (!lines.TryGetValue(added, out var present) || present == 0)
+                {
+                    throw new InvalidOperationException($"{output.Path}: added line is missing from the output: {added}");
+                }
+
+                lines[added] = present - 1;
+            }
+
+            foreach (var (line, count) in lines)
             {
                 result[line] = result.TryGetValue(line, out var existing) ? existing + count : count;
             }
@@ -221,40 +248,13 @@ internal static class OutputVerifier
         return result;
     }
 
-    internal static IEnumerable<string> SplitLines(string text)
-    {
-        var start = 0;
-        for (var i = 0; i < text.Length; i++)
-        {
-            if (text[i] != '\r' && text[i] != '\n')
-            {
-                continue;
-            }
-
-            yield return text[start..i];
-            if (text[i] == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
-            {
-                i++;
-            }
-
-            start = i + 1;
-        }
-
-        if (start < text.Length)
-        {
-            yield return text[start..];
-        }
-    }
-
-    internal static int GetLineBreakLength(string text, int lineEnd)
-    {
-        if (lineEnd >= text.Length)
-        {
-            return 0;
-        }
-
-        return text[lineEnd] == '\r' && lineEnd + 1 < text.Length && text[lineEnd + 1] == '\n' ? 2 : 1;
-    }
+    /// <summary>Splits text at every line break the compiler reads, including U+0085, U+2028, and U+2029.</summary>
+    /// <remarks>
+    /// A split on CR and LF alone joined a restated <c>#nullable</c> line to the U+2028 before
+    /// it, so the verifier refused a correct output.
+    /// </remarks>
+    internal static IEnumerable<string> SplitLines(string text) =>
+        Microsoft.CodeAnalysis.Text.SourceText.From(text).Lines.Select(line => line.ToString());
 
     /// <summary>Counts non-overlapping occurrences of <paramref name="value"/> in <paramref name="text"/>, using ordinal comparison.</summary>
     internal static int CountOccurrences(string text, string value)

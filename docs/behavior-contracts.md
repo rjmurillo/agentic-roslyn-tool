@@ -302,7 +302,8 @@ Promises:
   plan starts afresh. Verified by `CollisionNamingFlagTests` and `CollisionNamingRecordedTests`.
 - A `skipped` or `failed` row names the file's original path as `keptPath`, with
   `gitMove` false. A refusal never renames. That holds for a `BuildPlan` refusal, an
-  empty directive shell, a verification failure, and a collision refusal, even when the
+  empty directive shell, a `NullableGuard` refusal, a verification failure, and a
+  collision refusal, even when the
   plan first chose a rename target. Only a `split` row names a planned rename target.
   `RefusedRenameLocationTests` pins it.
 - Runs when `--phase` is absent. See decision 25.
@@ -566,6 +567,10 @@ shape the plan phase never produces, such as two rows for the same type.
 
 The exclusion check runs first, before the existence check, so an excluded path does not
 have to exist. Exclusion patterns come only from `--exclude`, which defaults to empty.
+The plan and renames phases match a pattern against the path the input lists. The content
+phase looks up the manifest first, then matches the row's original path. An input with no
+`split` row is skipped as not planned and never reaches the match. So in content, an input
+listed by its kept path is matched as its original path.
 The tool ships with no built in opinion about which directories hold generated code.
 
 Two matching caveats. Backslashes in a pattern and in a path are both treated as directory
@@ -584,8 +589,13 @@ stranded in another.
 
 A directive wholly contained inside a single type is allowed and travels with that type.
 
-`FileSplitter.ProducesEmptyDirectiveShell` is a second, later check. It refuses a split
+`DirectiveAnalyzer.ProducesEmptyDirectiveShell` is a second, later check. It refuses a split
 that would leave a directive group with no code inside it.
+
+`NullableGuard.Refuses` is a third. It refuses a file with a movable `#nullable` beside
+any `#if` or `#line`, before a `using` directive, or in a file the compiler reads as generated. See "Nullable context" below. The second check
+carves the tree through `OutputBuilder.Carve`, the same call that starts each output.
+`AnalyzeDirectiveSafety` and `NullableGuard` read the source and do not carve.
 
 ### BuildPlan
 
@@ -686,6 +696,8 @@ when any of these hold. The row's reason is the message after the prefix
   expected as often as the input itself holds it, because one declaration's text can sit
   inside another's in the kept file.
 - The set of top level types across all outputs does not equal the input set.
+- An output's own type reads a different nullable context in the output body than in the
+  source. The body is parsed again, before any `--require-header` banner.
 - The input declares a `file` type, and no output is written to the path that was read.
   That would be a rename.
 - The input declares a `file` type, and an output does not hold the same `#line`,
@@ -695,6 +707,63 @@ when any of these hold. The row's reason is the message after the prefix
 - The input declares a `file` type, and an output for another path declares one or names
   one. `BuildPlan` refuses these inputs first, so this fails a row only after a planning
   mistake.
+
+### Nullable context
+
+Every type keeps the nullable context that `#nullable` directives give it in the source
+file. Contexts set some other way, by a generated-code file name or comment, are not
+carried; `AGENTS.md` lists them as known issues. A `#nullable` directive
+travels with the type whose trivia or body holds it, so a type that followed it in the
+source can land in a file that never sets it. After the other types are removed,
+`NullableDirectives.Restore` folds the active `#nullable` directives up to each kept type,
+in the source and in the output, and adds the fewest lines that close the gap. It does
+this for the type each output is named for. A kept file can also hold `file` types, but
+`FileLocalDirectives` refuses any such input with a `#nullable` on or inside a type, so
+`Restore` never adds a line there:
+
+- One `#nullable enable`, `disable`, or `restore` line when annotations and warnings end
+  equal. Otherwise one line per setting that changes, with an `annotations` or `warnings`
+  target.
+- No line when the contexts already match, so a file with no movable `#nullable`
+  directive splits byte for byte as before. A movable directive starts at or after the
+  start of the first span a split can remove: a type with its leading trivia, or an
+  `[assembly: ...]` attribute list. That includes a `#nullable` above such an attribute,
+  which stays only in the kept file, so the other new files gain the restated line. It
+  also includes a `#nullable` between the attribute and the namespace, which every file
+  keeps. The guard counts that directive as movable even though it stays.
+- The lines go above the type's first comment, doc comment, or attribute, at the start of
+  a line, ending in the source file's newline. In a file with only lone
+  carriage returns, the added line ends in a carriage return too. A `--require-header` banner that opens the
+  file stays first: the lines go below it, so the file never gets a second banner.
+- The tool parses with no preprocessor symbols. A file with no `#if` has one build, so
+  the fold is exact there. A file that holds a movable `#nullable` and any `#if` is skipped
+  with `a #nullable directive a split can move shares the file with an #if or #line directive, comes before a using directive, or sits in a generated file; manual split required`.
+  So is a file whose movable `#nullable` comes before any `using` directive, which sits
+  above the type the restated line goes on. So is a generated file with a movable
+  `#nullable`: one named like `Foo.g.cs`, or opening with a `<auto-generated` comment.
+  A kept file the split would rename to such a name counts too, so the plan refuses it
+  before the renames phase moves it.
+  There no directive means disabled, but `#nullable restore` means the project default,
+  and the fold reads both as the default. A file with a movable `#nullable` and any
+  `#line` directive is skipped too. A restated line inside a `#line` mapping would shift
+  every mapped line below it, and with it each `CallerLineNumber` value.
+  `NullableGuard.Refuses` decides this from the
+  source, before any output is built. It does not read conditions, so `#if false` and an
+  `#if DEBUG` around one statement count. With an `#if` in the file, it reads movable
+  `#nullable` lines from the text, not the parse: a comment or string opened under `#if`
+  can hide a directive from the parse that another build reads. It finds lines and
+  whitespace the way the compiler does, so a no-break space, a form feed, or a lone
+  carriage return does not hide one either.
+- `#pragma` directives are not restated. A `#pragma warning` does not change the nullable
+  context; it suppresses warnings, and that suppression is lost the same way.
+- `VerifyOutputs` checks each output with the same fold, so it catches a misplaced line,
+  not a wrong fold. That check reads the body, before any `--require-header` banner. A
+  banner that holds a `#nullable` line sets the context of each type that had the project
+  default in the source, because the caller asked for that banner. A restated line below
+  the banner still sets the context of a type that had its own. `NullableContextOracle` checks the fold against the
+  compiler, in every build the source's `#if` symbols describe; `NullableContextTests` and
+  `NullableRefusalTests` run it. It reads contexts, and in a generated file both sides read
+  as inherited, so the generated rows compare diagnostics instead.
 
 ### VerifyLineConservation
 
@@ -711,6 +780,11 @@ exempt from the duplication check.
 **It counts `OutputFile.BodyText`, not `OutputFile.Text`.** `BodyText` is the output
 before any `--require-header` injection. Counting `Text` would let an injected header line
 mask a dropped source line, which defeats the guard.
+
+**It subtracts `OutputFile.AddedLines` from each output first.** Those are the `#nullable`
+lines the tool restated. Each is removed once, before either check, so an added line can
+neither hide a dropped one nor read as a duplicate. An added line that is not a single
+`#nullable` directive throws, and so does one the output does not hold.
 
 ### WriteOutputs
 
@@ -750,8 +824,9 @@ Two limits worth knowing before you rely on this:
   bytes rather than substituting replacement characters. A file in a legacy code page is a
   hard failure, not a silent corruption.
 - **Newline detection returns the first style it finds**, not the most common one. A file
-  with mixed endings is normalized to whichever appeared first. A file with no newline at
-  all falls back to `Environment.NewLine`, which is platform dependent.
+  with mixed endings is normalized to whichever appeared first. A file with only lone carriage
+  returns keeps them. A file with no newline at all falls back to `Environment.NewLine`,
+  which is platform dependent.
 
 The promise is that a file the tool touches shows a diff only where content actually
 changed, never a whole file diff caused by a newline or a byte order mark flip.
@@ -765,9 +840,9 @@ Off unless `--require-header <text>` is passed.
 - `EnsureHeader` does not add the header when the text already begins with it, so a file
   that already carries the banner keeps its existing spacing and does not get a second
   copy.
-- The probe is `StartsWithHeader`, anchored at the end of a line, so `// B-extra` does not
-  satisfy a required `// B`. Spaces and tabs after the banner line are tolerated. Injection
-  and verification call the same predicate, so a banner cannot be declared present and then
+- The probe is `MatchHeaderEnd`, anchored at the end of a line, so `// B-extra` does not
+  satisfy a required `// B`. Spaces and tabs after the banner line are tolerated. Injection, nullable restatement,
+  and verification share the same probe, so a banner cannot be declared present and then
   rejected for being absent.
 
 ## Critical behavioral rules

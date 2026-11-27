@@ -24,8 +24,8 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 46 files. |
-| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 547 of them. |
+| `src/AgenticRoslynTool/` | The entire product. 49 files. |
+| `tests/AgenticRoslynTool.Tests/` | xUnit tests. 635 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
 | `assets/icon.png` | The NuGet package icon. Packed at the package root by the csproj. |
@@ -35,12 +35,13 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 | `.github/workflows/ci.yml` | The CI gate. Build, test, pack, and check the package's entry names on push and pull request. |
 | `.github/scripts/verify-package-contents.sh` | Fails when the `.nupkg` lacks an agent file, by exact entry name. CI and the release workflow both run it. |
 | `.qualityrc.json` | One waiver for a local review scanner some agents run. Not read by the build or by CI. |
+| `.cursor/BUGBOT.md` | Review rules for Cursor Bugbot. Lists behavior a reviewer must not flag as a bug, each with the doc that explains it. |
 
 Every source file, so you do not have to open one to find out whether it matters:
 
 | File | Responsibility |
 |---|---|
-| `FileSplitter.cs` | The orchestrator. Runs a phase over the inputs and turns one input into one result row. Delegates the actual work to `InputSource`, `SplitPlanner`, `DirectiveAnalyzer`, `FileLocalTypes`, `OutputBuilder`, `OutputVerifier`, and `WorkspaceWriter`, and the plan binding to `PlanBinding.cs`. Read this first. |
+| `FileSplitter.cs` | The orchestrator. Runs a phase over the inputs and turns one input into one result row. Delegates the actual work to `InputSource`, `SplitPlanner`, `DirectiveAnalyzer`, `FileLocalTypes`, `NullableGuard`, `OutputBuilder`, `OutputVerifier`, and `WorkspaceWriter`, and the plan binding to `PlanBinding.cs`. Read this first. |
 | `InputSource.cs` | Turns whatever the caller supplied, a directory, a list file, a manifest, standard input, into an ordered list of absolute paths. |
 | `SplitPlanner.cs` | Decides what a split would do: which type stays, where each moved type lands, which inputs collide, which path a phase reads. Does not act. |
 | `DirectiveAnalyzer.cs` | Decides whether preprocessor directives make a split unsafe. Returns a verdict, never acts on one. |
@@ -50,6 +51,9 @@ Every source file, so you do not have to open one to find out whether it matters
 | `OutputBuilder.cs` | Renders the text of every output file: name, carved source, required header, trailing newline. |
 | `OutputVerifier.cs` | The correctness checks, run against in-memory outputs before anything is written. A failure here means nothing reaches disk. |
 | `SourceParsing.cs` | The one parse rule: the parse options, which errors mean a file is not valid C#, and how to spot a file-based program. Every parse goes through it. |
+| `NullableDirectives.cs` | Folds `#nullable` directives into the context at a point, restates a kept type's source context in an output that lost it, and checks each output's context before any write. Read decision 31 first. |
+| `NullableGuard.cs` | Refuses a file whose movable `#nullable` shares it with an `#if` or a `#line`, comes before a `using`, or sits in a generated file, where the restated context could be wrong. Returns a verdict, never acts on one. |
+| `SourceDirectives.cs` | Lists a tree's preprocessor directives once and caches the list on the root, so a split walks the source tree once, not once per type. |
 | `WorkspaceWriter.cs` | The only place the tool touches the working tree. Every rename runs through `git mv`; every write preserves encoding and byte order mark. |
 | `GitCommand.cs` | Runs one git command with a time limit. Passes each argument on its own, reads both streams, and kills git and its children on expiry. |
 | `Program.cs` | Top level statements. Verb dispatch, error handling, exit codes, output selection. Decides which file a run writes: the manifest in `plan`, the report otherwise. Declares no type. |
@@ -74,7 +78,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `SplitPlan.cs` | The decision for one input: keep, rename, split, or refuse. |
 | `PlannedFile.cs` | One output file inside a plan, before content is rendered. `Holds` says which types an output declares: its own, and in the kept file every `file` type. |
 | `PlannedOutputEntry.cs` | A planned output path paired with its owning input, used for cross file collision detection. |
-| `OutputFile.cs` | Rendered output. `BodyText` excludes any injected header; `Text` includes it. |
+| `OutputFile.cs` | Rendered output. `BodyText` excludes any injected header; `Text` includes it. `AddedLines` lists the `#nullable` lines the tool restated. |
 | `BlankLineCollapser.cs` | Abstract base. Collapses the blank line runs left behind when a type is removed. |
 | `OwnedSpanCollapser.cs` | The collapse `OutputBuilder` runs. Never touches a type's owned span. Decision 35. |
 | `DirectiveInfo.cs` | One preprocessor directive and its span. |
@@ -95,7 +99,7 @@ an end to end change actually works.
 
 ```powershell
 dotnet build -c Release      # must be 0 warnings, 0 errors
-dotnet test  -c Release      # must be 547 passed, 0 failed
+dotnet test  -c Release      # must be 635 passed, 0 failed
 ```
 
 `TreatWarningsAsErrors` is on, so a warning is a build break. `EnforceCodeStyleInBuild`
@@ -141,7 +145,9 @@ weight.
    write, and do not describe the run as atomic.
 4. **Line conservation counts `OutputFile.BodyText`, not `Text`.** `BodyText` is the
    output before any `--require-header` injection. Counting `Text` would let an injected
-   header hide a dropped source line.
+   header hide a dropped source line. The count also subtracts `OutputFile.AddedLines`,
+   the `#nullable` lines the tool restated, one for one and nothing else. Never exempt
+   a line by its text, such as every line that starts with `#nullable`.
 5. **Keep header normalization and header verification on the same value.**
    `NormalizeHeaderText` runs once, and both the injection and the `StartsWith` check use
    its result. When those two drifted apart, a header passed with `\n` against a CRLF
@@ -415,6 +421,10 @@ agent does not pay again.
   versions from the `Directory.Packages.props` diff and refuses major bumps. Renovate's
   14 day release age applies only to Renovate updates. A daily schedule retries open
   Dependabot pull requests if the event run did not enable auto-merge.
+- **Keep `on: pull_request` in the auto-merge workflow.** The event run enables
+  auto-merge as soon as Dependabot opens a pull request. The daily schedule is only the
+  retry. Drop the event trigger and a security fix waits up to a day. The job `if` keeps
+  the event run to pull requests that `dependabot[bot]` opened.
 - **No ruleset has a bypass actor, on purpose.** Agents here run with the maintainer's
   token, so anything the maintainer can bypass, an agent can bypass too. Every change to
   `main` goes through a pull request and the required checks. Code owner review is off
@@ -473,6 +483,40 @@ agent does not pay again.
 - **`nextArgs` is null for `--input -` on purpose.** A second process reads an empty
   stream, plans nothing, and exits 0. A test that pipes paths and expects `nextArgs` is
   testing the wrong thing.
+- **A `#nullable` line above a type is prologue, so line conservation never needed to
+  exempt it.** Ownership starts at the doc comment or the declaration, and a directive
+  above both sits outside every owned span. A `#nullable` line inside a type's body is not
+  prologue. That is the case that needs `AddedLines`, so a test of the exemption must put
+  the directive in a body, as `NullableDirectivesTests` does.
+- **Prove a nullable change with the compiler, not with `NullableDirectives`, and in more
+  than one build.** `NullableContextOracle` reads `SemanticModel.GetNullableContext` under
+  a project default of both disable and enable, and under every set of the symbols the
+  source's `#if` conditions name. Checking one default lets `#nullable disable` pass where
+  the source said `#nullable restore`. Checking with no symbols missed a wrong write for
+  five review rounds, because the tool also folds with no symbols. It reads each type's
+  members too, not only its first token: a conditional directive inside a body changes
+  only what follows it, and a check at the type's start missed that once. The verifier's
+  own context check shares the tool's fold, so it cannot catch a wrong fold.
+  `PreprocessorSymbolSets.Of` collects the `#if` names again under every symbol set found
+  so far, until no new name appears. A comment opened in one build can hide a condition
+  from another build's parse. Do not cut that loop to one pass.
+- **Do not narrow `NullableGuard` to the places a directive can be lost.** Four narrower
+  rules each passed review rounds, then failed on the next shape: a conditional
+  `#nullable` that travels with its own type, a `#define` whose `#if` a split drops, a
+  `#define` above an `[assembly: ...]` attribute, a type in an `#else` branch. The guard
+  now refuses a movable `#nullable` beside any `#if`, because a file with no `#if` has one
+  build and the fold is exact there. It refuses one before any `using` too, because
+  `Restore` restates context above the type, below that `using`. It refuses one beside any
+  `#line`, because a restated line shifts every mapped line below it. With an `#if`, it reads
+  `#nullable` lines from the text: a comment opened under `#if` hid one from the parse in
+  round five. The scan finds lines and whitespace with `SyntaxFacts`, not `[ \t]` and
+  `\n`: a no-break space, a form feed, and a lone carriage return each hid one from a
+  regex. Its remarks hold the rule. A narrower rule needs a generator over every
+  directive kind and placement, run through `NullableContextOracle`, before review.
+- **Roslyn parses a directive in a branch that is off as an inactive directive.** It is
+  never disabled text, whatever its spacing, so `# nullable enable` under `#if X` is a
+  `NullableDirectiveTriviaSyntax` with `IsActive` false. Walk directives, not text, to
+  find one.
 
 - **A parse proves nothing about a `file` type.** `OutputVerifier` only parses, and a moved
   type that names a `file` type parses fine. Compile the source before and after with
@@ -534,19 +578,35 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   An input with a `file` type used to be skipped before this check ran, and now reaches
   it like any other input.
 
-- A `#line`, `#nullable`, or `#pragma` directive placed above one type travels only with
-  that type. A `#define` or `#undef` there is different: removing a type keeps it in every
-  output, but drops an `#if` around it. With `#if !X`, `#define EXTRA`,
-  `[System.Serializable]`, `#endif` above the first type, the second type's file defined
-  `EXTRA` always. The attribute line matters: with no part of the type inside the group,
-  the file is skipped with `#if group at line 1 crosses top-level type boundaries`. Any of
-  the five placed above an `[assembly: ...]` attribute stays in the kept file only, because
-  every other output drops those attributes. With `#nullable enable` above the second of
-  three types, the third type's new file has no such line, and its `string?` raises CS8632. With `#line 100 "Mapped.cs"`
-  there, a `CallerFilePath` value in the third type changed from `Mapped.cs` to the new
-  file's name, with no diagnostic. The directive sits in the leading trivia of the type
-  below it, and each output removes every other type with its trivia. An input with a
-  `file` type is refused for this. Every other input still splits.
+- A `#line` or `#pragma` directive placed above one type travels only with that type. A
+  `#define` or `#undef` there is different: removing a type keeps it in every output, but
+  drops an `#if` around it. With `#if !X`, `#define EXTRA`, `[System.Serializable]`,
+  `#endif` above the first type, the second type's file defined `EXTRA` always, which
+  also changes any `#nullable` under `#if EXTRA`; decision 31 refuses that case. The
+  attribute line matters: with no part of the type inside the group, the file is skipped
+  with `#if group at line 1 crosses top-level type boundaries`. Any of these placed above
+  an `[assembly: ...]` attribute stays in the kept file only, because every other output
+  drops those attributes. With `#line 100 "Mapped.cs"` above the second of three types, a
+  `CallerFilePath` value in the third type changed from `Mapped.cs` to the new file's
+  name, with no diagnostic. The directive sits in the leading trivia of the type below
+  it, and each output removes every other type with its trivia. A `#nullable` directive
+  is the exception: since decision 31 each output restates the context its type had,
+  unless `NullableGuard` refuses the file. An
+  input with a `file` type is refused for all of these. Every other input still splits.
+
+- A file marked generated by `generated_code = true` in an `.editorconfig` is not seen as
+  generated. The guard reads the file name and an opening comment only. The tool reads no
+  `.editorconfig`. A movable `#nullable` in such a file can be restated wrongly.
+
+- A source file whose name Roslyn reads as generated code, such as `Foo.g.cs`, has
+  nullable off by default. Its new files take ordinary names, so the project default
+  applies to them instead. `NullableDirectives` treats "no directive" as the same default
+  on both sides, so it does not add a `#nullable disable` for this. The other way round
+  happens too. A type named `TemporaryGeneratedFile_Beta` lands in a file Roslyn reads as
+  generated. So does a manifest row whose output path was edited to a name like `Beta.g.cs`.
+  A type that read the project default in the source gets no restated line, and with no
+  directive that file reads disabled. A restated `#nullable restore` there means the
+  project default, which a generated file does not otherwise get.
 
 - A `#warning` or `#error` directive above the namespace is copied into every output, so
   a build reports it once for each new file. This is true with or without a `file` type.
@@ -557,6 +617,10 @@ Recorded so nobody rediscovers them and nobody assumes they are intentional.
   and a `file` type in that file raised CS8618 where it raised nothing before. This is
   true with or without a `file` type. A comment above a `using` line or the `namespace`
   line reaches every output. `--exclude` keeps generated files out of a run.
+  `NullableDirectives` folds directives only, so decision 31 cannot restate this. The
+  reverse holds too. The comment directly above a later type opens that type's new file,
+  so the compiler reads the new file as generated, even with no `#nullable` in the source.
+  `NullableGuard` reads only the source's opening comment, so it does not refuse this.
 
 - A `global using` alias is copied into every output, like any using directive. The next
   build fails with CS1537, because a global alias may be declared once in a project. An
@@ -604,4 +668,5 @@ reply or a pull request body. Neither survives.
 | A trap, an invariant, or a build rule | This file |
 | What a phase or a guard promises | `docs/behavior-contracts.md` |
 | Why a design choice was made, and what breaks if reversed | `docs/decision-log.md` |
+| Behavior a code reviewer keeps flagging by mistake | `.cursor/BUGBOT.md`, one line that names, as plain text, the doc above that explains it |
 | What a specific type or method does | An XML doc comment on that member |

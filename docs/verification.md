@@ -3,8 +3,9 @@
 To verify a mechanical C# refactor, check four things. Every non-whitespace line survives
 (line conservation). Each type's doc comment and attributes land exactly once (trivia
 ownership). Every output still parses. A Roslyn scan of top-level types is identical before
-and after. `split-types` runs the first three, plus a per-file type set check and a `file` type
-check, for each file before it writes anything. The repository-wide scan is a step you run yourself.
+and after. `split-types` runs the first three, plus a per-file type set check, a `file` type
+check, and a nullable context check, for each file before it writes anything. The
+repository-wide scan is a step you run yourself.
 
 This page is for the reviewer who has to approve a diff that touches hundreds of files. It
 explains what each check proves and what it does not. For the exact contract of each guard,
@@ -96,6 +97,11 @@ line is compared as exact text, including its indentation.
 - A line may appear more often in the outputs than in the input only if it is a prologue
   line. Otherwise the file fails with
   `<input path>: non-prologue line was duplicated: <line>`.
+- Before either count, each output's added lines are subtracted, one for one. These are the
+  `#nullable` lines the tool writes to restate a type's context (check 6). Each must be a
+  single `#nullable` directive the output holds, or the file fails with
+  `<output path>: added line is not a #nullable directive: <line>` or
+  `<output path>: added line is missing from the output: <line>`.
 
 A prologue line is a line outside every type's owned span. In practice that means using
 directives and the namespace declaration, which every output needs a copy of.
@@ -180,9 +186,29 @@ planning fails the file here and nothing is written. It is still a check on synt
 cannot prove a moved type compiles, which is why the plan refuses whenever a name matches.
 See [decision-log.md, decision 30](decision-log.md#decision-30-a-file-that-holds-a-file-type-is-split-around-it).
 
+## Check 6: each type keeps its nullable context
+
+A `#nullable` directive travels with the type whose trivia or body holds it. A type that
+followed it in the source can land in a new file that never sets it. So the tool restates
+the context the type had: it adds the fewest `#nullable` lines above the type, and records
+them so line conservation does not count them. Then this check parses each output's body
+again and compares the type's context with the source. A mismatch fails the file with
+`<input path>: nullable context for <type> is ... in <output path>, but ... in the source`.
+
+Expect these added lines in the content commit, in the kept file or a new one. Each sits
+directly above a type or its first comment, doc comment, or attribute, or below the
+required banner when that banner opens the file, and reads
+`#nullable enable`, `disable`, or `restore`, with an optional `annotations` or `warnings`.
+Deleting one brings back the loss of context the split caused.
+
+The check reads the same fold the tool used to add the lines, so it catches a misplaced
+line, not a wrong fold. The plan refuses the files where a restated line could be wrong: a
+`#nullable` a split can move, in a file with any `#if` or `#line`, above any `using`
+directive, or in a file the compiler reads as generated. See [decision-log.md, decision 31](decision-log.md#decision-31-the-split-restates-the-sources-nullable-context).
+
 ## Before the checks: the input must be the one that was planned
 
-The five checks above prove a split is faithful to the file the tool read. They cannot
+The six checks above prove a split is faithful to the file the tool read. They cannot
 prove that file is the one you reviewed. The plan manifest closes that gap. Each row
 records `contentHash`, the SHA-256 of the input's raw bytes. The renames phase hashes each
 file it reads again before it renames anything. The content phase hashes each file the
@@ -370,7 +396,9 @@ repository is closed source, so this result cannot be reproduced from here.
    includes a file the first run already split.
 2. Confirm the renames are in their own commit. Then `git log --follow` on a renamed file
    shows its history from before the rename.
-3. Confirm the content commit holds only splits, with no unrelated edits.
+3. Confirm the content commit holds only splits, with no unrelated edits. The one
+   addition to expect is a `#nullable` line above a type, in the kept file or a new one
+   (check 6).
 4. Run `git show --check <content-commit>` to catch whitespace errors.
 5. Build with warnings as errors, and run the tests.
 6. Run the before/after scan and confirm the diff is empty.
@@ -380,6 +408,7 @@ repository is closed source, so this result cannot be reproduced from here.
 **What is line conservation?**
 Every non-whitespace source line appears in the outputs at least as often as in the input.
 Only prologue lines, such as usings and the namespace declaration, may appear more often.
+The `#nullable` lines the tool adds to restate a type's context are subtracted first.
 
 **What is trivia in Roslyn?**
 Whitespace, comments, and preprocessor directives attached to tokens. It is how comments
