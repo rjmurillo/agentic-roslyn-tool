@@ -1649,6 +1649,8 @@ project build. Leave standalone files without those markers out of the input lis
 assembly attribute stays in the kept file, so a moved type's file loses the symbol and
 its guarded `#error` fires in the build. The splitter skips a file if any output loses
 those lines. The verifier also checks that each full output keeps them in order.
+The skip runs before the verifier, so such a file reports `skipped` even if it
+would also fail another output check. Nothing is written either way.
 A file that a file-based program
 pulls in with `#:include` is the same kind of risk as a file an MSBuild `Compile` item
 names: the tool does not see who compiles it. The docs say to leave such files out.

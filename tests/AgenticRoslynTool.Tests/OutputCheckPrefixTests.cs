@@ -60,6 +60,22 @@ public sealed class OutputCheckPrefixTests
     }
 
     [Fact]
+    public void HeaderThatAddsADefine_FailsTheOutputCheck()
+    {
+        // The skip reads BodyText, so a header is out of its view. The verifier reads the
+        // whole output and is the only check that sees a #define the header adds.
+        using var ws = new TempWorkspace();
+        var path = ws.WriteFile("Keep.cs", "namespace S;\n\npublic class Keep { }\n\npublic class Moved { }\n");
+        var options = new Options(ws.WriteInputList(path), Path.Combine(ws.Root, "m.csv"), ws.Root, Phase.Plan, "#define Y");
+
+        var row = Assert.Single(new FileSplitter(options).Run());
+
+        Assert.Equal("failed", row.Status);
+        Assert.StartsWith(FileSplitter.OutputCheckFailedPrefix, row.Reason);
+        Assert.Contains("#define and #undef", row.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DefineAboveTheUsings_TravelsWithEveryOutput()
     {
         // The common case: a #define on the first using is copied into every output.
