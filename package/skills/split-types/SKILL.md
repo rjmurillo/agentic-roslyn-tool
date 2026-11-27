@@ -28,7 +28,8 @@ step runs the same build). Below, `<tool>` means whichever you use.
    `<dir>`. List the C# files there:
    `git -c core.quotePath=false ls-files '*.cs' > <dir>/split.txt`
    Remove any file the repository runs with `dotnet run --file` but that has no `#:` or
-   `#!` line. The tool cannot tell it from project code, and splitting it breaks it.
+   `#!` line, and any file a file-based program pulls in with `#:include`. The tool cannot
+   tell either from project code, and splitting one breaks the program.
 2. Plan. This changes no source file:
    `<tool> split-types --phase plan --input <dir>/split.txt --manifest <dir>/split.csv --json`
    If the repository enforces SA1649, add `--collision-naming type-first` to this step only.

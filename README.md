@@ -325,7 +325,7 @@ One production run processed 7,818 files and split 461 of them. Roslyn parsed ev
 * The tool does not prune using directives. A seemingly unused using can supply an extension method or target-typed conversion. Removing it would turn a mechanical edit into a semantic change.
 * The tool uses the Roslyn Syntax API without a semantic model. It does not resolve types across projects.
 * A file with syntax errors and named preprocessor conditions is skipped. The build may parse it differently.
-* A .NET 10 file-based program, a file with `#:` or `#!` lines, is never split. It compiles alone, so a type moved to a new file would leave the program. A file run with `dotnet run --file` that has neither line looks like project code to the tool, so leave it out of the input list.
+* A .NET 10 file-based program, a file with `#:` or `#!` lines, is never split. It compiles alone, so a type moved to a new file would leave the program. A file run with `dotnet run --file` that has neither line looks like project code to the tool, so leave it out of the input list. Leave out any file such an app pulls in with `#:include` too: a type moved out of it leaves the app.
 * `dotnet new` template sources, such as files with `#if (UseXunit)`, are not C# until the template engine runs. They can fail or be skipped. Pass `--exclude` for the template folder.
 * A `failed` row on a file your build compiles is a bug in the tool. Exclude that file and [open an issue](https://github.com/rjmurillo/agentic-roslyn-tool/issues). Do not edit the file to get past the tool.
 

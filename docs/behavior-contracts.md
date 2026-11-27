@@ -691,6 +691,10 @@ when any of these hold. The row's reason is the message after the prefix
 
 - An output does not start with the required header, when `--require-header` is set.
 - An output does not parse.
+- An output holds a `#:` or `#!` directive, which a project build rejects.
+- An output does not hold the input's `#define` and `#undef` lines, in order. One that
+  rides on an assembly attribute or a type would drop out of a moved file, and an `#if`
+  there would flip, or a guarded `#error` would fire in the build.
 - A type's declaration plus its owned trivia appears in more than one output, or in none.
   For an input that declares a `file` type the count is not fixed at one: each text is
   expected as often as the input itself holds it, because one declaration's text can sit

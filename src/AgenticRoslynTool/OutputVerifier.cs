@@ -35,6 +35,7 @@ internal static class OutputVerifier
     /// <exception cref="InvalidOperationException">Thrown as soon as any invariant fails, so the failure is surfaced without partial output being written.</exception>
     internal static void VerifyOutputs(string readPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs, string? requiredHeader)
     {
+        var inputSymbolLines = SymbolLines(inputTypes[0].Node.SyntaxTree.GetCompilationUnitRoot());
         foreach (var output in outputs)
         {
             if (OutputBuilder.MatchHeaderEnd(output.Text, requiredHeader) is null)
@@ -55,6 +56,15 @@ internal static class OutputVerifier
             if (SourceParsing.IsFileBasedProgram(tree.GetCompilationUnitRoot()))
             {
                 throw new InvalidOperationException($"{output.Path} holds a #: or #! directive, which a project build rejects");
+            }
+
+            // A #define or #undef rides on the first token. When that token is an assembly
+            // attribute or a type, an output that drops it loses the symbol, so an #if
+            // there flips with no diagnostic, and a guarded #error the check excuses fires
+            // in the build. Every output must keep the input's symbol lines, in order.
+            if (!SymbolLines(tree.GetCompilationUnitRoot()).SequenceEqual(inputSymbolLines, StringComparer.Ordinal))
+            {
+                throw new InvalidOperationException($"{output.Path} would not keep the input's #define and #undef lines");
             }
         }
 
@@ -269,4 +279,11 @@ internal static class OutputVerifier
 
         return count;
     }
+
+    // The #define and #undef lines of a tree, as written, in order.
+    private static string[] SymbolLines(Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax root) =>
+        root.DescendantTrivia()
+            .Where(t => t.IsKind(SyntaxKind.DefineDirectiveTrivia) || t.IsKind(SyntaxKind.UndefDirectiveTrivia))
+            .Select(t => t.ToString().Trim())
+            .ToArray();
 }
