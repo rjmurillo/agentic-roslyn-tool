@@ -1647,8 +1647,9 @@ Review skipped rows and build the project to check them.
 The output verifier rejects file-based directives. They can parse here but fail in a
 project build. Leave standalone files without those markers out of the input list. Review found one more way the `#error` rule could hide a broken split. A `#define` on an
 assembly attribute stays in the kept file, so a moved type's file loses the symbol and
-its guarded `#error` fires in the build. The verifier now refuses an output that does not
-hold the input's `#define` and `#undef` lines, in order. A file that a file-based program
+its guarded `#error` fires in the build. The splitter skips a file if any output loses
+those lines. The verifier also checks that each full output keeps them in order.
+A file that a file-based program
 pulls in with `#:include` is the same kind of risk as a file an MSBuild `Compile` item
 names: the tool does not see who compiles it. The docs say to leave such files out.
 

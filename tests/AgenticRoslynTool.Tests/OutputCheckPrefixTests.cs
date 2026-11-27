@@ -40,22 +40,23 @@ public sealed class OutputCheckPrefixTests
         Assert.Contains("#: or #! directive", row.Reason, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void SplitThatDropsADefine_FailsTheOutputCheck()
+    [Theory]
+    [InlineData("define")]
+    [InlineData("undef")]
+    public void SplitThatDropsASymbolDirective_Skips(string directive)
     {
-        // The #define rides on the assembly attribute, which only the kept file keeps. The
-        // moved type's file would lose X, and its guarded #error would fire in the build.
+        // The symbol directive rides on the assembly attribute. Only the kept file retains it.
         using var ws = new TempWorkspace();
+        var alternateBranch = directive == "define" ? "#error X is not defined" : "    public int B;";
         var path = ws.WriteFile("Keep.cs",
-            "#define X\n[assembly: System.CLSCompliant(true)]\nnamespace S;\n\npublic class Keep { }\n\n" +
-            "public class Moved\n{\n#if X\n    public int A;\n#else\n#error X must be defined\n#endif\n}\n");
+            $"#{directive} X\n[assembly: System.CLSCompliant(true)]\nnamespace S;\n\npublic class Keep {{ }}\n\npublic class Moved\n{{\n#if X\n    public int A;\n#else\n{alternateBranch}\n#endif\n}}\n");
         var options = new Options(ws.WriteInputList(path), Path.Combine(ws.Root, "m.csv"), ws.Root, Phase.Plan, null);
 
         var row = Assert.Single(new FileSplitter(options).Run());
 
-        Assert.Equal("failed", row.Status);
-        Assert.StartsWith(FileSplitter.OutputCheckFailedPrefix, row.Reason);
-        Assert.Contains("#define and #undef", row.Reason, StringComparison.Ordinal);
+        Assert.Equal("skipped", row.Status);
+        Assert.Equal(FileSplitter.SymbolLinesReason, row.Reason);
+        Assert.Empty(row.NewFiles);
     }
 
     [Fact]

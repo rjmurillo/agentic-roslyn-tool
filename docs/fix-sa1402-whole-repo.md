@@ -267,6 +267,7 @@ are most likely to see:
 | Path matches `--exclude` | skipped | `excluded by pattern: <pattern>` |
 | File does not parse and no conditional names a symbol | failed | `input has syntax errors: <diagnostics>` |
 | Parse reports errors and an `#if` or `#elif` condition names a symbol | skipped | `input has syntax errors under default preprocessor symbols; build symbols may change the parse; manual review required` |
+| A split would drop a `#define` or `#undef` from an output | skipped | `a #define or #undef would not reach every output file; manual split required` |
 | File is a .NET 10 file-based program (`#:` or `#!` lines) | skipped | `file-based program (#: or #! directive): it compiles alone, so no type can move out of it` |
 
 A `dotnet new` template folder holds files that are not C# until the template engine runs,

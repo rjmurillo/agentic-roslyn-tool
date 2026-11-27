@@ -63,6 +63,13 @@ internal sealed class FileSplitter
     internal const string OutputCheckFailedPrefix = "output check failed: ";
 
     /// <summary>
+    /// Reason for a split some output would lose a <c>#define</c> or <c>#undef</c> in, for
+    /// example one written above an assembly attribute. An <c>#if</c> in that output would
+    /// flip with no diagnostic.
+    /// </summary>
+    internal const string SymbolLinesReason = "a #define or #undef would not reach every output file; manual split required";
+
+    /// <summary>
     /// Reason recorded when a content run meets a row an earlier content run already applied.
     /// The words say what was checked and nothing more. The leading <c>already applied</c> is
     /// published: callers match on it to tell this skip from a refusal, so it must not change.
@@ -545,6 +552,12 @@ internal sealed class FileSplitter
         {
             var headerText = OutputBuilder.NormalizeHeaderText(_options.RequiredHeader, source.NewLine);
             var outputs = OutputBuilder.BuildOutputs(source, root, types, plan, headerText);
+            // A known limit, not a tool bug, so it is a skip. The verifier still checks it.
+            if (OutputVerifier.DropsSymbolLines(root, outputs))
+            {
+                return FileResult.Skip(originalPath, readPath, SymbolLinesReason);
+            }
+
             try
             {
                 OutputVerifier.VerifyOutputs(readPath, types, outputs, headerText);

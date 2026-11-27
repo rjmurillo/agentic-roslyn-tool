@@ -248,7 +248,8 @@ file safely. The common cases:
 
 Nested types stay inside their parent type. Only top-level types move.
 
-A file with syntax errors is marked `failed`, not skipped, and is not written. A .NET 10
+A file with syntax errors is skipped if an `#if` or `#elif` names a symbol.
+Otherwise it is marked `failed`. Neither result writes source files. A .NET 10
 file-based program, one with `#:` or `#!` lines, is skipped: it compiles alone, so no type
 can move out of it. If a file your build compiles is marked `failed`, that is a bug in the
 tool. Exclude the file and report it rather than editing the file. The tool

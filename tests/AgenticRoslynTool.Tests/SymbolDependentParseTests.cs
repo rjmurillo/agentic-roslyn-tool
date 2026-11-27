@@ -21,6 +21,8 @@ public sealed class SymbolDependentParseTests
     [Theory]
     [InlineData("")]
     [InlineData("#if true\n#endif\n")]
+    [InlineData("#if\n#endif\n")]
+    [InlineData("#if 1\n#endif\n")]
     public void BrokenFile_WithoutNamedConditions_StillFails(string prefix)
     {
         var result = PlanOne(prefix + "internal class Broken { void M( }\n");

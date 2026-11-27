@@ -77,7 +77,7 @@ internal static class SourceParsing
             .Select(t => t.GetStructure())
             .Select(d => d switch { IfDirectiveTriviaSyntax i => i.Condition, ElifDirectiveTriviaSyntax e => e.Condition, _ => null })
             .OfType<ExpressionSyntax>()
-            .Any(condition => condition.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Any());
+            .Any(condition => Symbols(condition).Any());
 
     /// <summary>Renders diagnostics as one semicolon-separated string for a row's reason.</summary>
     internal static string Describe(IEnumerable<Diagnostic> diagnostics) =>
@@ -165,5 +165,10 @@ internal static class SourceParsing
     }
 
     private static bool NamesBuildSymbol(ExpressionSyntax condition, HashSet<string> setByFile) =>
-        condition.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Any(n => !setByFile.Contains(n.Identifier.ValueText));
+        Symbols(condition).Any(n => !setByFile.Contains(n.Identifier.ValueText));
+
+    // The symbols a condition names. Error recovery invents a missing identifier for
+    // `#if` with no condition or `#if 1`; that names nothing, so it is left out.
+    private static IEnumerable<IdentifierNameSyntax> Symbols(ExpressionSyntax condition) =>
+        condition.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Where(n => !n.Identifier.IsMissing);
 }

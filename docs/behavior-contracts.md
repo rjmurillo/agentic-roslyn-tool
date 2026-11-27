@@ -526,6 +526,7 @@ Reason text shown in italics is a template; the run substitutes real values.
 | Renames phase, would split a file the manifest has no row for | skipped | `stale plan: the plan manifest has no row for this file; re-run --phase plan` |
 | Parse produced an error diagnostic, other than an `#error` whose branch names a symbol the build sets (not one the file sets itself outside a symbol-dependent `#if`), and no `#if` or `#elif` condition names a symbol | failed | `input has syntax errors: <diagnostics>` |
 | Parse reports errors and an `#if` or `#elif` condition names a symbol | skipped | `input has syntax errors under default preprocessor symbols; build symbols may change the parse; manual review required` |
+| A split would drop a `#define` or `#undef` from an output | skipped | `a #define or #undef would not reach every output file; manual split required` |
 | File has a `#:` or `#!` directive (a .NET 10 file-based program) | skipped | `file-based program (#: or #! directive): it compiles alone, so no type can move out of it` |
 | File has top level statements | skipped | `contains top-level statements; manual split required` |
 | One type or fewer | skipped | `nothing to split: input has <n> top-level type declaration(s)` |

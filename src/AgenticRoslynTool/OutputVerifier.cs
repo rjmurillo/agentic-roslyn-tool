@@ -62,6 +62,7 @@ internal static class OutputVerifier
             // attribute or a type, an output that drops it loses the symbol, so an #if
             // there flips with no diagnostic, and a guarded #error the check excuses fires
             // in the build. Every output must keep the input's symbol lines, in order.
+            // FileSplitter skips such a split first; this is the backstop.
             if (!SymbolLines(tree.GetCompilationUnitRoot()).SequenceEqual(inputSymbolLines, StringComparer.Ordinal))
             {
                 throw new InvalidOperationException($"{output.Path} would not keep the input's #define and #undef lines");
@@ -278,6 +279,20 @@ internal static class OutputVerifier
         }
 
         return count;
+    }
+
+    /// <summary>
+    /// True when some output body would not keep the input's <c>#define</c> and
+    /// <c>#undef</c> lines in order. A symbol line rides on the first token, so this happens
+    /// when that token is an assembly attribute or a type that only one output keeps.
+    /// Reads <see cref="OutputFile.BodyText"/>, so a required header does not count.
+    /// </summary>
+    internal static bool DropsSymbolLines(Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax inputRoot, IReadOnlyList<OutputFile> outputs)
+    {
+        var inputSymbolLines = SymbolLines(inputRoot);
+        return inputSymbolLines.Length != 0 && outputs.Any(output =>
+            !SymbolLines(CSharpSyntaxTree.ParseText(output.BodyText, SourceParsing.Options).GetCompilationUnitRoot())
+                .SequenceEqual(inputSymbolLines, StringComparer.Ordinal));
     }
 
     // The #define and #undef lines of a tree, as written, in order.
