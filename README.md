@@ -249,7 +249,9 @@ lists every refusal under "Manifest and report". Any file in the manifest format
 earlier report, so do not point `--report` at a second plan you want to keep.
 
 Because the plan stays as you reviewed it, a content run can be repeated. When a row
-fails, fix the cause and run the same command again. The retry applies the rows that
+fails, fix the cause and run the same command again. Never edit a source file to get
+past the tool: a failed check on a file your build compiles is a bug in the tool. Exclude
+that file, run the plan again, and report it. The retry applies the rows that
 failed. A row an earlier run already applied is reported as `skipped` with a reason that
 starts with `already applied`, and its files are not written again. A file that changed
 for any other reason since the plan is `skipped` with a `stale plan:` reason.
@@ -322,6 +324,10 @@ One production run processed 7,818 files and split 461 of them. Roslyn parsed ev
 * A file is skipped when a `#nullable` directive a split could move shares it with any `#if` or `#line`, comes before a `using` directive, or sits in a file the compiler reads as generated. In those files the tool cannot restate the context exactly, so split them by hand. (details: [docs/behavior-contracts.md](https://github.com/rjmurillo/agentic-roslyn-tool/blob/main/docs/behavior-contracts.md#nullable-context))
 * The tool does not prune using directives. A seemingly unused using can supply an extension method or target-typed conversion. Removing it would turn a mechanical edit into a semantic change.
 * The tool uses the Roslyn Syntax API without a semantic model. It does not resolve types across projects.
+* A file with syntax errors and named preprocessor conditions is skipped. The build may parse it differently.
+* A .NET 10 file-based program, a file with `#:` or `#!` lines, is never split. It compiles alone, so a type moved to a new file would leave the program. A file run with `dotnet run --file` that has neither line looks like project code to the tool, so leave it out of the input list. Leave out any file such an app pulls in with `#:include` too: a type moved out of it leaves the app.
+* `dotnet new` template sources, such as files with `#if (UseXunit)`, are not C# until the template engine runs. They can fail or be skipped. Pass `--exclude` for the template folder.
+* A `failed` row on a file your build compiles is a bug in the tool. Exclude that file and [open an issue](https://github.com/rjmurillo/agentic-roslyn-tool/issues). Do not edit the file to get past the tool.
 
 ## FAQ
 

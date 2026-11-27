@@ -15,6 +15,7 @@ if (args.Length == 0)
 }
 
 var verb = args[0];
+
 if (verb is "--help" or "-h" or "help")
 {
     PrintUsage(Console.Out);

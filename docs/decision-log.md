@@ -1567,6 +1567,109 @@ reopens the path rule 10 closed. `RenameTargetCollisionTests` and
 `QualifiedClaimCollisionTests` pin both steps under both `--collision-naming` values and
 both input orders.
 
+### Decision 33. One parse rule, and a valid file is not `failed`
+
+**Context.** Version 0.2.0 passed 469 tests and was then run over ten public
+repositories. It marked 30 files `failed` that their own builds compile:
+
+- 21 .NET 10 file-based programs: 18 in aspire, 2 in Humanizer, 1 in Polly. Their `#:`
+  and `#!` lines raise CS9298 and CS9314 unless the parse enables the `FileBasedProgram`
+  feature.
+- 9 files in xunit and Humanizer with `#error Unknown target framework` in the `#else`
+  branch of a framework check. The tool defines no preprocessor symbols, so that branch
+  is live here and raised CS1029. The real build never takes it.
+
+Each such row made the run exit 1. The packaged skill told an agent to fix the cause of a
+`failed` row, so an agent could have edited valid code to please the tool. The parse
+options and the error filter were written inline at three call sites, so the input and
+the outputs were checked by copies of one rule.
+
+**Decision.** `SourceParsing` owns the whole rule:
+
+- It parses with the preview language version and the `FileBasedProgram` feature.
+- It excuses the diagnostics of an `#error` whose branch depends on a preprocessor
+  symbol the build sets. Only the IDs an `#error` raises are excused, CS1029 and CS8304
+  for `#error version`, and only on the directive itself. An `#elif` or `#else` branch
+  depends on every condition before it in its group. A symbol the file sets with
+  `#define` or `#undef` outside any symbol-dependent branch has the same value in every
+  build, so it does not count. One set inside `#if !NET` runs only in some builds, so it
+  still counts as a build symbol. An
+  `#error` under `#if true`, under such a symbol, or under no `#if`, still counts: every
+  build of that file fails.
+- If errors remain and an `#if` or `#elif` condition names a symbol, skip the file.
+  The tool does not know which symbols the project defines. It never retries the parse.
+- A file with a `#:` or `#!` directive is skipped with its own reason, before the
+  top-level statement check. A file-based program compiles alone, even when it declares
+  `Main` in a class, so a type moved out of it leaves the program.
+
+- A split that `OutputVerifier` refuses reports its reason after the prefix
+  `output check failed: `. That marks a tool bug, or a malformed `--require-header`,
+  never a problem in the source.
+
+The input and every output go through the same class, and no method takes parse options
+as a parameter. `ParseRuleOwnershipTests` fails the build if parse options, a diagnostic
+filter, or a `ParseText` call without `SourceParsing.Options` appears anywhere else. The
+skill, the package `AGENTS.md`, and the user guides now say never to edit a source file
+to get past the tool, and to report a `failed` row on a file the build compiles.
+
+Template sources can fail or be skipped. Leave them out before planning.
+
+**Alternatives rejected.**
+
+- *Report every parse failure as `skipped`.* It ends false failures, but it also hides a
+  broken file behind exit 0, and an agent stops reading rows once the run passes.
+- *Read `DefineConstants` from the project and parse once per target framework.* It is
+  the precise answer, but it needs MSBuild evaluation, which decision 1 rules out, and it
+  multiplies parse time by the number of frameworks.
+- *Skip, rather than split, a file whose only error is an excused `#error`.* That would
+  leave every file with a framework guard inside a type unsplit. The `#error` is copied
+  unchanged with the type that holds it, so the real build still reports it if it fires.
+
+**Evidence.** The ten repositories that exposed the bugs had 30 `failed` rows before this
+fix, measured at earlier commits than the ones listed below. The rule was then run over six repositories that played no part in finding them.
+That run found the symbol case above (BenchmarkDotNet `HardwareIntrinsics.cs`), which the
+first fix missed. The command is the plan phase over the whole clone:
+`split-types --input <clone> --manifest <outside> --repo-root <clone> --dry-run`.
+
+The rule that ships was swept over all sixteen at these commits: aspire `f8dbeaf`, xunit
+`61071f6`, Humanizer `3d900a3`, Polly `ae42e90`, MediatR `1fad4c7`, FluentValidation
+`5903fa6`, CleanArchitecture `c2781d2`, command-line-api `1b0c04a`, AutoMapper `13b5f44`,
+serilog `43da049`, Newtonsoft.Json `52fa3ae`, nodatime `6e024dd`, Dapper `1880947`, nunit
+`da9d5b6`, MassTransit `d9f61f7`, and BenchmarkDotNet `a9cac82`. Results:
+
+- Two rows are `failed`. Both are `dotnet new` template files, one in aspire and one in
+  BenchmarkDotNet.
+- Four rows skip because errors sit beside a named condition, two in each of those repos.
+  So the cost of the skip is four rows in about 22,000.
+- No row skips because a split would lose a `#define` or `#undef`.
+- 21 rows skip as file-based programs.
+- Split counts match a sweep run just before review round 12: aspire 855, MassTransit 718,
+  nunit 110.
+
+**Why we removed the retry.** An earlier version of this fix parsed a second time with
+every named symbol defined. That still missed builds where one symbol is defined and
+another is not. During review it moved into a child process to survive deep nesting. The
+maintainer chose to replace it with the skip. That removes the child process and avoids
+parsing branches that the first parse did not activate. The tool may now skip broken
+files. Review skipped rows and build the project to check them.
+
+The output verifier rejects file-based directives. They can parse here but fail in a
+project build. Leave standalone files without those markers out of the input list. Review found one more way the `#error` rule could hide a broken split. A `#define` on an
+assembly attribute stays in the kept file, so a moved type's file loses the symbol and
+its guarded `#error` fires in the build. The splitter skips a file if any output loses
+those lines. The verifier also checks that each full output keeps them in order.
+The skip runs before the verifier, so such a file reports `skipped` even if it
+would also fail another output check. Nothing is written either way.
+A file that a file-based program
+pulls in with `#:include` is the same kind of risk as a file an MSBuild `Compile` item
+names: the tool does not see who compiles it. The docs say to leave such files out.
+
+> **Warning.** Do not excuse a diagnostic by location alone, or under a branch that names
+> no symbol the build sets.
+> Do not drop other diagnostic IDs to make a file pass. Either one marks a file the
+> compiler rejects as safe to split. Do not re-parse with guessed symbols or allow file-based
+> directives in split outputs.
+
 ### Decision 35. The blank line collapse stays out of every type's owned span
 
 **Context.** `BlankLineCollapser` cut every run of three or more blank lines to two. It

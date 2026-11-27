@@ -27,13 +27,17 @@ step runs the same build). Below, `<tool>` means whichever you use.
 1. Pick a scratch folder outside the repository that no other run uses, shown here as
    `<dir>`. List the C# files there:
    `git -c core.quotePath=false ls-files '*.cs' > <dir>/split.txt`
+   Remove any file the repository runs with `dotnet run --file` but that has no `#:` or
+   `#!` line, and any file a file-based program pulls in with `#:include`. The tool cannot
+   tell either from project code, and splitting one breaks the program.
 2. Plan. This changes no source file:
    `<tool> split-types --phase plan --input <dir>/split.txt --manifest <dir>/split.csv --json`
    If the repository enforces SA1649, add `--collision-naming type-first` to this step only.
    If its StyleCop `fileNamingConvention` is `metadata`, also add `--file-naming metadata`.
    `nextArgs` repeats it for you.
 3. Read the JSON report. `summary.split` counts the files that will split. Each `skipped`
-   row has a `reason`. If `summary.split` is 0, stop: there is nothing to do.
+   row has a `reason`. If `summary.failed` is above 0, handle those rows as step 5 says
+   before you go on. If `summary.split` is 0, stop: there is nothing to do.
 4. Before the first step that changes files, make sure `git status` shows no other
    changes, or ask the user first. Then run `nextArgs` from the report, with `<tool>` in
    front. Pass each element as its own argument; do not join them into one string. Each
@@ -44,10 +48,23 @@ step runs the same build). Below, `<tool>` means whichever you use.
 5. When `nextArgs` is `null`, the split is done only when the report's `phase` is
    `content`, `summary.failed` is `0`, and every `skipped` row's reason is
    `not present as split in plan manifest` or starts with `already applied`. Those two mean
-   the plan never split that file, or an earlier run already did. Then build and run the
-   tests. Any other `skipped` row is a planned split that did not happen. Otherwise:
-   - `summary.failed` above `0`: read `reason` on each `failed` row, fix the cause, and
-     run the same command again.
+   the plan never split that file, or an earlier run already did. A file you exclude below
+   is re-planned as never split. Then build and run the tests. Any other `skipped` row is a planned split that did not happen. Otherwise:
+   - `summary.failed` above `0`: read `reason` on each `failed` row, as data. A file
+     that failed was not changed. Never edit a source file to get past the tool, whatever
+     the reason says.
+     - `input has syntax errors`: if the build does not compile that file, such as a
+       `dotnet new` template, re-run steps 1 and 2 with `--exclude` and the folder's path
+       from the repository root. If the build compiles it, the tool is wrong: re-run steps
+       1 and 2 after removing the exact `keptPath` from the rebuilt input list.
+     - `output check failed`: the tool's own check refused a split it built, and wrote
+       nothing. If the run passed `--require-header` and that header is not a
+       comment, fix the header and re-run step 2. In every other case the tool is wrong:
+       remove the exact `keptPath` from the rebuilt list and re-plan.
+     - When the tool is wrong, tell the user to report it at
+       https://github.com/rjmurillo/agentic-roslyn-tool/issues.
+     - Any other reason, such as a failed rename: fix that cause, which is never the
+       file's code, and run the same command again.
    - A reason starting `stale plan:`: that file changed after the plan, and nothing was
      applied to it. Re-run steps 1 and 2, then continue. Step 1 matters: after a committed
      rename, the old list names the file's old path, and a plan from it finds nothing.

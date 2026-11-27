@@ -50,6 +50,26 @@ internal sealed class FileSplitter
     internal const string NotPlannedReason = "not present as split in plan manifest";
 
     /// <summary>
+    /// Starts the reason on a row whose input does not parse. The packaged agent documents
+    /// route rows by this prefix, and <c>PackagedAgentDocsTests</c> holds them to it.
+    /// </summary>
+    internal const string SyntaxErrorsPrefix = "input has syntax errors: ";
+
+    /// <summary>
+    /// Starts the reason on a row that <see cref="OutputVerifier"/> refused: the tool built a
+    /// split and its own check rejected it, so nothing was written. Without a malformed
+    /// <c>--require-header</c>, that is a bug in the tool, never a problem in the source.
+    /// </summary>
+    internal const string OutputCheckFailedPrefix = "output check failed: ";
+
+    /// <summary>
+    /// Reason for a split some output would lose a <c>#define</c> or <c>#undef</c> in, for
+    /// example one written above an assembly attribute. An <c>#if</c> in that output would
+    /// flip with no diagnostic.
+    /// </summary>
+    internal const string SymbolLinesReason = "a #define or #undef would not reach every output file; manual split required";
+
+    /// <summary>
     /// Reason recorded when a content run meets a row an earlier content run already applied.
     /// The words say what was checked and nothing more. The leading <c>already applied</c> is
     /// published: callers match on it to tell this skip from a refusal, so it must not change.
@@ -439,13 +459,10 @@ internal sealed class FileSplitter
             return false;
         }
 
-        var tree = CSharpSyntaxTree.ParseText(SourceText.From(source.Text, source.Encoding), ParseOptions, path: readPath);
-        return !tree.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error)
+        var tree = CSharpSyntaxTree.ParseText(SourceText.From(source.Text, source.Encoding), SourceParsing.Options, path: readPath);
+        return SourceParsing.Errors(tree).Length == 0
             && SplitPlanner.IsAlreadyApplied(planned, TopLevelType.Find(tree.GetCompilationUnitRoot()).ToArray());
     }
-
-    /// <summary>The parse options every read of a source file uses.</summary>
-    private static readonly CSharpParseOptions ParseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
 
     /// <summary>
     /// Implements <see cref="ProcessResolved"/> from the point the input's bytes are in
@@ -466,13 +483,24 @@ internal sealed class FileSplitter
             // that may already have rewritten hundreds of others.
             return FileResult.Skip(originalPath, readPath, $"input is not valid UTF-8 and has no byte order mark: {ex.Message}");
         }
-        var parseOptions = ParseOptions;
-        var tree = CSharpSyntaxTree.ParseText(SourceText.From(source.Text, source.Encoding), parseOptions, path: readPath);
+        var tree = CSharpSyntaxTree.ParseText(SourceText.From(source.Text, source.Encoding), SourceParsing.Options, path: readPath);
         var root = tree.GetCompilationUnitRoot();
-        var originalDiagnostics = tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        var originalDiagnostics = SourceParsing.Errors(tree);
         if (originalDiagnostics.Length != 0)
         {
-            return FileResult.Failed(originalPath, readPath, "input has syntax errors: " + OutputVerifier.JoinDiagnostics(originalDiagnostics));
+            if (PreprocessorSymbols.HasSymbolConditions(root))
+            {
+                return FileResult.Skip(originalPath, readPath, SourceParsing.SymbolDependentReason);
+            }
+
+            return FileResult.Failed(originalPath, readPath, SyntaxErrorsPrefix + SourceParsing.Describe(originalDiagnostics));
+        }
+
+        // Checked before top-level statements, because a file-based program can declare
+        // Main in a class and have none. Its types still cannot leave the file.
+        if (SourceParsing.IsFileBasedProgram(root))
+        {
+            return FileResult.Skip(originalPath, readPath, SourceParsing.FileBasedProgramReason);
         }
 
         if (root.Members.OfType<GlobalStatementSyntax>().Any())
@@ -524,7 +552,20 @@ internal sealed class FileSplitter
         {
             var headerText = OutputBuilder.NormalizeHeaderText(_options.RequiredHeader, source.NewLine);
             var outputs = OutputBuilder.BuildOutputs(source, root, types, plan, headerText);
-            OutputVerifier.VerifyOutputs(readPath, types, outputs, parseOptions, headerText);
+            // A known limit, not a tool bug, so it is a skip. The verifier still checks it.
+            if (OutputVerifier.DropsSymbolLines(root, outputs))
+            {
+                return FileResult.Skip(originalPath, readPath, SymbolLinesReason);
+            }
+
+            try
+            {
+                OutputVerifier.VerifyOutputs(readPath, types, outputs, headerText);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return FileResult.Failed(originalPath, readPath, OutputCheckFailedPrefix + ex.Message);
+            }
 
             if (phase == Phase.Content)
             {

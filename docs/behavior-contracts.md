@@ -524,7 +524,10 @@ Reason text shown in italics is a template; the run substitutes real values.
 | Content phase, row has a malformed hash | skipped | `stale plan: the manifest row carries a malformed contentHash '<value>'; re-run --phase plan` |
 | Renames phase, would split a file the manifest does not mark `split` | skipped | `stale plan: the plan manifest does not mark this file as split; re-run --phase plan` |
 | Renames phase, would split a file the manifest has no row for | skipped | `stale plan: the plan manifest has no row for this file; re-run --phase plan` |
-| Parse produced an error diagnostic | failed | `input has syntax errors: <diagnostics>` |
+| Parse produced an error diagnostic, other than an `#error` whose branch names a symbol the build sets (not one the file sets itself outside a symbol-dependent `#if`), and no `#if` or `#elif` condition names a symbol | failed | `input has syntax errors: <diagnostics>` |
+| Parse reports errors and an `#if` or `#elif` condition names a symbol | skipped | `input has syntax errors under default preprocessor symbols; build symbols may change the parse; manual review required` |
+| A split would drop a `#define` or `#undef` from an output | skipped | `a #define or #undef would not reach every output file; manual split required` |
+| File has a `#:` or `#!` directive (a .NET 10 file-based program) | skipped | `file-based program (#: or #! directive): it compiles alone, so no type can move out of it` |
 | File has top level statements | skipped | `contains top-level statements; manual split required` |
 | One type or fewer | skipped | `nothing to split: input has <n> top-level type declaration(s)` |
 | A `file` type and at most one other type | skipped | `nothing to split: file-local types stay in their file and at most one other type is declared` |
@@ -684,10 +687,15 @@ source with the C# compiler, because a parse cannot show a binding.
 ### VerifyOutputs
 
 Runs before `WriteOutputs`. Throws, and the file is recorded `failed` and never written,
-when any of these hold:
+when any of these hold. The row's reason is the message after the prefix
+`output check failed: `, so an agent can tell a refused split from a broken input:
 
 - An output does not start with the required header, when `--require-header` is set.
 - An output does not parse.
+- An output holds a `#:` or `#!` directive, which a project build rejects.
+- An output does not hold the input's `#define` and `#undef` lines, in order. One that
+  rides on an assembly attribute or a type would drop out of a moved file, and an `#if`
+  there would flip, or a guarded `#error` would fire in the build.
 - A type's declaration plus its owned trivia appears in more than one output, or in none.
   For an input that declares a `file` type the count is not fixed at one: each text is
   expected as often as the input itself holds it, because one declaration's text can sit

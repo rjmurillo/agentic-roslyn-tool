@@ -26,10 +26,19 @@ The checks run in both the `plan` phase and the `content` phase. The `renames` p
 not render outputs, so it does not run them. That means a `--dry-run` already reports
 every file that would fail verification, before you touch the tree.
 
+A row that fails any check below reports its reason after the prefix
+`output check failed: `, for example `output check failed: <output path> does not parse:
+...`. The prefix marks a split the tool built and then refused. Nothing was written. Unless
+`--require-header` was malformed, it is a bug in the tool, not in the source.
+
 ## Check 1: every output parses
 
-Each output file is parsed with Roslyn, using the preview language version. Any error
-diagnostic fails the file with this reason. Several errors are joined by a semicolon.
+Each output file is parsed with Roslyn, using the preview language version and the
+`FileBasedProgram` feature, so `#:` and `#!` lines parse. Any error diagnostic fails the
+file with this reason, except one raised by an `#error` whose branch names a symbol the
+build sets, not one the file sets itself outside a symbol-dependent `#if`. The tool defines no symbols, so it cannot know which branch the real build takes.
+Several errors are joined by a semicolon. `SourceParsing` holds this rule for the input and
+every output.
 
 ```text
 <output path> does not parse: <diagnostic id> <message>
@@ -38,8 +47,9 @@ diagnostic fails the file with this reason. Several errors are joined by a semic
 When `--require-header` is set, each output must also start with that header, or the file
 fails with `<output path> does not start with required file header`.
 
-The input is held to the same rule. An input file with syntax errors is recorded as
-`failed` before any split is planned, with the reason `input has syntax errors: ...`.
+The input is held to the same rule. If errors remain and a conditional names a symbol,
+the tool skips the input without trying another symbol set. Other input syntax errors
+produce `failed` before planning. Outputs must not contain `#:` or `#!` directives.
 
 ## Check 2: trivia ownership
 

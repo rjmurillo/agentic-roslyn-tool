@@ -8,7 +8,21 @@ namespace AgenticRoslynTool.Tests;
 // can drift from the command line. These tests fail the build when one does. Decision 28.
 public sealed partial class PackagedAgentDocsTests
 {
-    private static readonly string PackageDir = Path.Combine(RepositoryRoot(), "package");
+    private static readonly string PackageDir = Path.Combine(RepositoryPaths.Root(), "package");
+
+    [Theory]
+    [InlineData("AGENTS.md")]
+    [InlineData("skills/split-types/SKILL.md")]
+    public void PackagedDocs_RouteEveryToolBugReason(string relativePath)
+    {
+        // An agent told to "fix the cause" of a tool bug edits good code or loops. The docs
+        // route rows by these two prefixes, so a reworded prefix in the code must fail here.
+        var text = File.ReadAllText(Path.Combine(PackageDir, relativePath));
+
+        Assert.Contains("`" + FileSplitter.SyntaxErrorsPrefix.TrimEnd(':', ' ') + "`", text, StringComparison.Ordinal);
+        Assert.Contains("`" + FileSplitter.OutputCheckFailedPrefix.TrimEnd(':', ' ') + "`", text, StringComparison.Ordinal);
+        Assert.Contains("Never edit a source file to get past the tool", text, StringComparison.Ordinal);
+    }
 
     [Fact]
     public void EverySkill_FollowsTheAgentSkillsSpecification()
@@ -160,16 +174,6 @@ public sealed partial class PackagedAgentDocsTests
         return fields;
     }
 
-    private static string RepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "AgenticRoslynTool.slnx")))
-        {
-            directory = directory.Parent;
-        }
-
-        return directory?.FullName ?? throw new InvalidOperationException("AgenticRoslynTool.slnx not found above the test output directory");
-    }
 
     [GeneratedRegex("^[a-z0-9]+(-[a-z0-9]+)*$")]
     private static partial Regex SkillName();

@@ -132,7 +132,9 @@ leave it exactly as you reviewed it, and record what they did in a report file b
 the content phase at a new, empty manifest path: it needs the plan.
 
 If a content run fails a file, fix the cause and run the same content command again. The
-plan still lists that file as `split`. Files the first run already split are reported as
+plan still lists that file as `split`. Never edit the source file to get past the tool. A
+failed check on a file your build compiles is a bug in the tool: pass `--exclude` with
+that file's path, run the plan again, and report it. Files the first run already split are reported as
 `skipped` with a reason that starts with `already applied`.
 
 ### What the split looks like
@@ -263,7 +265,16 @@ are most likely to see:
 | Two types in one file share a name and type parameter list | skipped | `target path collision within split: <path>` |
 | File already has one type | skipped | `nothing to split: input has 1 top-level type declaration(s)` |
 | Path matches `--exclude` | skipped | `excluded by pattern: <pattern>` |
-| File does not parse | failed | `input has syntax errors: <diagnostics>` |
+| File does not parse and no conditional names a symbol | failed | `input has syntax errors: <diagnostics>` |
+| Parse reports errors and an `#if` or `#elif` condition names a symbol | skipped | `input has syntax errors under default preprocessor symbols; build symbols may change the parse; manual review required` |
+| A split would drop a `#define` or `#undef` from an output | skipped | `a #define or #undef would not reach every output file; manual split required` |
+| File is a .NET 10 file-based program (`#:` or `#!` lines) | skipped | `file-based program (#: or #! directive): it compiles alone, so no type can move out of it` |
+
+A `dotnet new` template folder holds files that are not C# until the template engine runs,
+such as `#if (UseXunit)`. These files can fail or be skipped. Pass
+`--exclude <template folder>` to leave them out. A `failed` row on a file your build
+compiles is a bug in the tool. Do not edit the file to get past it. Exclude it and
+[open an issue](https://github.com/rjmurillo/agentic-roslyn-tool/issues).
 
 The same-name row covers partial types, generic or not. SA1402 allows two parts of one
 partial class in a file, but the tool sees two types that want the same file name and

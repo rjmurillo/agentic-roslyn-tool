@@ -170,8 +170,7 @@ internal static class FileLocalTypes
     /// <param name="readPath">The path the input was read from.</param>
     /// <param name="inputTypes">Every top-level type in the input.</param>
     /// <param name="outputs">The rendered outputs.</param>
-    /// <param name="parseOptions">The options the input was parsed with.</param>
-    internal static string? DescribeViolation(string readPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions)
+    internal static string? DescribeViolation(string readPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs)
     {
         var fileLocal = inputTypes.Where(t => t.HasFileModifier).ToArray();
         if (fileLocal.Length == 0)
@@ -187,10 +186,10 @@ internal static class FileLocalTypes
         var input = fileLocal[0].Node.SyntaxTree.GetCompilationUnitRoot();
         foreach (var output in outputs)
         {
-            var root = CSharpSyntaxTree.ParseText(output.Text, parseOptions, path: output.Path).GetCompilationUnitRoot();
+            var root = CSharpSyntaxTree.ParseText(output.Text, SourceParsing.Options, path: output.Path).GetCompilationUnitRoot();
             // The body is the output before any required header. A header the caller asked
             // for is theirs to add, even when it is itself a directive.
-            var body = CSharpSyntaxTree.ParseText(output.BodyText, parseOptions, path: output.Path).GetCompilationUnitRoot();
+            var body = CSharpSyntaxTree.ParseText(output.BodyText, SourceParsing.Options, path: output.Path).GetCompilationUnitRoot();
             if (!FileLocalDirectives.KeepsEveryDirective(input, body))
             {
                 return $"{output.Path} would not hold the same #line, #nullable, #pragma, #define, and #undef directives as {readPath}";

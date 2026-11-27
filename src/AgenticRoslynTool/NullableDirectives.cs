@@ -147,12 +147,12 @@ internal static class NullableDirectives
     /// inside a type, so every type in it shares the prologue's context.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Thrown when an output lacks its own type, or when that type's annotations or warnings setting differs from the source.</exception>
-    internal static void Verify(string readPath, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions)
+    internal static void Verify(string readPath, IReadOnlyList<OutputFile> outputs)
     {
         foreach (var output in outputs)
         {
             var expected = SourceStateOf(output.Type);
-            var root = CSharpSyntaxTree.ParseText(output.BodyText, parseOptions, path: output.Path).GetCompilationUnitRoot();
+            var root = CSharpSyntaxTree.ParseText(output.BodyText, SourceParsing.Options, path: output.Path).GetCompilationUnitRoot();
             var written = TopLevelType.FindMatch(root, output.Type);
             var actual = StateAt(root, written.Node.SpanStart);
             if (actual != expected)

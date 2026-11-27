@@ -69,7 +69,7 @@ public sealed class NullableDirectivesTests
         var outputs = Outputs(types, "class C { }\n", Array.Empty<string>());
 
         // Through VerifyOutputs, so the test also fails if the verifier stops calling Verify.
-        var ex = Assert.Throws<InvalidOperationException>(() => OutputVerifier.VerifyOutputs("in.cs", types, outputs, Parse, null));
+        var ex = Assert.Throws<InvalidOperationException>(() => OutputVerifier.VerifyOutputs("in.cs", types, outputs, null));
         Assert.Contains("nullable context for C is annotations restore, warnings restore in C.cs, but annotations enable, warnings enable in the source", ex.Message);
     }
 

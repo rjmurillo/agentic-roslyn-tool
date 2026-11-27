@@ -33,8 +33,9 @@ internal static class OutputVerifier
     /// (see <see cref="NullableDirectives.Verify"/>).
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown as soon as any invariant fails, so the failure is surfaced without partial output being written.</exception>
-    internal static void VerifyOutputs(string readPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs, CSharpParseOptions parseOptions, string? requiredHeader)
+    internal static void VerifyOutputs(string readPath, IReadOnlyList<TopLevelType> inputTypes, IReadOnlyList<OutputFile> outputs, string? requiredHeader)
     {
+        var inputSymbolLines = SymbolLines(inputTypes[0].Node.SyntaxTree.GetCompilationUnitRoot());
         foreach (var output in outputs)
         {
             if (OutputBuilder.MatchHeaderEnd(output.Text, requiredHeader) is null)
@@ -42,11 +43,29 @@ internal static class OutputVerifier
                 throw new InvalidOperationException($"{output.Path} does not start with required file header");
             }
 
-            var tree = CSharpSyntaxTree.ParseText(output.Text, parseOptions, path: output.Path);
-            var diagnostics = tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+            var tree = CSharpSyntaxTree.ParseText(output.Text, SourceParsing.Options, path: output.Path);
+            var diagnostics = SourceParsing.Errors(tree);
             if (diagnostics.Length != 0)
             {
-                throw new InvalidOperationException($"{output.Path} does not parse: {JoinDiagnostics(diagnostics)}");
+                throw new InvalidOperationException($"{output.Path} does not parse: {SourceParsing.Describe(diagnostics)}");
+            }
+
+            // The parse accepts #: and #! so a file-based program input can be read and
+            // skipped. A project build rejects them (CS9298), so no output may carry one,
+            // for example through --require-header.
+            if (SourceParsing.IsFileBasedProgram(tree.GetCompilationUnitRoot()))
+            {
+                throw new InvalidOperationException($"{output.Path} holds a #: or #! directive, which a project build rejects");
+            }
+
+            // A #define or #undef rides on the first token. When that token is an assembly
+            // attribute or a type, an output that drops it loses the symbol, so an #if
+            // there flips with no diagnostic, and a guarded #error the check excuses fires
+            // in the build. Every output must keep the input's symbol lines, in order.
+            // FileSplitter skips such a split first; this is the backstop.
+            if (!SymbolLines(tree.GetCompilationUnitRoot()).SequenceEqual(inputSymbolLines, StringComparer.Ordinal))
+            {
+                throw new InvalidOperationException($"{output.Path} would not keep the input's #define and #undef lines");
             }
         }
 
@@ -71,7 +90,7 @@ internal static class OutputVerifier
 
         VerifyLineConservation(readPath, inputTypes, outputs);
 
-        var outputTypes = outputs.SelectMany(o => TopLevelType.Find(CSharpSyntaxTree.ParseText(o.Text, parseOptions, path: o.Path).GetCompilationUnitRoot())).Select(t => t.Key).Order(StringComparer.Ordinal).ToArray();
+        var outputTypes = outputs.SelectMany(o => TopLevelType.Find(CSharpSyntaxTree.ParseText(o.Text, SourceParsing.Options, path: o.Path).GetCompilationUnitRoot())).Select(t => t.Key).Order(StringComparer.Ordinal).ToArray();
         var inputKeys = inputTypes.Select(t => t.Key).Order(StringComparer.Ordinal).ToArray();
         if (!inputKeys.SequenceEqual(outputTypes, StringComparer.Ordinal))
         {
@@ -82,12 +101,12 @@ internal static class OutputVerifier
         // file may name one, and every output keeps the input's state directives. The
         // planner refuses such an input first. This asks again about the text that would
         // reach disk.
-        if (FileLocalTypes.DescribeViolation(readPath, inputTypes, outputs, parseOptions) is { } violation)
+        if (FileLocalTypes.DescribeViolation(readPath, inputTypes, outputs) is { } violation)
         {
             throw new InvalidOperationException(violation);
         }
 
-        NullableDirectives.Verify(readPath, outputs, parseOptions);
+        NullableDirectives.Verify(readPath, outputs);
     }
 
     /// <summary>Returns the text of a type's declaration together with its owned leading trivia (doc comments and attributes).</summary>
@@ -262,9 +281,24 @@ internal static class OutputVerifier
         return count;
     }
 
-
-    /// <summary>Renders a list of Roslyn diagnostics as a single semicolon-separated string, used to build refusal reasons.</summary>
-    internal static string JoinDiagnostics(IEnumerable<Diagnostic> diagnostics)
+    /// <summary>
+    /// True when some output body would not keep the input's <c>#define</c> and
+    /// <c>#undef</c> lines in order. A symbol line rides on the first token, so this happens
+    /// when that token is an assembly attribute or a type that only one output keeps.
+    /// Reads <see cref="OutputFile.BodyText"/>, so a required header does not count.
+    /// </summary>
+    internal static bool DropsSymbolLines(Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax inputRoot, IReadOnlyList<OutputFile> outputs)
     {
-        return string.Join("; ", diagnostics.Select(d => $"{d.Id} {d.GetMessage()}"));
-    }}
+        var inputSymbolLines = SymbolLines(inputRoot);
+        return inputSymbolLines.Length != 0 && outputs.Any(output =>
+            !SymbolLines(CSharpSyntaxTree.ParseText(output.BodyText, SourceParsing.Options).GetCompilationUnitRoot())
+                .SequenceEqual(inputSymbolLines, StringComparer.Ordinal));
+    }
+
+    // The #define and #undef lines of a tree, as written, in order.
+    private static string[] SymbolLines(Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax root) =>
+        root.DescendantTrivia()
+            .Where(t => t.IsKind(SyntaxKind.DefineDirectiveTrivia) || t.IsKind(SyntaxKind.UndefDirectiveTrivia))
+            .Select(t => t.ToString().Trim())
+            .ToArray();
+}

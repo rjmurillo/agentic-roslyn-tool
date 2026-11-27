@@ -1,0 +1,101 @@
+using System.IO;
+using Xunit;
+
+namespace AgenticRoslynTool.Tests;
+
+// A failure from OutputVerifier means the tool refused a split it built itself. Every such
+// row starts with one prefix, so an agent can tell it from a problem in the input and never
+// edits source to get past it. Decision 33.
+public sealed class OutputCheckPrefixTests
+{
+    [Fact]
+    public void VerifierFailure_StartsWithTheOutputCheckPrefix()
+    {
+        // A header that is not a comment makes every output fail to parse, which is the
+        // cheapest real verifier failure to provoke through a full plan run.
+        using var ws = new TempWorkspace();
+        var path = ws.WriteFile("Stuff.cs", "namespace N;\n\npublic class Order2 { }\n\npublic class Line { }\n");
+        var options = new Options(ws.WriteInputList(path), Path.Combine(ws.Root, "m.csv"), ws.Root, Phase.Plan, "this is not a comment");
+
+        var row = Assert.Single(new FileSplitter(options).Run());
+
+        Assert.Equal("failed", row.Status);
+        Assert.StartsWith(FileSplitter.OutputCheckFailedPrefix, row.Reason);
+        Assert.Contains("does not parse", row.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void HeaderWithAFileBasedDirective_FailsTheOutputCheck()
+    {
+        // The parse accepts #: so a file-based program can be read. A project build rejects it
+        // with CS9298, so a required header that injects one must never reach disk.
+        using var ws = new TempWorkspace();
+        var path = ws.WriteFile("Stuff.cs", "namespace N;\n\npublic class Order2 { }\n\npublic class Line { }\n");
+        var options = new Options(ws.WriteInputList(path), Path.Combine(ws.Root, "m.csv"), ws.Root, Phase.Plan, "#:property RootNamespace=Injected");
+
+        var row = Assert.Single(new FileSplitter(options).Run());
+
+        Assert.Equal("failed", row.Status);
+        Assert.StartsWith(FileSplitter.OutputCheckFailedPrefix, row.Reason);
+        Assert.Contains("#: or #! directive", row.Reason, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("define")]
+    [InlineData("undef")]
+    public void SplitThatDropsASymbolDirective_Skips(string directive)
+    {
+        // The symbol directive rides on the assembly attribute. Only the kept file retains it.
+        using var ws = new TempWorkspace();
+        var alternateBranch = directive == "define" ? "#error X is not defined" : "    public int B;";
+        var path = ws.WriteFile("Keep.cs",
+            $"#{directive} X\n[assembly: System.CLSCompliant(true)]\nnamespace S;\n\npublic class Keep {{ }}\n\npublic class Moved\n{{\n#if X\n    public int A;\n#else\n{alternateBranch}\n#endif\n}}\n");
+        var options = new Options(ws.WriteInputList(path), Path.Combine(ws.Root, "m.csv"), ws.Root, Phase.Plan, null);
+
+        var row = Assert.Single(new FileSplitter(options).Run());
+
+        Assert.Equal("skipped", row.Status);
+        Assert.Equal(FileSplitter.SymbolLinesReason, row.Reason);
+        Assert.Empty(row.NewFiles);
+    }
+
+    [Fact]
+    public void HeaderThatAddsADefine_FailsTheOutputCheck()
+    {
+        // The skip reads BodyText, so a header is out of its view. The verifier reads the
+        // whole output and is the only check that sees a #define the header adds.
+        using var ws = new TempWorkspace();
+        var path = ws.WriteFile("Keep.cs", "namespace S;\n\npublic class Keep { }\n\npublic class Moved { }\n");
+        var options = new Options(ws.WriteInputList(path), Path.Combine(ws.Root, "m.csv"), ws.Root, Phase.Plan, "#define Y");
+
+        var row = Assert.Single(new FileSplitter(options).Run());
+
+        Assert.Equal("failed", row.Status);
+        Assert.StartsWith(FileSplitter.OutputCheckFailedPrefix, row.Reason);
+        Assert.Contains("#define and #undef", row.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DefineAboveTheUsings_TravelsWithEveryOutput()
+    {
+        // The common case: a #define on the first using is copied into every output.
+        using var ws = new TempWorkspace();
+        var path = ws.WriteFile("Keep.cs", "#define X\nusing System;\n\nnamespace S;\n\npublic class Keep { }\n\npublic class Moved { }\n");
+        var options = new Options(ws.WriteInputList(path), Path.Combine(ws.Root, "m.csv"), ws.Root, Phase.Plan, null);
+
+        Assert.Equal("split", Assert.Single(new FileSplitter(options).Run()).Status);
+    }
+
+    [Fact]
+    public void InputSyntaxError_StartsWithTheSyntaxErrorsPrefix()
+    {
+        using var ws = new TempWorkspace();
+        var path = ws.WriteFile("Broken.cs", "namespace N;\n\ninternal class Broken { void M( }\ninternal class Other { }\n");
+        var options = new Options(ws.WriteInputList(path), Path.Combine(ws.Root, "m.csv"), ws.Root, Phase.Plan, null);
+
+        var row = Assert.Single(new FileSplitter(options).Run());
+
+        Assert.Equal("failed", row.Status);
+        Assert.StartsWith(FileSplitter.SyntaxErrorsPrefix, row.Reason);
+    }
+}

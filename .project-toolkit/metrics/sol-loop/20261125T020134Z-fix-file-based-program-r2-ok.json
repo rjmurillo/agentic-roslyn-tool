@@ -1,0 +1,25 @@
+{
+  "author_family": "anthropic",
+  "branch": "fix/file-based-program",
+  "counts": {
+    "dropped": 0,
+    "kept": 0,
+    "overlap": 0,
+    "raw": 0,
+    "sol_only": 0
+  },
+  "critic_sha256": "38a5872c8da8f6bb9c98f1baf5b3ad3695c15b84b7c4cdaf6e37b3b3d96d55f5",
+  "dropped": [],
+  "failure_class": "",
+  "findings": [],
+  "head_sha": "0d642b83f1100eefce8ba45076a2fe0f19ed93fb",
+  "key": "fix/file-based-program",
+  "model": "gpt-6.2-sol",
+  "overlap_rule": "same file and line within 3 of a critic path:line or range",
+  "pr": "68",
+  "round": 2,
+  "schema_version": 2,
+  "status": "ok",
+  "timestamp": "2026-11-25T02:01:34Z",
+  "verdict": "APPROVE"
+}
