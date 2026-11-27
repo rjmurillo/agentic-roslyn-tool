@@ -488,7 +488,7 @@ internal sealed class FileSplitter
         var originalDiagnostics = SourceParsing.Errors(tree);
         if (originalDiagnostics.Length != 0)
         {
-            if (SourceParsing.HasSymbolConditions(root))
+            if (PreprocessorSymbols.HasSymbolConditions(root))
             {
                 return FileResult.Skip(originalPath, readPath, SourceParsing.SymbolDependentReason);
             }

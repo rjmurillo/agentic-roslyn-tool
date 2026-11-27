@@ -24,7 +24,7 @@ a compiling solution. That is what lets it run over thousands of files in one pa
 
 | Path | What lives there |
 |---|---|
-| `src/AgenticRoslynTool/` | The entire product. 49 files. |
+| `src/AgenticRoslynTool/` | The entire product. 50 files. |
 | `tests/AgenticRoslynTool.Tests/` | xUnit tests. 641 of them. |
 | `docs/behavior-contracts.md` | What each phase and each guard promises. The semantic layer. |
 | `docs/decision-log.md` | Why the tool is shaped this way, and what breaks if you undo it. |
@@ -51,6 +51,7 @@ Every source file, so you do not have to open one to find out whether it matters
 | `OutputBuilder.cs` | Renders the text of every output file: name, carved source, required header, trailing newline. |
 | `OutputVerifier.cs` | The correctness checks, run against in-memory outputs before anything is written. A failure here means nothing reaches disk. |
 | `SourceParsing.cs` | The one parse rule: the parse options, which errors mean a file is not valid C#, and how to spot a file-based program. Every parse goes through it. |
+| `PreprocessorSymbols.cs` | Reads which symbols an `#if` or `#elif` names, and which `#error` lines sit under a branch the build decides. Parses nothing; `SourceParsing` uses its answers. |
 | `NullableDirectives.cs` | Folds `#nullable` directives into the context at a point, restates a kept type's source context in an output that lost it, and checks each output's context before any write. Read decision 31 first. |
 | `NullableGuard.cs` | Refuses a file whose movable `#nullable` shares it with an `#if` or a `#line`, comes before a `using`, or sits in a generated file, where the restated context could be wrong. Returns a verdict, never acts on one. |
 | `SourceDirectives.cs` | Lists a tree's preprocessor directives once and caches the list on the root, so a split walks the source tree once, not once per type. |
