@@ -1625,24 +1625,32 @@ Template sources can fail or be skipped. Leave them out before planning.
   leave every file with a framework guard inside a type unsplit. The `#error` is copied
   unchanged with the type that holds it, so the real build still reports it if it fires.
 
-**Evidence.** Over the ten repositories that exposed the bugs, the `failed` rows drop
-from 30 to 3, all aspire template files. The ten, at these commits: aspire `f8dbeaf`,
-xunit `ad8d0dd`, Humanizer `4574b93`, Polly `ad7d87b`, MediatR `aad5f0f`,
-FluentValidation `5903fa6`, CleanArchitecture `c2781d2`, command-line-api `1b0c04a`,
-AutoMapper `79d10de`, and serilog `43105b3`. The command is the plan phase over the whole
-clone: `split-types --input <clone> --manifest <outside> --repo-root <clone>`. The rule was then run over six repositories that
-played no part in finding them: Newtonsoft.Json `52fa3ae`, nodatime `6e024dd`, Dapper
-`1880947`, nunit `da9d5b6`, MassTransit `d9f61f7`, and BenchmarkDotNet `a9cac82`. That run
-found the symbol case above (BenchmarkDotNet `HardwareIntrinsics.cs`), which the first
-fix missed. After the retry, the only `failed` rows in the six are two BenchmarkDotNet
-template files, and one Dapper file that fails an output check for an unrelated reason
-fixed in PR #72.
+**Evidence.** The ten repositories that exposed the bugs had 30 `failed` rows before this
+fix. The rule was then run over six repositories that played no part in finding them.
+That run found the symbol case above (BenchmarkDotNet `HardwareIntrinsics.cs`), which the
+first fix missed. The command is the plan phase over the whole clone:
+`split-types --input <clone> --manifest <outside> --repo-root <clone> --dry-run`.
 
-**Why we removed the retry.** The original retry defined every named symbol. That still
-missed builds where one symbol is defined and another is not. D13 replaced the retry
-with a skip. This also removes the worker process chosen in D11 and avoids parsing
-branches that the first parse did not activate. The tool may now skip broken files.
-Review skipped rows and build the project to check them.
+The rule that ships was swept over all sixteen at these commits: aspire `f8dbeaf`, xunit
+`61071f6`, Humanizer `3d900a3`, Polly `ae42e90`, MediatR `1fad4c7`, FluentValidation
+`5903fa6`, CleanArchitecture `c2781d2`, command-line-api `1b0c04a`, AutoMapper `13b5f44`,
+serilog `43da049`, Newtonsoft.Json `52fa3ae`, nodatime `6e024dd`, Dapper `1880947`, nunit
+`da9d5b6`, MassTransit `d9f61f7`, and BenchmarkDotNet `a9cac82`. Results:
+
+- Two rows are `failed`. Both are `dotnet new` template files, one in aspire and one in
+  BenchmarkDotNet.
+- Four rows skip because errors sit beside a named condition, two in each of those repos.
+  So the cost of the skip is four rows in about 22,000.
+- No row skips because a split would lose a `#define` or `#undef`.
+- 21 rows skip as file-based programs.
+- Split counts match the runs before this change: aspire 855, MassTransit 718, nunit 110.
+
+**Why we removed the retry.** An earlier version of this fix parsed a second time with
+every named symbol defined. That still missed builds where one symbol is defined and
+another is not. During review it moved into a child process to survive deep nesting. The
+maintainer chose to replace it with the skip. That removes the child process and avoids
+parsing branches that the first parse did not activate. The tool may now skip broken
+files. Review skipped rows and build the project to check them.
 
 The output verifier rejects file-based directives. They can parse here but fail in a
 project build. Leave standalone files without those markers out of the input list. Review found one more way the `#error` rule could hide a broken split. A `#define` on an
